@@ -7,4 +7,10 @@
    <FileRef
       location = "group:LayoutEngine/LayoutEngine.xcodeproj">
    </FileRef>
+   <FileRef
+      location = "group:LayoutEngine/ProtocolParser/ProtocolParser.xcodeproj">
+   </FileRef>
+   <FileRef
+      location = "group:LayoutEngine/VideoProcessor/VideoProcessor.xcodeproj">
+   </FileRef>
 </Workspace>

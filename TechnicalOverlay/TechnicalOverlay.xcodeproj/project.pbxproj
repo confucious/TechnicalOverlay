@@ -7,6 +7,8 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		AB666FD52E9D791400C1994D /* VideoProcessor.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = AB666FD42E9D791400C1994D /* VideoProcessor.framework */; };
+		AB666FD62E9D791400C1994D /* VideoProcessor.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = AB666FD42E9D791400C1994D /* VideoProcessor.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		ABBCB6A42E9AEF8600C9B65E /* LayoutEngine.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = ABBCB6A32E9AEF8600C9B65E /* LayoutEngine.framework */; };
 		ABBCB6A52E9AEF8600C9B65E /* LayoutEngine.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = ABBCB6A32E9AEF8600C9B65E /* LayoutEngine.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 /* End PBXBuildFile section */
@@ -36,6 +38,7 @@
 			dstSubfolderSpec = 10;
 			files = (
 				ABBCB6A52E9AEF8600C9B65E /* LayoutEngine.framework in Embed Frameworks */,
+				AB666FD62E9D791400C1994D /* VideoProcessor.framework in Embed Frameworks */,
 			);
 			name = "Embed Frameworks";
 			runOnlyForDeploymentPostprocessing = 0;
@@ -43,6 +46,7 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		AB666FD42E9D791400C1994D /* VideoProcessor.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; path = VideoProcessor.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		ABBCB6402E80534C00C9B65E /* TechnicalOverlay.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = TechnicalOverlay.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		ABBCB64D2E80534C00C9B65E /* TechnicalOverlayTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = TechnicalOverlayTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		ABBCB6572E80534C00C9B65E /* TechnicalOverlayUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = TechnicalOverlayUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -73,6 +77,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				ABBCB6A42E9AEF8600C9B65E /* LayoutEngine.framework in Frameworks */,
+				AB666FD52E9D791400C1994D /* VideoProcessor.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -117,6 +122,7 @@
 		ABBCB6A22E9AEF8600C9B65E /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				AB666FD42E9D791400C1994D /* VideoProcessor.framework */,
 				ABBCB6A32E9AEF8600C9B65E /* LayoutEngine.framework */,
 			);
 			name = Frameworks;

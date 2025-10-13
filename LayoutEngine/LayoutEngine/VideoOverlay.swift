@@ -30,7 +30,7 @@ public class VideoOverlay: UIView {
         )
         addSubview(technicalPane)
         addSubview(lowerThird)
-        backgroundColor = .yellow
+        backgroundColor = .clear
         configure()
     }
 
@@ -56,7 +56,6 @@ public class VideoOverlay: UIView {
     
     public override func layoutSubviews() {
         super.layoutSubviews()
-        let width = bounds.size.width
         let height = bounds.size.height
         let techOriginOffset = height * Metrics.overlayBorderPercent
         let techHeight = height * Metrics.techPaneHeightPercent
@@ -65,6 +64,22 @@ public class VideoOverlay: UIView {
             origin: CGPoint(x: techOriginOffset, y: techOriginOffset),
             size: CGSize(width: techWidth, height: techHeight)
         )
+    }
+    
+    public func render(size: CGSize) -> UIImage {
+        bounds = CGRect(origin: .zero, size: size)
+        layoutIfNeeded()
+        let format = UIGraphicsImageRendererFormat.default()
+        format.scale = 1
+        format.opaque = false
+        let renderer = UIGraphicsImageRenderer(
+            size: size,
+            format: format
+        )
+        let image = renderer.image { context in
+            layer.render(in: context.cgContext)
+        }
+        return image
     }
     
 }
