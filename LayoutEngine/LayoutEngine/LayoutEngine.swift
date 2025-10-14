@@ -26,7 +26,7 @@ enum Metrics {
     )
     static let cornerRadiusPercent = CGFloat(0.1)
     
-    static let techPaneHeightPercent = CGFloat(0.20)
+    static let techPaneHeightPercent = CGFloat(0.16)
     static let techPaneAspectRatio = CGFloat(2.65)
     static let overlayBorderPercent = CGFloat(0.05)
 }

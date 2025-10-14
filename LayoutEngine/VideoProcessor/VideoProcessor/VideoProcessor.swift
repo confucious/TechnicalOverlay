@@ -12,12 +12,10 @@ import CoreImage.CIFilterBuiltins
 public struct Slide: Sendable {
     let image: CIImage
     let startTime: CMTime
-    let endTime: CMTime? // if nil, stays active until next startTime
     
-    public init(image: CIImage, startTime: CMTime, endTime: CMTime? = nil) {
+    public init(image: CIImage, startTime: CMTime) {
         self.image = image
         self.startTime = startTime
-        self.endTime = endTime
     }
 }
 
@@ -33,15 +31,15 @@ public class VideoComposer {
         })
     }
     
-    public func setupComposition() async throws -> AVVideoComposition {
+    public func setupComposition() async throws -> AVVideoComposition? {
         return try await AVVideoComposition.videoComposition(
             with: asset) { [slides] request in
                 // find slide appropriate for the compositionTime
                 let slide = slides.first { slide in
-                    return slide.startTime >= request.compositionTime
-                    && (slide.endTime ?? CMTime.positiveInfinity) < request.compositionTime
+                    return request.compositionTime >= slide.startTime
                 }
                 if let slide {
+                    print("Found slide \(slide.startTime)")
                     request.finish(
                         with: slide.image.composited(over: request.sourceImage),
                         context: nil

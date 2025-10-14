@@ -31,6 +31,7 @@ public class VideoOverlay: UIView {
         addSubview(technicalPane)
         addSubview(lowerThird)
         backgroundColor = .clear
+        alpha = 0.9
         configure()
     }
 
