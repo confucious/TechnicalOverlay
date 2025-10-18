@@ -13,6 +13,7 @@ enum Color {
     static let negative = UIColor(red: 195.0/255, green: 84.0/255, blue: 65.0/255, alpha: 1.0)
     static let technicalBackground = UIColor.lightGray
     static let totalScore = UIColor(red: 195/255.0, green: 102/255.0, blue: 147/255.0, alpha: 1.0)
+    static let bottomLine = UIColor.darkGray
 }
 
 enum Metrics {
@@ -29,6 +30,9 @@ enum Metrics {
     static let techPaneHeightPercent = CGFloat(0.16)
     static let techPaneAspectRatio = CGFloat(2.65)
     static let overlayBorderPercent = CGFloat(0.05)
+    
+    static let lowerThirdHeightPercent = CGFloat(0.15)
+    static let lowerThirdAspectRatio = CGFloat(8.5)
 }
 
 enum CornerDirection {

@@ -16,18 +16,7 @@ struct ContentView: View {
     @State private var isPlaying = false
 
     var body: some View {
-//        ScrollView {
-//            VStack {
-//                Image(uiImage: overlays[0]).border(.black)
-//                Image(uiImage: overlays[1]).border(.black)
-//                Image(uiImage: overlays[2]).border(.black)
-//                Image(uiImage: overlays[3]).border(.black)
-//                Image(uiImage: overlays[4]).border(.black)
-//                Image(uiImage: overlays[5]).border(.black)
-//                Image(uiImage: overlays[6]).border(.black)
-//                Image(uiImage: overlays[7]).border(.black)
-//            }
-//        }
+//        Overlay()
         VStack {
             if let player {
                 VideoPlayer(player: player)
@@ -65,38 +54,50 @@ struct ContentView: View {
 let slides: [Slide] = [
     Slide(
         image: CIImage(image: overlays[0])!,
-        startTime: CMTime(seconds: 50.46, preferredTimescale: 1000)
+        startTime: CMTime(seconds: 8.5, preferredTimescale: 1000)
     ),
     Slide(
         image: CIImage(image: overlays[1])!,
-        startTime: CMTime(seconds: 74.1, preferredTimescale: 1000)
+        startTime: CMTime(seconds: 13.5, preferredTimescale: 1000)
     ),
     Slide(
         image: CIImage(image: overlays[2])!,
-        startTime: CMTime(seconds: 93.8, preferredTimescale: 1000)
+        startTime: CMTime(seconds: 18.5, preferredTimescale: 1000)
     ),
     Slide(
         image: CIImage(image: overlays[3])!,
-        startTime: CMTime(seconds: 109, preferredTimescale: 1000)
+        startTime: CMTime(seconds: 50.46, preferredTimescale: 1000)
     ),
     Slide(
         image: CIImage(image: overlays[4])!,
-        startTime: CMTime(seconds: 119, preferredTimescale: 1000)
+        startTime: CMTime(seconds: 74.1, preferredTimescale: 1000)
     ),
     Slide(
         image: CIImage(image: overlays[5])!,
-        startTime: CMTime(seconds: 150, preferredTimescale: 1000)
+        startTime: CMTime(seconds: 93.8, preferredTimescale: 1000)
     ),
     Slide(
         image: CIImage(image: overlays[6])!,
-        startTime: CMTime(seconds: 161, preferredTimescale: 1000)
+        startTime: CMTime(seconds: 109, preferredTimescale: 1000)
     ),
     Slide(
         image: CIImage(image: overlays[7])!,
-        startTime: CMTime(seconds: 179, preferredTimescale: 1000)
+        startTime: CMTime(seconds: 119, preferredTimescale: 1000)
     ),
     Slide(
         image: CIImage(image: overlays[8])!,
+        startTime: CMTime(seconds: 150, preferredTimescale: 1000)
+    ),
+    Slide(
+        image: CIImage(image: overlays[9])!,
+        startTime: CMTime(seconds: 161, preferredTimescale: 1000)
+    ),
+    Slide(
+        image: CIImage(image: overlays[10])!,
+        startTime: CMTime(seconds: 179, preferredTimescale: 1000)
+    ),
+    Slide(
+        image: CIImage(image: overlays[11])!,
         startTime: CMTime(seconds: 184, preferredTimescale: 1000)
     )
 ]
@@ -107,6 +108,15 @@ let overlays = elements.map {
 }
 
 let elements: [VideoOverlay.Mode] = [
+    .lowerThirdPane(LowerThirdViewModel(
+        skaterName: "Scotty HSU",
+        secondaryText: ("Coaches: Philip Deyesso, Renée Laurin-Roos", "Age: 12", "SC of Boston")
+    )),
+    .lowerThirdPane(LowerThirdViewModel(
+        skaterName: "Scotty HSU",
+        secondaryText: ("Music: The Mask of Zorro by James Horner", "", "")
+    )),
+    .none,
     .technicalPane(TechnicalViewModel(
         skaterName: "S.HSU",
         elementName: "2 Lutz + 2 Toeloop",
@@ -199,6 +209,22 @@ struct TechnicalPaneView: UIViewRepresentable {
     }
     
     func updateUIView(_ uiView: IsuTechnicalPaneView, context: Context) {
+        // Updates the state of the specified view with new information from SwiftUI.
+    }
+
+}
+
+struct LowerThirdView: UIViewRepresentable {
+
+    typealias UIViewType = IsuLowerThirdView
+    
+    func makeUIView(context: Context) -> IsuLowerThirdView {
+        let view = IsuLowerThirdView()
+//        view.update(from: elements[0])
+        return view
+    }
+    
+    func updateUIView(_ uiView: IsuLowerThirdView, context: Context) {
         // Updates the state of the specified view with new information from SwiftUI.
     }
 

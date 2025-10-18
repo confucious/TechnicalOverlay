@@ -11,7 +11,7 @@ public class VideoOverlay: UIView {
     public enum Mode {
         case none
         case technicalPane(TechnicalViewModel)
-        case lowerThirdPane
+        case lowerThirdPane(LowerThirdViewModel)
     }
     
     public var mode: Mode {
@@ -49,7 +49,8 @@ public class VideoOverlay: UIView {
         case let .technicalPane(viewModel):
             technicalPane.update(from: viewModel)
             technicalPane.isHidden = false
-        case .lowerThirdPane:
+        case let .lowerThirdPane(viewModel):
+            lowerThird.update(from: viewModel)
             lowerThird.isHidden = false
             break
         }
@@ -64,6 +65,18 @@ public class VideoOverlay: UIView {
         technicalPane.frame = CGRect(
             origin: CGPoint(x: techOriginOffset, y: techOriginOffset),
             size: CGSize(width: techWidth, height: techHeight)
+        )
+        
+        let width = bounds.size.width
+        let lowerThirdPadding = height * Metrics.overlayBorderPercent
+        let lowerThirdHeight = height * Metrics.lowerThirdHeightPercent
+        let lowerThirdWidth = lowerThirdHeight * Metrics.lowerThirdAspectRatio
+        lowerThird.frame = CGRect(
+            origin: CGPoint(
+                x: (width - lowerThirdWidth) / 2,
+                y: height - lowerThirdHeight - lowerThirdPadding
+            ),
+            size: CGSize(width: lowerThirdWidth, height: lowerThirdHeight)
         )
     }
     
