@@ -27,7 +27,7 @@ public class VideoComposer {
     public init(asset: AVAsset, slides: [Slide]) {
         self.asset = asset
         self.slides = slides.sorted(by: { a, b in
-            a.startTime > b.startTime
+            a.startTime < b.startTime
         })
     }
     
@@ -35,15 +35,31 @@ public class VideoComposer {
         return try await AVVideoComposition.videoComposition(
             with: asset) { [slides] request in
                 // find slide appropriate for the compositionTime
-                let slide = slides.first { slide in
+                let indexedSlide = slides.enumerated().last { (_, slide) in
                     return request.compositionTime >= slide.startTime
                 }
-                if let slide {
+                if let indexedSlide {
+                    let index = indexedSlide.offset
+                    let previousImage = index > 0 ? slides[index - 1].image : CIImage.clear
+                    let slide = indexedSlide.element
                     print("Found slide \(slide.startTime)")
-                    request.finish(
-                        with: slide.image.composited(over: request.sourceImage),
-                        context: nil
-                    )
+                    let diff = request.compositionTime - slide.startTime
+                    if diff <= CMTime(seconds: 0.5, preferredTimescale: 1000) {
+                        let dissolve = CIFilter.dissolveTransition()
+                        dissolve.inputImage = previousImage
+                        dissolve.targetImage = slide.image
+                        dissolve.time = Float(diff.seconds) / 0.5
+                        request.finish(
+                            with: dissolve.outputImage!
+                                .composited(over: request.sourceImage),
+                            context: nil
+                        )
+                    } else {
+                        request.finish(
+                            with: slide.image.composited(over: request.sourceImage),
+                            context: nil
+                        )
+                    }
                 } else {
                     request.finish(with: request.sourceImage, context: nil)
                 }
