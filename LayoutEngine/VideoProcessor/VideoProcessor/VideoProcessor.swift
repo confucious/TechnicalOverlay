@@ -19,6 +19,10 @@ public struct Slide: Sendable {
     }
 }
 
+enum Metrics {
+    static let transitionTime = 0.75
+}
+
 public class VideoComposer {
     
     var asset: AVAsset
@@ -44,11 +48,16 @@ public class VideoComposer {
                     let slide = indexedSlide.element
                     print("Found slide \(slide.startTime)")
                     let diff = request.compositionTime - slide.startTime
-                    if diff <= CMTime(seconds: 0.5, preferredTimescale: 1000) {
+                    if diff <= CMTime(
+                        seconds: Metrics.transitionTime,
+                        preferredTimescale: 1000
+                    ) {
                         let dissolve = CIFilter.dissolveTransition()
                         dissolve.inputImage = previousImage
                         dissolve.targetImage = slide.image
-                        dissolve.time = Float(diff.seconds) / 0.5
+                        dissolve.time = Float(
+                            diff.seconds / Metrics.transitionTime
+                        )
                         request.finish(
                             with: dissolve.outputImage!
                                 .composited(over: request.sourceImage),
