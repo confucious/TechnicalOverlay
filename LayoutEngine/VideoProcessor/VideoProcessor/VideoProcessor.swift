@@ -46,7 +46,7 @@ public class VideoComposer {
                     let index = indexedSlide.offset
                     let previousImage = index > 0 ? slides[index - 1].image : CIImage.clear
                     let slide = indexedSlide.element
-                    print("Found slide \(slide.startTime)")
+//                    print("Found slide \(slide.startTime)")
                     let diff = request.compositionTime - slide.startTime
                     if diff <= CMTime(
                         seconds: Metrics.transitionTime,
