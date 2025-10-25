@@ -80,7 +80,7 @@ public class VideoOverlay: UIView {
         )
     }
     
-    public func render(size: CGSize) -> UIImage {
+    public func render(size: CGSize) -> CIImage {
         bounds = CGRect(origin: .zero, size: size)
         layoutIfNeeded()
         let format = UIGraphicsImageRendererFormat.default()
@@ -93,7 +93,7 @@ public class VideoOverlay: UIView {
         let image = renderer.image { context in
             layer.render(in: context.cgContext)
         }
-        return image
+        return CIImage(image: image)!
     }
     
 }
