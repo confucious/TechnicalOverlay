@@ -8,7 +8,7 @@
 import SwiftUI
 
 struct ScoringListView: View {
-    @State private var state: OverlayData = overlayData
+    @State var state: OverlayData
     
     var body: some View {
         ScrollView {
@@ -97,5 +97,5 @@ struct ElementRowView: View {
 }
 
 #Preview {
-    ScoringListView()
+    ScoringListView(state: overlayData)
 }

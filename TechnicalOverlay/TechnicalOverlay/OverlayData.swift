@@ -12,20 +12,56 @@ import Observation
 import VideoProcessor
 
 @Observable
-class OverlayData: Codable {
-    var skaterFullName: String
-    var skaterAbbreviatedName: String
-    var introductionTexts: [IntroductionData]
-    var elementScores: [ElementData]
+class OverlayData {
+    var skaterFullName: String {
+        didSet {
+            continuation.yield()
+        }
+    }
+    var skaterAbbreviatedName: String {
+        didSet {
+            continuation.yield()
+        }
+    }
+    var introductionTexts: [IntroductionData] {
+        didSet {
+            continuation.yield()
+        }
+    }
+    var elementScores: [ElementData] {
+        didSet {
+            continuation.yield()
+        }
+    }
 
-    internal init(skaterFullName: String, skaterAbbreviatedName: String, introductionTexts: [IntroductionData], elementScores: [ElementData]) {
+    var changeStream: AsyncStream<Void>
+    private var continuation: AsyncStream<Void>.Continuation
+
+    internal init(
+        skaterFullName: String = "",
+        skaterAbbreviatedName: String = "",
+        introductionTexts: [IntroductionData] = [],
+        elementScores: [ElementData] = []
+    ) {
         self.skaterFullName = skaterFullName
         self.skaterAbbreviatedName = skaterAbbreviatedName
         self.introductionTexts = introductionTexts
         self.elementScores = elementScores
+        let (stream, continuation) = AsyncStream.makeStream(of: Void.self)
+        self.changeStream = stream
+        self.continuation = continuation
+    }
+
+    deinit {
+        continuation.finish()
     }
 
     // MARK: - State management
+
+    var isEmpty: Bool {
+        skaterFullName == "" && skaterAbbreviatedName == "" && introductionTexts.isEmpty && elementScores.isEmpty
+    }
+
     func setIntroTime(index: Int, time: TimeInterval) {
         guard index < introductionTexts.count else {
             return

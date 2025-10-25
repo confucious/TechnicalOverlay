@@ -53,6 +53,19 @@ struct ContentView: View {
 
 let slides: [Slide] = overlayData.makeSlides(size: CGSize(width: 1920, height: 1080))
 
+let unsetOverlayData = OverlayData(
+    skaterFullName: overlayData.skaterFullName,
+    skaterAbbreviatedName: overlayData.skaterAbbreviatedName,
+    introductionTexts: overlayData.introductionTexts.map {
+        var item = $0
+        item.displayTime = nil
+        return item
+    },
+    elementScores: overlayData.elementScores.map {
+        var item = $0
+        item.displayTime = nil
+        return item
+    })
 let overlayData = OverlayData(
     skaterFullName: "Scotty HSU",
     skaterAbbreviatedName: "S. HSU",

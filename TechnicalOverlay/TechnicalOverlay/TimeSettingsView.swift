@@ -50,7 +50,7 @@ struct TimeSettingsView: View {
 #Preview {
     let now = Date.now
     TimeSettingsView(
-        state: overlayData,
+        state: unsetOverlayData,
         getTime: { -now.timeIntervalSinceNow }
     )
 }
