@@ -30,19 +30,19 @@ struct ScoringListView: View {
                     Text("Center")
                     Text("Right")
                 }
-                GridRow {
-                    Text("Age: 12")
-                    Text("Coaches: Philip Deyesso, Renée Lauren-Roos")
-                    Text("SC of Boston")
-                }
-                GridRow {
-                    Text("")
-                    Text("Music: The Mask of Zorro by James Horner")
-                    Text("")
+                ForEach(Array(state.introductionTexts.enumerated()), id: \.0) { (_, row) in
+                    IntroductionRowView(state: row)
                 }
             }
-            Button("Add Slide") {
-                
+            HStack {
+                Button("Add Slide") {
+                    state.introductionTexts.append(
+                        IntroductionData(left: "", center: "", right: "")
+                    )
+                }
+                Button("Remove Last Slide") {
+                    state.introductionTexts = state.introductionTexts.dropLast()
+                }
             }
             Divider()
             Button("Import Scores") {
@@ -56,13 +56,27 @@ struct ScoringListView: View {
                     Text("GOE")
                     Text("Bonus")
                 }
-                ForEach(Array(state.elementScores.enumerated()), id: \.1) { (index, element) in
+                ForEach(Array(state.elementScores.enumerated()), id: \.0) { (index, element) in
                     ElementRowView(index: index, state: element)
                 }
             }
             Button("Add Element") {
                 
             }
+        }
+    }
+}
+
+struct IntroductionRowView: View {
+    @State var state: IntroductionData
+
+    var body: some View {
+        GridRow {
+            TextField("Left", text: $state.left)
+            TextField("Center", text: $state.center, axis: .vertical)
+                .multilineTextAlignment(.center)
+            TextField("Right", text: $state.right)
+                .multilineTextAlignment(.trailing)
         }
     }
 }

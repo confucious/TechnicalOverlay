@@ -25,6 +25,53 @@ class OverlayData: Codable {
         self.elementScores = elementScores
     }
 
+    // MARK: - State management
+    func setIntroTime(index: Int, time: TimeInterval) {
+        guard index < introductionTexts.count else {
+            return
+        }
+        if let oldTime = introductionTexts[index].displayTime {
+            let diff = time - oldTime
+            introductionTexts[index].displayTime = time
+            if index + 1 < introductionTexts.count {
+                let nextItem = introductionTexts[index + 1]
+                if let oldNextTime = nextItem.displayTime {
+                    setIntroTime(index: index + 1, time: oldNextTime + diff)
+                } else {
+                    setIntroTime(index: index + 1, time: time + 5)
+                }
+            }
+        } else {
+            // Old time wasn't set.
+            introductionTexts[index].displayTime = time
+            if index + 1 < introductionTexts.count {
+                let nextItem = introductionTexts[index + 1]
+                if nextItem.displayTime == nil {
+                    setIntroTime(index: index + 1, time: time + 5)
+                }
+            }
+        }
+    }
+
+    func setElementTime(index: Int, time: TimeInterval) {
+        guard index < elementScores.count else {
+            return
+        }
+        if let oldTime = elementScores[index].displayTime {
+            let diff = time - oldTime
+            elementScores[index].displayTime = time
+            if index + 1 < elementScores.count {
+                if let oldNextTime = elementScores[index + 1].displayTime {
+                    setElementTime(index: index + 1, time: oldNextTime + diff)
+                }
+            }
+        } else {
+            // Old time wasn't set.
+            elementScores[index].displayTime = time
+        }
+    }
+
+    // MARK: - Generation
     func makeSlides(size: CGSize) -> [Slide] {
         var slides: [Slide] = []
         for introduction in introductionTexts {
@@ -70,7 +117,8 @@ class OverlayData: Codable {
 }
 
 @Observable
-class IntroductionData: Codable {
+class IntroductionData: Codable, Identifiable {
+    var id = UUID()
     var left: String
     var center: String
     var right: String
@@ -95,17 +143,8 @@ class IntroductionData: Codable {
 }
 
 @Observable
-class ElementData: Codable, Identifiable, Hashable {
-    static func == (lhs: ElementData, rhs: ElementData) -> Bool {
-        lhs.name == rhs.name
-        && lhs.baseValue == rhs.baseValue
-        && lhs.goeValue == rhs.goeValue
-    }
-
-    func hash(into hasher: inout Hasher) {
-        hasher.combine(name)
-    }
-
+class ElementData: Codable, Identifiable {
+    var id = UUID()
     var name: String
     var baseValue: Int
     var baseValueString: String {
@@ -128,7 +167,7 @@ class ElementData: Codable, Identifiable, Hashable {
     var bonusValue: Int
     var bonusValueString: String {
         get {
-            formatValue(bonusValue)
+            bonusValue > 0 ? formatValue(bonusValue) : "--"
         }
         set {
             bonusValue = Int((Double(newValue) ?? 0.0) * 100)
@@ -163,4 +202,3 @@ class ElementData: Codable, Identifiable, Hashable {
         return String(format: "%d.%02d", whole, fractional)
     }
 }
-
