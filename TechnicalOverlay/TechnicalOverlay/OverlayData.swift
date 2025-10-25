@@ -8,13 +8,22 @@
 import CoreMedia
 import Foundation
 import LayoutEngine
+import Observation
 import VideoProcessor
 
-struct OverlayData {
+@Observable
+class OverlayData: Codable {
     var skaterFullName: String
     var skaterAbbreviatedName: String
     var introductionTexts: [IntroductionData]
     var elementScores: [ElementData]
+
+    internal init(skaterFullName: String, skaterAbbreviatedName: String, introductionTexts: [IntroductionData], elementScores: [ElementData]) {
+        self.skaterFullName = skaterFullName
+        self.skaterAbbreviatedName = skaterAbbreviatedName
+        self.introductionTexts = introductionTexts
+        self.elementScores = elementScores
+    }
 
     func makeSlides(size: CGSize) -> [Slide] {
         var slides: [Slide] = []
@@ -60,11 +69,19 @@ struct OverlayData {
     }
 }
 
-struct IntroductionData {
+@Observable
+class IntroductionData: Codable {
     var left: String
     var center: String
     var right: String
     var displayTime: TimeInterval?
+
+    internal init(left: String, center: String, right: String, displayTime: TimeInterval? = nil) {
+        self.left = left
+        self.center = center
+        self.right = right
+        self.displayTime = displayTime
+    }
 
     func makeMode(skaterName: String) -> VideoOverlay.Mode {
         return .lowerThirdPane(LowerThirdViewModel(
@@ -77,12 +94,55 @@ struct IntroductionData {
     }
 }
 
-struct ElementData {
+@Observable
+class ElementData: Codable, Identifiable, Hashable {
+    static func == (lhs: ElementData, rhs: ElementData) -> Bool {
+        lhs.name == rhs.name
+        && lhs.baseValue == rhs.baseValue
+        && lhs.goeValue == rhs.goeValue
+    }
+
+    func hash(into hasher: inout Hasher) {
+        hasher.combine(name)
+    }
+
     var name: String
     var baseValue: Int
+    var baseValueString: String {
+        get {
+            formatValue(baseValue)
+        }
+        set {
+            baseValue = Int((Double(newValue) ?? 0.0) * 100)
+        }
+    }
     var goeValue: Int
+    var goeValueString: String {
+        get {
+            formatValue(goeValue)
+        }
+        set {
+            goeValue = Int((Double(newValue) ?? 0.0) * 100)
+        }
+    }
     var bonusValue: Int
+    var bonusValueString: String {
+        get {
+            formatValue(bonusValue)
+        }
+        set {
+            bonusValue = Int((Double(newValue) ?? 0.0) * 100)
+        }
+    }
     var displayTime: TimeInterval?
+
+    internal init(name: String, baseValue: Int, goeValue: Int, bonusValue: Int, displayTime: TimeInterval? = nil) {
+        self.name = name
+        self.baseValue = baseValue
+        self.goeValue = goeValue
+        self.bonusValue = bonusValue
+        self.displayTime = displayTime
+    }
 
     func makeMode(skaterName: String, runningTotal: Int, boxModes: [ElementBoxView.Mode]) -> VideoOverlay.Mode {
         return .technicalPane(TechnicalViewModel(
