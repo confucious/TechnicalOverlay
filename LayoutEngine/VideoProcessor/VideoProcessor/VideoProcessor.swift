@@ -11,7 +11,7 @@ import CoreImage.CIFilterBuiltins
 
 public struct Slide: Sendable {
     let image: CIImage
-    let startTime: CMTime
+    public let startTime: CMTime
     
     public init(image: CIImage, startTime: CMTime) {
         self.image = image

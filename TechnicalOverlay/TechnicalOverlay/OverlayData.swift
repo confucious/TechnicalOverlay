@@ -13,29 +13,10 @@ import VideoProcessor
 
 @Observable
 class OverlayData {
-    var skaterFullName: String {
-        didSet {
-            continuation.yield()
-        }
-    }
-    var skaterAbbreviatedName: String {
-        didSet {
-            continuation.yield()
-        }
-    }
-    var introductionTexts: [IntroductionData] {
-        didSet {
-            continuation.yield()
-        }
-    }
-    var elementScores: [ElementData] {
-        didSet {
-            continuation.yield()
-        }
-    }
-
-    var changeStream: AsyncStream<Void>
-    private var continuation: AsyncStream<Void>.Continuation
+    var skaterFullName: String
+    var skaterAbbreviatedName: String
+    var introductionTexts: [IntroductionData]
+    var elementScores: [ElementData]
 
     internal init(
         skaterFullName: String = "",
@@ -47,13 +28,6 @@ class OverlayData {
         self.skaterAbbreviatedName = skaterAbbreviatedName
         self.introductionTexts = introductionTexts
         self.elementScores = elementScores
-        let (stream, continuation) = AsyncStream.makeStream(of: Void.self)
-        self.changeStream = stream
-        self.continuation = continuation
-    }
-
-    deinit {
-        continuation.finish()
     }
 
     // MARK: - State management
@@ -112,13 +86,14 @@ class OverlayData {
         var slides: [Slide] = []
         for introduction in introductionTexts {
             let mode = introduction.makeMode(skaterName: skaterFullName)
-            slides.append(makeSlide(size: size, mode: mode, startTime: introduction.displayTime ?? 0.0
-            ))
+            if let displayTime = introduction.displayTime {
+                slides.append(makeSlide(size: size, mode: mode, startTime: displayTime
+                                       ))
+            }
         }
         // Fade out last intro slide
-        if let lastIntro = introductionTexts.last {
-            slides.append(makeSlide(size: size, mode: .none, startTime: (lastIntro.displayTime ?? 0.0) + 5
-            ))
+        if let lastSlide = slides.last {
+            slides.append(makeSlide(size: size, mode: .none, startTime: lastSlide.startTime.seconds + 5))
         }
 
         var cumulativeBoxModes: [ElementBoxView.Mode] = Array(repeating: .unscored, count: elementScores.count)
@@ -132,12 +107,20 @@ class OverlayData {
                 runningTotal: cumulativeScore,
                 boxModes: cumulativeBoxModes
             )
-            slides.append(makeSlide(size: size, mode: mode, startTime: element.displayTime ?? 0.0
-            ))
+            if let displayTime = element.displayTime {
+                slides
+                    .append(makeSlide(size: size, mode: mode, startTime: displayTime
+                                       ))
+            }
         }
         // Fade out last intro slide
-        if let lastElement = elementScores.last {
-            slides.append(makeSlide(size: size, mode: .none, startTime: (lastElement.displayTime ?? 0.0) + 5
+        if let lastSlide = slides.last {
+            slides
+                .append(
+                    makeSlide(
+                        size: size,
+                        mode: .none,
+                        startTime: lastSlide.startTime.seconds + 5
             ))
         }
 
@@ -153,8 +136,7 @@ class OverlayData {
 }
 
 @Observable
-class IntroductionData: Codable, Identifiable {
-    var id = UUID()
+class IntroductionData {
     var left: String
     var center: String
     var right: String
@@ -179,8 +161,7 @@ class IntroductionData: Codable, Identifiable {
 }
 
 @Observable
-class ElementData: Codable, Identifiable {
-    var id = UUID()
+class ElementData {
     var name: String
     var baseValue: Int
     var baseValueString: String {

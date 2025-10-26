@@ -10,6 +10,7 @@ import SwiftUI
 struct TimeSettingsView: View {
     @State var state: OverlayData
     var getTime: () -> TimeInterval
+    var timeUpdated: () -> Void
 
     var body: some View {
         Grid {
@@ -19,6 +20,7 @@ struct TimeSettingsView: View {
                     VStack {
                         Button("Start Now") {
                             state.setIntroTime(index: index, time: getTime())
+                            timeUpdated()
                         }
                         Text(formatDisplayTime(row.displayTime))
                     }
@@ -30,6 +32,7 @@ struct TimeSettingsView: View {
                     VStack {
                         Button("Start Now") {
                             state.setElementTime(index: index, time: getTime())
+                            timeUpdated()
                         }
                         Text(formatDisplayTime(row.displayTime))
                     }
@@ -51,6 +54,7 @@ struct TimeSettingsView: View {
     let now = Date.now
     TimeSettingsView(
         state: unsetOverlayData,
-        getTime: { -now.timeIntervalSinceNow }
+        getTime: { -now.timeIntervalSinceNow },
+        timeUpdated: {}
     )
 }

@@ -7,6 +7,7 @@
 
 import SwiftUI
 import AVFoundation
+import AVKit
 import VideoProcessor
 
 //enum State {
@@ -23,10 +24,15 @@ struct MainView: View {
                     player = nil
                     return
                 }
+//                let gotAccess = url.startAccessingSecurityScopedResource()
+//                guard gotAccess else {
+//                    print("Couldn't get security access for movie")
+//                    return
+//                }
                 let asset = AVURLAsset(url: url)
                 let playerItem = AVPlayerItem(asset: asset)
                 player = AVPlayer(playerItem: playerItem)
-
+//                url.stopAccessingSecurityScopedResource()
             }
         }
         var scoring: OverlayData = OverlayData()
@@ -42,13 +48,16 @@ struct MainView: View {
     var body: some View {
         NavigationStack {
             VStack {
+                if let player = state.player {
+                    VideoPlayer(player: player)
+                }
                 HStack {
                     Button("Load Video") {
                         fileSelectShowing.toggle()
                     }
                     .fileImporter(
                         isPresented: $fileSelectShowing,
-                        allowedContentTypes: [.video]) { result in
+                        allowedContentTypes: [.movie]) { result in
                             switch result {
                             case let .success(fileUrl):
                                 state.assetUrl = fileUrl
@@ -56,6 +65,9 @@ struct MainView: View {
                                 print(error)
                             }
                         }
+                    Button("Generate Slides") {
+                        generateSlides()
+                    }
                     Button("Save Video") {
 
                     }
@@ -67,6 +79,9 @@ struct MainView: View {
                             state: state.scoring,
                             getTime: {
                                 player.currentTime().seconds
+                            },
+                            timeUpdated: {
+                                generateSlides()
                             }
                         )
                     }
@@ -79,24 +94,27 @@ struct MainView: View {
                     ScoringListView(state: state.scoring)
                 }
             }
-            .task {
-                for await _ in state.scoring.changeStream {
-                    guard let url = state.assetUrl else {
-                        continue
-                    }
-                    let asset = AVURLAsset(url: url)
-                    let videoComposer = VideoComposer(asset: asset, slides: state.scoring.makeSlides(size: CGSize(width: 1920, height: 1080)))
-                    let playerItem = AVPlayerItem(asset: asset)
-                    do {
-                        playerItem.videoComposition = try await videoComposer
-                            .setupComposition()
-                    } catch {
-                        print("Video composer failed \(error)")
-                    }
-                    state.player = AVPlayer(playerItem: playerItem)
-                }
+        }
+    }
+    
+    func generateSlides() {
+        Task {
+            guard let url = state.assetUrl else {
+                return
             }
-
+            let asset = AVURLAsset(url: url)
+            let videoComposer = VideoComposer(asset: asset, slides: state.scoring.makeSlides(size: CGSize(width: 1920, height: 1080)))
+            let playerItem = AVPlayerItem(asset: asset)
+            do {
+                playerItem.videoComposition = try await videoComposer
+                    .setupComposition()
+            } catch {
+                print("Video composer failed \(error)")
+            }
+            guard let player = state.player else { return }
+            let currentTime = player.currentTime()
+            player.replaceCurrentItem(with: playerItem)
+            await player.seek(to: currentTime)
         }
     }
 }

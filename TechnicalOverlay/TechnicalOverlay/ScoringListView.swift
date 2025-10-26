@@ -60,8 +60,21 @@ struct ScoringListView: View {
                     ElementRowView(index: index, state: element)
                 }
             }
-            Button("Add Element") {
-                
+            HStack {
+                Button("Add Element") {
+                    state.elementScores
+                        .append(
+                            ElementData(
+                                name: "",
+                                baseValue: 0,
+                                goeValue: 0,
+                                bonusValue: 0
+                            )
+                        )
+                }
+                Button("Remove Last Slide") {
+                    state.elementScores = state.elementScores.dropLast()
+                }
             }
         }
     }
