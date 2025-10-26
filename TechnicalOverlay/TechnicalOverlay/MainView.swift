@@ -37,6 +37,15 @@ struct MainView: View {
         }
         var scoring: OverlayData
         var videoComposer: VideoComposer?
+        
+        var outputFilename: String {
+            if let assetUrl {
+                let baseName = assetUrl.deletingPathExtension().lastPathComponent
+                return "\(baseName) Scored.mov"
+            } else {
+                return "Scored.mov"
+            }
+        }
 
         func generateSlides() {
             Task { [self] in
@@ -121,7 +130,8 @@ struct MainView: View {
                     .fileExporter(
                         isPresented: $saveFileShowing,
                         document: MovieDocument(tempUrl: self.shareUrl),
-                        contentType: .movie
+                        contentType: .quickTimeMovie,
+                        defaultFilename: state.outputFilename
                     ) { result in
                         print("Save: \(result)")
                     }
@@ -157,7 +167,7 @@ struct MovieDocument: FileDocument {
         case tempUrlNotSet
     }
     static var readableContentTypes: [UTType] = [.movie]
-    static var writableContentTypes: [UTType] = [.movie]
+    static var writableContentTypes: [UTType] = [.movie, .quickTimeMovie]
 
     var tempUrl: URL?
     
