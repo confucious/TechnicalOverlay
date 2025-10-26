@@ -16,27 +16,62 @@ import VideoProcessor
 //}
 
 struct MainView: View {
-    struct ViewModel {
+    @Observable
+    class ViewModel {
+        internal init(player: AVPlayer? = nil, assetUrl: URL? = nil, scoring: OverlayData = OverlayData()) {
+            self.player = player
+            self.assetUrl = assetUrl
+            self.scoring = scoring
+        }
+        
         var player: AVPlayer?
         var assetUrl: URL? {
             didSet {
-                guard let url = assetUrl else {
+                guard assetUrl != nil else {
                     player = nil
                     return
                 }
-//                let gotAccess = url.startAccessingSecurityScopedResource()
-//                guard gotAccess else {
-//                    print("Couldn't get security access for movie")
-//                    return
-//                }
-                let asset = AVURLAsset(url: url)
-                let playerItem = AVPlayerItem(asset: asset)
-                player = AVPlayer(playerItem: playerItem)
-//                url.stopAccessingSecurityScopedResource()
+                generateSlides()
             }
         }
         var scoring: OverlayData = OverlayData()
-    }
+
+        func generateSlides() {
+            Task { [self] in
+                guard let url = assetUrl else {
+                    return
+                }
+                let asset = AVURLAsset(url: url)
+                guard let videoTrack = (try? await asset.loadTracks(withMediaType: .video))?.first else {
+                    print("Couldn't find video track")
+                    return
+                }
+                guard let naturalSize = try? await videoTrack.load(.naturalSize),
+                      let transform = try? await videoTrack.load(.preferredTransform)
+                else {
+                    print("Couldn't load size or transform for video track")
+                    return
+                }
+                
+                let size = naturalSize.applying(transform)
+                
+                let videoComposer = VideoComposer(asset: asset, slides: scoring.makeSlides(size: size))
+                let playerItem = AVPlayerItem(asset: asset)
+                do {
+                    playerItem.videoComposition = try await videoComposer
+                        .setupComposition()
+                } catch {
+                    print("Video composer failed \(error)")
+                }
+                if let player {
+                    let currentTime = player.currentTime()
+                    player.replaceCurrentItem(with: playerItem)
+                    await player.seek(to: currentTime)
+                } else {
+                    player = AVPlayer(playerItem: playerItem)
+                }
+            }
+        }    }
 
     enum Destination {
         case editSlides
@@ -65,9 +100,6 @@ struct MainView: View {
                                 print(error)
                             }
                         }
-                    Button("Generate Slides") {
-                        generateSlides()
-                    }
                     Button("Save Video") {
 
                     }
@@ -81,7 +113,7 @@ struct MainView: View {
                                 player.currentTime().seconds
                             },
                             timeUpdated: {
-                                generateSlides()
+                                state.generateSlides()
                             }
                         )
                     }
@@ -94,27 +126,6 @@ struct MainView: View {
                     ScoringListView(state: state.scoring)
                 }
             }
-        }
-    }
-    
-    func generateSlides() {
-        Task {
-            guard let url = state.assetUrl else {
-                return
-            }
-            let asset = AVURLAsset(url: url)
-            let videoComposer = VideoComposer(asset: asset, slides: state.scoring.makeSlides(size: CGSize(width: 1920, height: 1080)))
-            let playerItem = AVPlayerItem(asset: asset)
-            do {
-                playerItem.videoComposition = try await videoComposer
-                    .setupComposition()
-            } catch {
-                print("Video composer failed \(error)")
-            }
-            guard let player = state.player else { return }
-            let currentTime = player.currentTime()
-            player.replaceCurrentItem(with: playerItem)
-            await player.seek(to: currentTime)
         }
     }
 }
