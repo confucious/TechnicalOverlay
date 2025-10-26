@@ -21,6 +21,7 @@ struct TimeSettingsView: View {
                         Button("Start Now") {
                             state.setIntroTime(index: index, time: getTime())
                             timeUpdated()
+                            state.save()
                         }
                         Text(formatDisplayTime(row.displayTime))
                     }
@@ -33,6 +34,7 @@ struct TimeSettingsView: View {
                         Button("Start Now") {
                             state.setElementTime(index: index, time: getTime())
                             timeUpdated()
+                            state.save()
                         }
                         Text(formatDisplayTime(row.displayTime))
                     }

@@ -21,8 +21,9 @@ struct MainView: View {
         internal init(player: AVPlayer? = nil, assetUrl: URL? = nil, scoring: OverlayData = OverlayData()) {
             self.player = player
             self.assetUrl = assetUrl
-//            self.scoring = scoring
-            self.scoring = overlayData
+            self.scoring = scoring
+            scoring.load()
+//            self.scoring = overlayData
         }
         
         var player: AVPlayer?

@@ -12,7 +12,14 @@ import Observation
 import VideoProcessor
 
 @Observable
-class OverlayData {
+class OverlayData: Codable {
+    enum CodingKeys: String, CodingKey {
+        case _skaterFullName = "skaterFullName"
+        case _skaterAbbreviatedName = "skaterAbbreviatedName"
+        case _introductionTexts = "introductionTexts"
+        case _elementScores = "elementScores"
+    }
+    
     var skaterFullName: String
     var skaterAbbreviatedName: String
     var introductionTexts: [IntroductionData]
@@ -30,6 +37,33 @@ class OverlayData {
         self.elementScores = elementScores
     }
 
+    // MARK: - Load / Save
+    func save() {
+        guard let json = try? JSONEncoder().encode(self)
+        else {
+            print("Couldn't serialize to save state")
+            return
+        }
+        print("saved")
+        UserDefaults.standard.set(json, forKey: "state")
+    }
+    
+    func load() {
+        guard let data = UserDefaults.standard.data(forKey: "state") else {
+            print("No saved state found.")
+            return
+        }
+        guard let loaded = try? JSONDecoder().decode(Self.self, from: data) else {
+            print("Couldn't decode saved state")
+            return
+        }
+        self.skaterFullName = loaded.skaterFullName
+        self.skaterAbbreviatedName = loaded.skaterAbbreviatedName
+        self.introductionTexts = loaded.introductionTexts
+        self.elementScores = loaded.elementScores
+        print("loaded")
+    }
+    
     // MARK: - State management
 
     var isEmpty: Bool {
@@ -136,7 +170,14 @@ class OverlayData {
 }
 
 @Observable
-class IntroductionData {
+class IntroductionData: Codable {
+    enum CodingKeys: String, CodingKey {
+        case _left = "left"
+        case _center = "center"
+        case _right = "right"
+        case _displayTime = "displayTime"
+    }
+    
     var left: String
     var center: String
     var right: String
@@ -161,7 +202,15 @@ class IntroductionData {
 }
 
 @Observable
-class ElementData {
+class ElementData: Codable {
+    enum CodingKeys: String, CodingKey {
+        case _name = "name"
+        case _baseValue = "baseValue"
+        case _goeValue = "goeValue"
+        case _bonusValue = "bonusValue"
+        case _displayTime = "displayTime"
+    }
+    
     var name: String
     var baseValue: Int
     var baseValueString: String {
@@ -214,8 +263,13 @@ class ElementData {
     }
 
     func formatValue(_ value: Int) -> String {
-        let whole = value / 100
+        let negative = value < 0
+        let whole = abs(value) / 100
         let fractional = abs(value) % 100
-        return String(format: "%d.%02d", whole, fractional)
+        if negative {
+            return String(format: "-%d.%02d", whole, fractional)
+        } else {
+            return String(format: "%d.%02d", whole, fractional)
+        }
     }
 }
