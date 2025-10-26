@@ -74,4 +74,35 @@ public class VideoComposer {
                 }
             }
     }
+    
+    public func export(
+        withPreset preset: String = AVAssetExportPresetHighestQuality,
+        toFileType outputFileType: AVFileType = .mov,
+        atURL outputURL: URL
+    ) async {
+            
+        // Check the compatibility of the preset to export the video to the output file type.
+        guard await AVAssetExportSession.compatibility(ofExportPreset: preset,
+                                                       with: asset,
+                                                       outputFileType: outputFileType) else {
+            print("The preset can't export the video to the output file type.")
+            return
+        }
+        
+        // Create and configure the export session.
+        guard let exportSession = AVAssetExportSession(asset: asset,
+                                                       presetName: preset) else {
+            print("Failed to create export session.")
+            return
+        }
+        
+        // Convert the video to the output file type and export it to the output URL.
+        do {
+            exportSession.videoComposition = try await setupComposition()
+            try await exportSession.export(to: outputURL, as: outputFileType)
+        } catch {
+            print("export failed \(error)")
+        }
+    }
+
 }

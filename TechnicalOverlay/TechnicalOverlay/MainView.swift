@@ -21,7 +21,8 @@ struct MainView: View {
         internal init(player: AVPlayer? = nil, assetUrl: URL? = nil, scoring: OverlayData = OverlayData()) {
             self.player = player
             self.assetUrl = assetUrl
-            self.scoring = scoring
+//            self.scoring = scoring
+            self.scoring = overlayData
         }
         
         var player: AVPlayer?
@@ -34,7 +35,8 @@ struct MainView: View {
                 generateSlides()
             }
         }
-        var scoring: OverlayData = OverlayData()
+        var scoring: OverlayData
+        var videoComposer: VideoComposer?
 
         func generateSlides() {
             Task { [self] in
@@ -56,6 +58,7 @@ struct MainView: View {
                 let size = naturalSize.applying(transform)
                 
                 let videoComposer = VideoComposer(asset: asset, slides: scoring.makeSlides(size: size))
+                self.videoComposer = videoComposer
                 let playerItem = AVPlayerItem(asset: asset)
                 do {
                     playerItem.videoComposition = try await videoComposer
@@ -79,6 +82,8 @@ struct MainView: View {
 
     @State private var state = ViewModel()
     @State private var fileSelectShowing = false
+    @State private var shareUrl: URL? = nil
+    @State private var saveFileShowing = false
 
     var body: some View {
         NavigationStack {
@@ -101,7 +106,24 @@ struct MainView: View {
                             }
                         }
                     Button("Save Video") {
-
+                        Task {
+                            guard let videoComposer = state.videoComposer
+                            else {
+                                return
+                            }
+                            let filename = UUID().uuidString + ".mov"
+                            let tempFileURL = FileManager.default.temporaryDirectory.appendingPathComponent(filename)
+                            await videoComposer.export(atURL: tempFileURL)
+                            shareUrl = tempFileURL
+                            saveFileShowing = true
+                        }
+                    }
+                    .fileExporter(
+                        isPresented: $saveFileShowing,
+                        document: MovieDocument(tempUrl: self.shareUrl),
+                        contentType: .movie
+                    ) { result in
+                        print("Save: \(result)")
                     }
                 }
                 if !state.scoring.isEmpty,
@@ -129,6 +151,34 @@ struct MainView: View {
         }
     }
 }
+
+struct MovieDocument: FileDocument {
+    enum DocError: Error {
+        case tempUrlNotSet
+    }
+    static var readableContentTypes: [UTType] = [.movie]
+    static var writableContentTypes: [UTType] = [.movie]
+
+    var tempUrl: URL?
+    
+    init(tempUrl: URL?) {
+        self.tempUrl = tempUrl
+    }
+    
+    init(configuration: ReadConfiguration) throws {
+        // Implement reading if needed
+        fatalError("Reading not implemented for this example")
+    }
+
+    func fileWrapper(configuration: WriteConfiguration) throws -> FileWrapper {
+        guard let tempUrl else {
+            throw DocError.tempUrlNotSet
+        }
+        let data = try Data(contentsOf: tempUrl)
+        return FileWrapper(regularFileWithContents: data)
+    }
+}
+
 
 #Preview {
     MainView()
