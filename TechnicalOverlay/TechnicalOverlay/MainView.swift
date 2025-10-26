@@ -60,9 +60,15 @@ struct MainView: View {
 
                     }
                 }
-                if !state.scoring.isEmpty {
+                if !state.scoring.isEmpty,
+                   let player = state.player {
                     ScrollView {
-                        TimeSettingsView(state: state.scoring, getTime: { 0.0 })
+                        TimeSettingsView(
+                            state: state.scoring,
+                            getTime: {
+                                player.currentTime().seconds
+                            }
+                        )
                     }
                 }
                 NavigationLink("Edit Slides", value: Destination.editSlides)
