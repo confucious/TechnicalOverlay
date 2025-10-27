@@ -100,14 +100,70 @@ struct IntroductionRowView: View {
 struct ElementRowView: View {
     var index: Int
     @State var state: ElementData
+    @FocusState private var focusedField: Field?
+    @State private var selection: [Field:TextSelection] = [:]
+    enum Field: Int, Hashable {
+        case element
+        case baseValue
+        case goeValue
+        case bonusValue
+    }
 
     var body: some View {
         GridRow {
             Text("\(index + 1)")
-            TextField("Element", text: $state.name)
-            TextField("Base Value", text: $state.baseValueString).frame(width: 100).multilineTextAlignment(.trailing)
-            TextField("GOE", text: $state.goeValueString).frame(width: 75).multilineTextAlignment(.trailing)
-            TextField("Bonus", text: $state.bonusValueString).frame(width: 75).multilineTextAlignment(.trailing)
+            TextField(
+                "Element",
+                text: $state.name
+            )
+                .focused($focusedField, equals: .element)
+            TextField(
+                "Base Value",
+                text: $state.baseValueString,
+                selection: $selection[.baseValue]
+            )
+                .focused($focusedField, equals: .baseValue)
+                .frame(width: 100)
+                .multilineTextAlignment(.trailing)
+                .keyboardType(.decimalPad)
+            TextField(
+                "GOE",
+                text: $state.goeValueString,
+                selection: $selection[.goeValue]
+            )
+                .focused($focusedField, equals: .goeValue)
+                .frame(width: 75)
+                .multilineTextAlignment(.trailing)
+                .keyboardType(.numbersAndPunctuation)
+            TextField(
+                "Bonus",
+                text: $state.bonusValueString,
+                selection: $selection[.bonusValue]
+            )
+                .focused($focusedField, equals: .bonusValue)
+                .frame(width: 75)
+                .multilineTextAlignment(.trailing)
+                .keyboardType(.decimalPad)
+        }
+        .onChange(of: focusedField) {
+            switch focusedField {
+            case .element:
+                break
+            case .baseValue:
+                selection[.baseValue] = .init(
+                    range: state.baseValueString.startIndex..<state.baseValueString.endIndex
+                )
+            case .goeValue:
+                selection[.goeValue] = .init(
+                    range: state.goeValueString.startIndex..<state.goeValueString.endIndex
+                )
+            case .bonusValue:
+                selection[.bonusValue] = .init(
+                    range: state.bonusValueString.startIndex..<state.bonusValueString.endIndex
+                )
+            case nil:
+                break
+            }
         }
     }
 }

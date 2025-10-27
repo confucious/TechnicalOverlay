@@ -134,7 +134,13 @@ class OverlayData: Codable {
         var cumulativeScore = 0
 
         for (index, element) in elementScores.enumerated() {
-            cumulativeBoxModes[index] = element.goeValue >= 0 ? .positive : .negative
+            cumulativeBoxModes[index] = if element.baseValue == 0 {
+                .neutral
+            } else if element.goeValue > 0 {
+                .positive
+            } else {
+                .negative
+            }
             cumulativeScore += element.baseValue + element.goeValue + element.bonusValue
             let mode = element.makeMode(
                 skaterName: skaterAbbreviatedName,
@@ -233,7 +239,7 @@ class ElementData: Codable {
     var bonusValue: Int
     var bonusValueString: String {
         get {
-            bonusValue > 0 ? formatValue(bonusValue) : "--"
+            bonusValue > 0 ? formatValue(bonusValue) : ""
         }
         set {
             bonusValue = Int((Double(newValue) ?? 0.0) * 100)
