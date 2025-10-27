@@ -52,7 +52,7 @@ struct ScoringListView: View {
                 GridRow {
                     Text("#")
                     Text("Element")
-                    Text("Base\nValue")
+                    Text("Base\n1Value")
                     Text("GOE")
                     Text("Bonus")
                 }
