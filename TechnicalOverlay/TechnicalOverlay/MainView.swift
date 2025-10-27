@@ -58,18 +58,6 @@ struct MainView: View {
                     // Keep going just in case it manages to work.
                 }
                 let asset = AVURLAsset(url: url)
-                Task {
-                    var loaded = false
-                    while !loaded {
-                        let status = asset.status(of: .tracks)
-                        print("\(status)")
-                        try? await Task.sleep(nanoseconds: 500_000_000)
-                        switch status {
-                        case .loaded: loaded = true
-                        default: break
-                        }
-                    }
-                }
                 guard let tracks = try? await asset.load(.tracks),
                       let videoTrack = tracks.first(where: { $0.mediaType == .video })
                 else {
