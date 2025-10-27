@@ -28,10 +28,18 @@ struct MainView: View {
         
         var player: AVPlayer?
         var assetUrl: URL? {
+            willSet {
+                if let assetUrl {
+                    assetUrl.stopAccessingSecurityScopedResource()
+                }
+            }
             didSet {
-                guard assetUrl != nil else {
+                guard let assetUrl else {
                     player = nil
                     return
+                }
+                if !assetUrl.startAccessingSecurityScopedResource() {
+                    print("Failed to get security scope")
                 }
                 generateSlides()
             }
@@ -47,15 +55,15 @@ struct MainView: View {
                 return "Scored.mov"
             }
         }
+        
+        deinit {
+            assetUrl = nil
+        }
 
         func generateSlides() {
             Task {
                 guard let url = assetUrl else {
                     return
-                }
-                if !url.startAccessingSecurityScopedResource() {
-                    print("Failed to get security scope")
-                    // Keep going just in case it manages to work.
                 }
                 let asset = AVURLAsset(url: url)
                 guard let tracks = try? await asset.load(.tracks),
