@@ -49,12 +49,30 @@ struct MainView: View {
         }
 
         func generateSlides() {
-            Task { [self] in
+            Task {
                 guard let url = assetUrl else {
                     return
                 }
+                if !url.startAccessingSecurityScopedResource() {
+                    print("Failed to get security scope")
+                    // Keep going just in case it manages to work.
+                }
                 let asset = AVURLAsset(url: url)
-                guard let videoTrack = (try? await asset.loadTracks(withMediaType: .video))?.first else {
+                Task {
+                    var loaded = false
+                    while !loaded {
+                        let status = asset.status(of: .tracks)
+                        print("\(status)")
+                        try? await Task.sleep(nanoseconds: 500_000_000)
+                        switch status {
+                        case .loaded: loaded = true
+                        default: break
+                        }
+                    }
+                }
+                guard let tracks = try? await asset.load(.tracks),
+                      let videoTrack = tracks.first(where: { $0.mediaType == .video })
+                else {
                     print("Couldn't find video track")
                     return
                 }

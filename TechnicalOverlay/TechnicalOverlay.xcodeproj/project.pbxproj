@@ -11,6 +11,10 @@
 		AB666FD62E9D791400C1994D /* VideoProcessor.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = AB666FD42E9D791400C1994D /* VideoProcessor.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		ABBCB6A42E9AEF8600C9B65E /* LayoutEngine.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = ABBCB6A32E9AEF8600C9B65E /* LayoutEngine.framework */; };
 		ABBCB6A52E9AEF8600C9B65E /* LayoutEngine.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = ABBCB6A32E9AEF8600C9B65E /* LayoutEngine.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
+		ABD4F3052EAEF0F5002D9CD8 /* LayoutEngine.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = ABD4F3032EAEF0F5002D9CD8 /* LayoutEngine.framework */; };
+		ABD4F3062EAEF0F5002D9CD8 /* LayoutEngine.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = ABD4F3032EAEF0F5002D9CD8 /* LayoutEngine.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
+		ABD4F3072EAEF0F5002D9CD8 /* VideoProcessor.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = ABD4F3042EAEF0F5002D9CD8 /* VideoProcessor.framework */; };
+		ABD4F3082EAEF0F5002D9CD8 /* VideoProcessor.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = ABD4F3042EAEF0F5002D9CD8 /* VideoProcessor.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -28,6 +32,20 @@
 			remoteGlobalIDString = ABBCB63F2E80534C00C9B65E;
 			remoteInfo = TechnicalOverlay;
 		};
+		ABD4F2E12EAEF009002D9CD8 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = ABBCB6382E80534C00C9B65E /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = ABD4F2D32EAEF008002D9CD8;
+			remoteInfo = "Technical Overlay";
+		};
+		ABD4F2EB2EAEF009002D9CD8 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = ABBCB6382E80534C00C9B65E /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = ABD4F2D32EAEF008002D9CD8;
+			remoteInfo = "Technical Overlay";
+		};
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -43,19 +61,55 @@
 			name = "Embed Frameworks";
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		ABD4F3092EAEF0F5002D9CD8 /* Embed Frameworks */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 10;
+			files = (
+				ABD4F3062EAEF0F5002D9CD8 /* LayoutEngine.framework in Embed Frameworks */,
+				ABD4F3082EAEF0F5002D9CD8 /* VideoProcessor.framework in Embed Frameworks */,
+			);
+			name = "Embed Frameworks";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
 		AB666FD42E9D791400C1994D /* VideoProcessor.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; path = VideoProcessor.framework; sourceTree = BUILT_PRODUCTS_DIR; };
-		ABBCB6402E80534C00C9B65E /* TechnicalOverlay.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = TechnicalOverlay.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		ABBCB6402E80534C00C9B65E /* TechnicalOverlayMac.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = TechnicalOverlayMac.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		ABBCB64D2E80534C00C9B65E /* TechnicalOverlayTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = TechnicalOverlayTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		ABBCB6572E80534C00C9B65E /* TechnicalOverlayUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = TechnicalOverlayUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		ABBCB6A32E9AEF8600C9B65E /* LayoutEngine.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; path = LayoutEngine.framework; sourceTree = BUILT_PRODUCTS_DIR; };
+		ABD4F2D42EAEF008002D9CD8 /* Technical Overlay.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Technical Overlay.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		ABD4F2E02EAEF009002D9CD8 /* Technical OverlayTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "Technical OverlayTests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
+		ABD4F2EA2EAEF009002D9CD8 /* Technical OverlayUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "Technical OverlayUITests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
+		ABD4F3032EAEF0F5002D9CD8 /* LayoutEngine.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; path = LayoutEngine.framework; sourceTree = BUILT_PRODUCTS_DIR; };
+		ABD4F3042EAEF0F5002D9CD8 /* VideoProcessor.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; path = VideoProcessor.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
+
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		ABD4F2FC2EAEF0D4002D9CD8 /* Exceptions for "TechnicalOverlay" folder in "Technical Overlay" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Assets.xcassets,
+				ContentView.swift,
+				MainView.swift,
+				OverlayData.swift,
+				ScoringListView.swift,
+				TechnicalOverlayApp.swift,
+				TimeSettingsView.swift,
+			);
+			target = ABD4F2D32EAEF008002D9CD8 /* Technical Overlay */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		ABBCB6422E80534C00C9B65E /* TechnicalOverlay */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				ABD4F2FC2EAEF0D4002D9CD8 /* Exceptions for "TechnicalOverlay" folder in "Technical Overlay" target */,
+			);
 			path = TechnicalOverlay;
 			sourceTree = "<group>";
 		};
@@ -95,6 +149,29 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		ABD4F2D12EAEF008002D9CD8 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				ABD4F3052EAEF0F5002D9CD8 /* LayoutEngine.framework in Frameworks */,
+				ABD4F3072EAEF0F5002D9CD8 /* VideoProcessor.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		ABD4F2DD2EAEF009002D9CD8 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		ABD4F2E72EAEF009002D9CD8 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -112,9 +189,12 @@
 		ABBCB6412E80534C00C9B65E /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				ABBCB6402E80534C00C9B65E /* TechnicalOverlay.app */,
+				ABBCB6402E80534C00C9B65E /* TechnicalOverlayMac.app */,
 				ABBCB64D2E80534C00C9B65E /* TechnicalOverlayTests.xctest */,
 				ABBCB6572E80534C00C9B65E /* TechnicalOverlayUITests.xctest */,
+				ABD4F2D42EAEF008002D9CD8 /* Technical Overlay.app */,
+				ABD4F2E02EAEF009002D9CD8 /* Technical OverlayTests.xctest */,
+				ABD4F2EA2EAEF009002D9CD8 /* Technical OverlayUITests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -122,6 +202,8 @@
 		ABBCB6A22E9AEF8600C9B65E /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				ABD4F3032EAEF0F5002D9CD8 /* LayoutEngine.framework */,
+				ABD4F3042EAEF0F5002D9CD8 /* VideoProcessor.framework */,
 				AB666FD42E9D791400C1994D /* VideoProcessor.framework */,
 				ABBCB6A32E9AEF8600C9B65E /* LayoutEngine.framework */,
 			);
@@ -131,9 +213,9 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
-		ABBCB63F2E80534C00C9B65E /* TechnicalOverlay */ = {
+		ABBCB63F2E80534C00C9B65E /* TechnicalOverlayMac */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = ABBCB6612E80534C00C9B65E /* Build configuration list for PBXNativeTarget "TechnicalOverlay" */;
+			buildConfigurationList = ABBCB6612E80534C00C9B65E /* Build configuration list for PBXNativeTarget "TechnicalOverlayMac" */;
 			buildPhases = (
 				ABBCB63C2E80534C00C9B65E /* Sources */,
 				ABBCB63D2E80534C00C9B65E /* Frameworks */,
@@ -147,11 +229,11 @@
 			fileSystemSynchronizedGroups = (
 				ABBCB6422E80534C00C9B65E /* TechnicalOverlay */,
 			);
-			name = TechnicalOverlay;
+			name = TechnicalOverlayMac;
 			packageProductDependencies = (
 			);
 			productName = TechnicalOverlay;
-			productReference = ABBCB6402E80534C00C9B65E /* TechnicalOverlay.app */;
+			productReference = ABBCB6402E80534C00C9B65E /* TechnicalOverlayMac.app */;
 			productType = "com.apple.product-type.application";
 		};
 		ABBCB64C2E80534C00C9B65E /* TechnicalOverlayTests */ = {
@@ -200,6 +282,66 @@
 			productReference = ABBCB6572E80534C00C9B65E /* TechnicalOverlayUITests.xctest */;
 			productType = "com.apple.product-type.bundle.ui-testing";
 		};
+		ABD4F2D32EAEF008002D9CD8 /* Technical Overlay */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = ABD4F2F22EAEF009002D9CD8 /* Build configuration list for PBXNativeTarget "Technical Overlay" */;
+			buildPhases = (
+				ABD4F2D02EAEF008002D9CD8 /* Sources */,
+				ABD4F2D12EAEF008002D9CD8 /* Frameworks */,
+				ABD4F2D22EAEF008002D9CD8 /* Resources */,
+				ABD4F3092EAEF0F5002D9CD8 /* Embed Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = "Technical Overlay";
+			packageProductDependencies = (
+			);
+			productName = "Technical Overlay";
+			productReference = ABD4F2D42EAEF008002D9CD8 /* Technical Overlay.app */;
+			productType = "com.apple.product-type.application";
+		};
+		ABD4F2DF2EAEF009002D9CD8 /* Technical OverlayTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = ABD4F2F52EAEF009002D9CD8 /* Build configuration list for PBXNativeTarget "Technical OverlayTests" */;
+			buildPhases = (
+				ABD4F2DC2EAEF009002D9CD8 /* Sources */,
+				ABD4F2DD2EAEF009002D9CD8 /* Frameworks */,
+				ABD4F2DE2EAEF009002D9CD8 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				ABD4F2E22EAEF009002D9CD8 /* PBXTargetDependency */,
+			);
+			name = "Technical OverlayTests";
+			packageProductDependencies = (
+			);
+			productName = "Technical OverlayTests";
+			productReference = ABD4F2E02EAEF009002D9CD8 /* Technical OverlayTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+		ABD4F2E92EAEF009002D9CD8 /* Technical OverlayUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = ABD4F2F82EAEF009002D9CD8 /* Build configuration list for PBXNativeTarget "Technical OverlayUITests" */;
+			buildPhases = (
+				ABD4F2E62EAEF009002D9CD8 /* Sources */,
+				ABD4F2E72EAEF009002D9CD8 /* Frameworks */,
+				ABD4F2E82EAEF009002D9CD8 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				ABD4F2EC2EAEF009002D9CD8 /* PBXTargetDependency */,
+			);
+			name = "Technical OverlayUITests";
+			packageProductDependencies = (
+			);
+			productName = "Technical OverlayUITests";
+			productReference = ABD4F2EA2EAEF009002D9CD8 /* Technical OverlayUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -221,6 +363,17 @@
 						CreatedOnToolsVersion = 26.0;
 						TestTargetID = ABBCB63F2E80534C00C9B65E;
 					};
+					ABD4F2D32EAEF008002D9CD8 = {
+						CreatedOnToolsVersion = 26.0;
+					};
+					ABD4F2DF2EAEF009002D9CD8 = {
+						CreatedOnToolsVersion = 26.0;
+						TestTargetID = ABD4F2D32EAEF008002D9CD8;
+					};
+					ABD4F2E92EAEF009002D9CD8 = {
+						CreatedOnToolsVersion = 26.0;
+						TestTargetID = ABD4F2D32EAEF008002D9CD8;
+					};
 				};
 			};
 			buildConfigurationList = ABBCB63B2E80534C00C9B65E /* Build configuration list for PBXProject "TechnicalOverlay" */;
@@ -237,9 +390,12 @@
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
-				ABBCB63F2E80534C00C9B65E /* TechnicalOverlay */,
+				ABBCB63F2E80534C00C9B65E /* TechnicalOverlayMac */,
 				ABBCB64C2E80534C00C9B65E /* TechnicalOverlayTests */,
 				ABBCB6562E80534C00C9B65E /* TechnicalOverlayUITests */,
+				ABD4F2D32EAEF008002D9CD8 /* Technical Overlay */,
+				ABD4F2DF2EAEF009002D9CD8 /* Technical OverlayTests */,
+				ABD4F2E92EAEF009002D9CD8 /* Technical OverlayUITests */,
 			);
 		};
 /* End PBXProject section */
@@ -260,6 +416,27 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		ABBCB6552E80534C00C9B65E /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		ABD4F2D22EAEF008002D9CD8 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		ABD4F2DE2EAEF009002D9CD8 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		ABD4F2E82EAEF009002D9CD8 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -290,18 +467,49 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		ABD4F2D02EAEF008002D9CD8 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		ABD4F2DC2EAEF009002D9CD8 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		ABD4F2E62EAEF009002D9CD8 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
 		ABBCB64F2E80534C00C9B65E /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
-			target = ABBCB63F2E80534C00C9B65E /* TechnicalOverlay */;
+			target = ABBCB63F2E80534C00C9B65E /* TechnicalOverlayMac */;
 			targetProxy = ABBCB64E2E80534C00C9B65E /* PBXContainerItemProxy */;
 		};
 		ABBCB6592E80534C00C9B65E /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
-			target = ABBCB63F2E80534C00C9B65E /* TechnicalOverlay */;
+			target = ABBCB63F2E80534C00C9B65E /* TechnicalOverlayMac */;
 			targetProxy = ABBCB6582E80534C00C9B65E /* PBXContainerItemProxy */;
+		};
+		ABD4F2E22EAEF009002D9CD8 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = ABD4F2D32EAEF008002D9CD8 /* Technical Overlay */;
+			targetProxy = ABD4F2E12EAEF009002D9CD8 /* PBXContainerItemProxy */;
+		};
+		ABD4F2EC2EAEF009002D9CD8 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = ABD4F2D32EAEF008002D9CD8 /* Technical Overlay */;
+			targetProxy = ABD4F2EB2EAEF009002D9CD8 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -363,6 +571,7 @@
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = iphoneos;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 			};
@@ -418,6 +627,7 @@
 				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
+				SDKROOT = iphoneos;
 				SWIFT_COMPILATION_MODE = wholemodule;
 			};
 			name = Release;
@@ -473,7 +683,7 @@
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator xros xrsimulator";
 				SUPPORTS_MACCATALYST = NO;
-				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = YES;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
 				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -535,7 +745,7 @@
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator xros xrsimulator";
 				SUPPORTS_MACCATALYST = NO;
-				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = YES;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
 				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -648,6 +858,163 @@
 			};
 			name = Release;
 		};
+		ABD4F2F32EAEF009002D9CD8 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 9MY93JMP2W;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.sports";
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "org.cjas.technical-overlay";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		ABD4F2F42EAEF009002D9CD8 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 9MY93JMP2W;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.sports";
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "org.cjas.technical-overlay";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+		ABD4F2F62EAEF009002D9CD8 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 9MY93JMP2W;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "org.cjas.Technical-OverlayTests";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Technical Overlay.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Technical Overlay";
+			};
+			name = Debug;
+		};
+		ABD4F2F72EAEF009002D9CD8 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 9MY93JMP2W;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "org.cjas.Technical-OverlayTests";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Technical Overlay.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Technical Overlay";
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+		ABD4F2F92EAEF009002D9CD8 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 9MY93JMP2W;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "org.cjas.Technical-OverlayUITests";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = "Technical Overlay";
+			};
+			name = Debug;
+		};
+		ABD4F2FA2EAEF009002D9CD8 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 9MY93JMP2W;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "org.cjas.Technical-OverlayUITests";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = "Technical Overlay";
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -660,7 +1027,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		ABBCB6612E80534C00C9B65E /* Build configuration list for PBXNativeTarget "TechnicalOverlay" */ = {
+		ABBCB6612E80534C00C9B65E /* Build configuration list for PBXNativeTarget "TechnicalOverlayMac" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				ABBCB6622E80534C00C9B65E /* Debug */,
@@ -683,6 +1050,33 @@
 			buildConfigurations = (
 				ABBCB6682E80534C00C9B65E /* Debug */,
 				ABBCB6692E80534C00C9B65E /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		ABD4F2F22EAEF009002D9CD8 /* Build configuration list for PBXNativeTarget "Technical Overlay" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				ABD4F2F32EAEF009002D9CD8 /* Debug */,
+				ABD4F2F42EAEF009002D9CD8 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		ABD4F2F52EAEF009002D9CD8 /* Build configuration list for PBXNativeTarget "Technical OverlayTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				ABD4F2F62EAEF009002D9CD8 /* Debug */,
+				ABD4F2F72EAEF009002D9CD8 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		ABD4F2F82EAEF009002D9CD8 /* Build configuration list for PBXNativeTarget "Technical OverlayUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				ABD4F2F92EAEF009002D9CD8 /* Debug */,
+				ABD4F2FA2EAEF009002D9CD8 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
