@@ -45,14 +45,14 @@ struct ScoringListView: View {
                 }
             }
             Divider()
-            Button("Import Scores") {
-                
-            }
+//            Button("Import Scores") {
+//                
+//            }
             Grid {
                 GridRow {
                     Text("#")
                     Text("Element")
-                    Text("Base Value")
+                    Text("Base\nValue")
                     Text("GOE")
                     Text("Bonus")
                 }
@@ -123,7 +123,7 @@ struct ElementRowView: View {
                 selection: $selection[.baseValue]
             )
                 .focused($focusedField, equals: .baseValue)
-                .frame(width: 100)
+                .frame(width: 50)
                 .multilineTextAlignment(.trailing)
                 .keyboardType(.decimalPad)
             TextField(
@@ -132,7 +132,7 @@ struct ElementRowView: View {
                 selection: $selection[.goeValue]
             )
                 .focused($focusedField, equals: .goeValue)
-                .frame(width: 75)
+                .frame(width: 50)
                 .multilineTextAlignment(.trailing)
                 .keyboardType(.numbersAndPunctuation)
             TextField(
@@ -141,7 +141,7 @@ struct ElementRowView: View {
                 selection: $selection[.bonusValue]
             )
                 .focused($focusedField, equals: .bonusValue)
-                .frame(width: 75)
+                .frame(width: 50)
                 .multilineTextAlignment(.trailing)
                 .keyboardType(.decimalPad)
         }
