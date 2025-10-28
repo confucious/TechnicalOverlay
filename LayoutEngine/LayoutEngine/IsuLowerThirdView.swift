@@ -8,17 +8,23 @@
 
 import UIKit
 
-public struct LowerThirdViewModel {
+public struct LowerThirdViewModel: Hashable {
     public init(
         skaterName: String,
-        secondaryText: (center: String, left: String, right: String)
+        leftText: String,
+        centerText: String,
+        rightText: String
     ) {
         self.skaterName = skaterName
-        self.secondaryText = secondaryText
+        self.leftText = leftText
+        self.centerText = centerText
+        self.rightText = rightText
     }
     
     public let skaterName: String
-    public let secondaryText: (center: String, left: String, right: String)
+    public let leftText: String
+    public let centerText: String
+    public let rightText: String
 }
 
 public class IsuLowerThirdView: UIView {
@@ -61,7 +67,11 @@ public class IsuLowerThirdView: UIView {
     
     public func update(from viewModel: LowerThirdViewModel) {
         skaterName = viewModel.skaterName
-        secondaryText = viewModel.secondaryText
+        secondaryText = (
+            viewModel.centerText,
+            viewModel.leftText,
+            viewModel.rightText
+        )
     }
     
     public override func layoutSubviews() {

@@ -7,7 +7,7 @@
 
 import UIKit
 
-public struct TechnicalViewModel {
+public struct TechnicalViewModel: Hashable {
     public init(skaterName: String, elementName: String, baseValue: String, goeValue: String, totalValue: String, boxModes: [ElementBoxView.Mode]) {
         self.skaterName = skaterName
         self.elementName = elementName

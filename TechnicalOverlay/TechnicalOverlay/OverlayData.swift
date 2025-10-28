@@ -5,6 +5,7 @@
 //  Created by Jerry Hsu on 10/24/25.
 //
 
+import CoreImage
 import CoreMedia
 import Foundation
 import LayoutEngine
@@ -116,13 +117,28 @@ class OverlayData: Codable {
     }
 
     // MARK: - Generation
+    private struct CacheKey: Hashable {
+        let size: CGSize
+        let mode: VideoOverlay.Mode
+    }
+    private var imageCache: [CacheKey:CIImage] = [:]
+
+    func clearCache() {
+        imageCache = [:]
+    }
+    
     func makeSlides(size: CGSize) -> [Slide] {
         var slides: [Slide] = []
         for introduction in introductionTexts {
             let mode = introduction.makeMode(skaterName: skaterFullName)
             if let displayTime = introduction.displayTime {
-                slides.append(makeSlide(size: size, mode: mode, startTime: displayTime
-                                       ))
+                slides.append(
+                    makeSlide(
+                        size: size,
+                        mode: mode,
+                        startTime: displayTime
+                    )
+                )
             }
         }
         // Fade out last intro slide
@@ -136,7 +152,7 @@ class OverlayData: Codable {
         for (index, element) in elementScores.enumerated() {
             cumulativeBoxModes[index] = if element.baseValue == 0 {
                 .neutral
-            } else if element.goeValue > 0 {
+            } else if element.goeValue >= 0 {
                 .positive
             } else {
                 .negative
@@ -168,8 +184,15 @@ class OverlayData: Codable {
     }
 
     func makeSlide(size: CGSize, mode: VideoOverlay.Mode, startTime: TimeInterval) -> Slide {
+        let image: CIImage
+        if let cachedImage = imageCache[CacheKey(size: size, mode: mode)] {
+            image = cachedImage
+        } else {
+            image = VideoOverlay(mode: mode).render(size: size)
+            imageCache[CacheKey(size: size, mode: mode)] = image
+        }
         return Slide(
-            image: VideoOverlay(mode: mode).render(size: size),
+            image: image,
             startTime: CMTime(seconds: startTime, preferredTimescale: 1000)
         )
     }
@@ -199,11 +222,10 @@ class IntroductionData: Codable {
     func makeMode(skaterName: String) -> VideoOverlay.Mode {
         return .lowerThirdPane(LowerThirdViewModel(
             skaterName: skaterName,
-            secondaryText: (
-                center: center,
-                left: left,
-                right: right
-            )))
+            leftText: left,
+            centerText: center,
+            rightText: right
+        ))
     }
 }
 

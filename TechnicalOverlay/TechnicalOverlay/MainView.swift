@@ -32,6 +32,8 @@ struct MainView: View {
                 if let assetUrl {
                     assetUrl.stopAccessingSecurityScopedResource()
                 }
+                print("Invalidating cachedSize")
+                cachedSize = nil
             }
             didSet {
                 guard let assetUrl else {
@@ -45,8 +47,14 @@ struct MainView: View {
             }
         }
         var scoring: OverlayData
+
+        @ObservationIgnored
         var videoComposer: VideoComposer?
         
+        @ObservationIgnored
+        var cachedSize: CGSize?
+        
+        @ObservationIgnored
         var outputFilename: String {
             if let assetUrl {
                 let baseName = assetUrl.deletingPathExtension().lastPathComponent
@@ -59,6 +67,30 @@ struct MainView: View {
         deinit {
             assetUrl = nil
         }
+        
+        func getSize(of asset: AVAsset) async -> CGSize? {
+            if let cachedSize {
+                print("Returned cached size \(cachedSize)")
+                return cachedSize
+            }
+            guard let tracks = try? await asset.load(.tracks),
+                  let videoTrack = tracks.first(where: { $0.mediaType == .video })
+            else {
+                print("Couldn't find video track")
+                return nil
+            }
+            guard let naturalSize = try? await videoTrack.load(.naturalSize),
+                  let transform = try? await videoTrack.load(.preferredTransform)
+            else {
+                print("Couldn't load size or transform for video track")
+                return nil
+            }
+            
+            let size = naturalSize.applying(transform)
+            cachedSize = size
+            print("Caching size \(size)")
+            return size
+        }
 
         func generateSlides() {
             Task {
@@ -66,20 +98,11 @@ struct MainView: View {
                     return
                 }
                 let asset = AVURLAsset(url: url)
-                guard let tracks = try? await asset.load(.tracks),
-                      let videoTrack = tracks.first(where: { $0.mediaType == .video })
+                guard let size = await getSize(of: asset)
                 else {
-                    print("Couldn't find video track")
+                    print("Couldn't determine video size")
                     return
                 }
-                guard let naturalSize = try? await videoTrack.load(.naturalSize),
-                      let transform = try? await videoTrack.load(.preferredTransform)
-                else {
-                    print("Couldn't load size or transform for video track")
-                    return
-                }
-                
-                let size = naturalSize.applying(transform)
                 
                 let videoComposer = VideoComposer(asset: asset, slides: scoring.makeSlides(size: size))
                 self.videoComposer = videoComposer
@@ -166,6 +189,9 @@ struct MainView: View {
                     }
                 }
                 NavigationLink("Edit Slides", value: Destination.editSlides)
+            }
+            .onAppear {
+                state.generateSlides()
             }
             .navigationDestination(for: Destination.self) { destination in
                 switch destination {

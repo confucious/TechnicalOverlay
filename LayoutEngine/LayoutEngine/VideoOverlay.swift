@@ -8,7 +8,7 @@
 import UIKit
 
 public class VideoOverlay: UIView {
-    public enum Mode {
+    public enum Mode: Hashable {
         case none
         case technicalPane(TechnicalViewModel)
         case lowerThirdPane(LowerThirdViewModel)

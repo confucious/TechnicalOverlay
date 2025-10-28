@@ -79,6 +79,7 @@ struct ScoringListView: View {
         }
         .onDisappear {
             state.save()
+            state.clearCache()
         }
     }
 }
