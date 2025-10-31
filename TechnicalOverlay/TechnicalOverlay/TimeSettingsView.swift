@@ -16,7 +16,11 @@ struct TimeSettingsView: View {
         Grid {
             ForEach(state.introductionTexts.enumerated(), id: \.0) { (index, row) in
                 GridRow(alignment: .top) {
-                    Text(row.center)
+                    Text(row.displayValue
+                    
+                    
+                    
+                    )
                         .gridColumnAlignment(.leading)
                     VStack {
                         Text(formatDisplayTime(row.displayTime))
@@ -32,6 +36,7 @@ struct TimeSettingsView: View {
             ForEach(state.elementScores.enumerated(), id: \.0) { (index, row) in
                 GridRow(alignment: .top) {
                     Text("\(index + 1): \(row.name)")
+                        .gridColumnAlignment(.leading)
                     VStack {
                         Text(formatDisplayTime(row.displayTime))
                         Button("Start Now") {

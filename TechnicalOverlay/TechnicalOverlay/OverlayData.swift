@@ -211,6 +211,13 @@ class IntroductionData: Codable {
     var center: String
     var right: String
     var displayTime: TimeInterval?
+    
+    var displayValue: String {
+        [left, center, right]
+            .filter { !$0.isEmpty }
+            .joined(separator: " | ")
+            
+    }
 
     internal init(left: String, center: String, right: String, displayTime: TimeInterval? = nil) {
         self.left = left
