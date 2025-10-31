@@ -87,9 +87,11 @@ struct MainView: View {
             }
             
             let size = naturalSize.applying(transform)
-            cachedSize = size
-            print("Caching size \(size)")
-            return size
+            // transform could cause width or height to be negative.
+            let fixedSize = CGSize(width: abs(size.width), height: abs(size.height))
+            cachedSize = fixedSize
+            print("Caching size \(fixedSize)")
+            return fixedSize
         }
 
         func generateSlides() {
