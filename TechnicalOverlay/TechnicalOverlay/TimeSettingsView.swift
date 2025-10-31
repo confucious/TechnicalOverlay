@@ -15,30 +15,33 @@ struct TimeSettingsView: View {
     var body: some View {
         Grid {
             ForEach(state.introductionTexts.enumerated(), id: \.0) { (index, row) in
-                GridRow {
+                GridRow(alignment: .top) {
                     Text(row.center)
+                        .gridColumnAlignment(.leading)
                     VStack {
+                        Text(formatDisplayTime(row.displayTime))
                         Button("Start Now") {
                             state.setIntroTime(index: index, time: getTime())
                             timeUpdated()
                             state.save()
-                        }
-                        Text(formatDisplayTime(row.displayTime))
+                        }.buttonStyle(.bordered)
                     }
                 }
+                Divider()
             }
             ForEach(state.elementScores.enumerated(), id: \.0) { (index, row) in
-                GridRow {
-                    Text("Element \(index + 1): \(row.name)")
+                GridRow(alignment: .top) {
+                    Text("\(index + 1): \(row.name)")
                     VStack {
+                        Text(formatDisplayTime(row.displayTime))
                         Button("Start Now") {
                             state.setElementTime(index: index, time: getTime())
                             timeUpdated()
                             state.save()
-                        }
-                        Text(formatDisplayTime(row.displayTime))
+                        }.buttonStyle(.bordered)
                     }
                 }
+                Divider()
             }
         }
     }

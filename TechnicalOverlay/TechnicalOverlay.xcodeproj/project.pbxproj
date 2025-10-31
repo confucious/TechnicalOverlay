@@ -94,6 +94,7 @@
 			membershipExceptions = (
 				Assets.xcassets,
 				ContentView.swift,
+				ElementBuilderView.swift,
 				MainView.swift,
 				OverlayData.swift,
 				ScoringListView.swift,

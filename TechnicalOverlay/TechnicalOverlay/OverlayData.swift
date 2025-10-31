@@ -261,7 +261,7 @@ class ElementData: Codable {
     var bonusValue: Int
     var bonusValueString: String {
         get {
-            bonusValue > 0 ? formatValue(bonusValue) : ""
+            bonusValue > 0 ? formatValue(bonusValue, decimalPlaces: 1) : ""
         }
         set {
             bonusValue = Int((Double(newValue) ?? 0.0) * 100)
@@ -290,14 +290,14 @@ class ElementData: Codable {
         ))
     }
 
-    func formatValue(_ value: Int) -> String {
+    func formatValue(_ value: Int, decimalPlaces: Int = 2) -> String {
         let negative = value < 0
         let whole = abs(value) / 100
         let fractional = abs(value) % 100
         if negative {
-            return String(format: "-%d.%02d", whole, fractional)
+            return String(format: "-%d.%0\(decimalPlaces)d", whole, fractional)
         } else {
-            return String(format: "%d.%02d", whole, fractional)
+            return String(format: "%d.%0\(decimalPlaces)d", whole, fractional)
         }
     }
 }

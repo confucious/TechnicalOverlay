@@ -25,7 +25,11 @@ struct MainView: View {
             scoring.load()
 //            self.scoring = overlayData
         }
-        
+
+        var saveVideoDisabled: Bool {
+            player == nil
+        }
+
         var player: AVPlayer?
         var assetUrl: URL? {
             willSet {
@@ -144,6 +148,7 @@ struct MainView: View {
                     Button("Load Video") {
                         fileSelectShowing.toggle()
                     }
+                    .buttonStyle(.bordered)
                     .fileImporter(
                         isPresented: $fileSelectShowing,
                         allowedContentTypes: [.movie]) { result in
@@ -167,6 +172,8 @@ struct MainView: View {
                             saveFileShowing = true
                         }
                     }
+                    .buttonStyle(.bordered)
+                    .disabled(state.saveVideoDisabled)
                     .fileExporter(
                         isPresented: $saveFileShowing,
                         document: MovieDocument(tempUrl: self.shareUrl),
@@ -187,10 +194,18 @@ struct MainView: View {
                             timeUpdated: {
                                 state.generateSlides()
                             }
+                        ).padding(
+                            .init(
+                                top: 0.0,
+                                leading: 10.0,
+                                bottom: 0.0,
+                                trailing: 10.0
+                            )
                         )
                     }
                 }
                 NavigationLink("Edit Slides", value: Destination.editSlides)
+                    .buttonStyle(.bordered)
             }
             .onAppear {
                 state.generateSlides()
