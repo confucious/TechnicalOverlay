@@ -139,6 +139,19 @@ struct MainView: View {
     @State private var saveFileShowing = false
     @State private var loadOverlayDataShowing = false
     @State private var saveOverlayDataShowing = false
+    @State private var exportProgress: Progress? = nil
+    private var showProgressModal: Binding<Bool> {
+        Binding(
+            get: {
+                exportProgress != nil
+            },
+            set: {
+                if !$0 {
+                    exportProgress = nil
+                }
+            }
+        )
+    }
 
     var body: some View {
         NavigationStack {
@@ -169,9 +182,29 @@ struct MainView: View {
                             }
                             let filename = UUID().uuidString + ".mov"
                             let tempFileURL = FileManager.default.temporaryDirectory.appendingPathComponent(filename)
-                            await videoComposer.export(atURL: tempFileURL)
+                            guard let exportSession = await videoComposer.setupExport(
+                                atURL: tempFileURL
+                            ) else {
+                                print("Failed to setup export session")
+                                return
+                            }
+                            Task {
+                                for await state in exportSession.exportState {
+                                    switch state {
+                                    case .pending: print("pending export")
+                                    case .waiting: print("waiting export")
+                                    case let .exporting(progress: progress):
+                                        print("exporting \(progress)")
+                                        exportProgress = progress
+                                    @unknown default:
+                                        print("unknown state")
+                                    }
+                                }
+                            }
+                            await exportSession.performExport()
                             shareUrl = tempFileURL
                             saveFileShowing = true
+                            exportProgress = nil
                         }
                     }
                     .buttonStyle(.bordered)
@@ -242,14 +275,26 @@ struct MainView: View {
                         .buttonStyle(.bordered)
                 }
             }
-            .onAppear {
-                state.generateSlides()
-            }
-            .navigationDestination(for: Destination.self) { destination in
-                switch destination {
-                case .editSlides:
-                    ScoringListView(state: state.scoring)
+        }
+        .sheet(isPresented: showProgressModal, content: {
+            VStack {
+                if let exportProgress {
+                    ProgressView(exportProgress).padding(20.0)
+                } else {
+                    Text("Export error")
+                    Button("Close") {
+                        exportProgress = nil
+                    }
                 }
+            }.interactiveDismissDisabled()
+        })
+        .onAppear {
+            state.generateSlides()
+        }
+        .navigationDestination(for: Destination.self) { destination in
+            switch destination {
+            case .editSlides:
+                ScoringListView(state: state.scoring)
             }
         }
     }

@@ -75,34 +75,63 @@ public class VideoComposer {
             }
     }
     
-    public func export(
+    public func setupExport(
         withPreset preset: String = AVAssetExportPresetHighestQuality,
         toFileType outputFileType: AVFileType = .mov,
         atURL outputURL: URL
-    ) async {
+    ) async -> ExportSession? {
             
         // Check the compatibility of the preset to export the video to the output file type.
         guard await AVAssetExportSession.compatibility(ofExportPreset: preset,
                                                        with: asset,
                                                        outputFileType: outputFileType) else {
             print("The preset can't export the video to the output file type.")
-            return
+            return nil
         }
         
         // Create and configure the export session.
         guard let exportSession = AVAssetExportSession(asset: asset,
                                                        presetName: preset) else {
             print("Failed to create export session.")
-            return
+            return nil
         }
         
         // Convert the video to the output file type and export it to the output URL.
         do {
             exportSession.videoComposition = try await setupComposition()
-            try await exportSession.export(to: outputURL, as: outputFileType)
+            return ExportSession(
+                exportSession: exportSession,
+                outputUrl: outputURL,
+                outputFileType: outputFileType
+            )
         } catch {
             print("export failed \(error)")
+            return nil
         }
     }
-
+    public struct ExportSession {
+        let exportSession: AVAssetExportSession
+        let outputUrl: URL
+        let outputFileType: AVFileType
+        public let exportState: any AsyncSequence<AVAssetExportSession.State, Never>
+        
+        init(
+            exportSession: AVAssetExportSession,
+            outputUrl: URL,
+            outputFileType: AVFileType,
+        ) {
+            self.exportSession = exportSession
+            self.outputUrl = outputUrl
+            self.outputFileType = outputFileType
+            self.exportState = exportSession.states(updateInterval: 0.1)
+        }
+        
+        public func performExport() async {
+            do {
+                try await exportSession.export(to: outputUrl, as: outputFileType)
+            } catch {
+                print("export failed \(error)")
+            }
+        }
+    }
 }
