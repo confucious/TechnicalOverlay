@@ -137,6 +137,8 @@ struct MainView: View {
     @State private var fileSelectShowing = false
     @State private var shareUrl: URL? = nil
     @State private var saveFileShowing = false
+    @State private var loadOverlayDataShowing = false
+    @State private var saveOverlayDataShowing = false
 
     var body: some View {
         NavigationStack {
@@ -204,8 +206,41 @@ struct MainView: View {
                         )
                     }
                 }
-                NavigationLink("Edit Slides", value: Destination.editSlides)
+                HStack {
+                    Button("Load Slides") {
+                        loadOverlayDataShowing.toggle()
+                    }
                     .buttonStyle(.bordered)
+                    .fileImporter(
+                        isPresented: $loadOverlayDataShowing,
+                        allowedContentTypes: [OverlayDataDocument.fileType]) { result in
+                            switch result {
+                            case let .success(url):
+                                do {
+                                    let newData = try OverlayDataDocument.read(url: url)
+                                    state.scoring.update(from: newData)
+                                    state.scoring.save()
+                                } catch {
+                                    print("data load error: \(error)")
+                                }
+                            case let .failure(error):
+                                print("data load error: \(error)")
+                            }
+                        }
+                    Button("Save Slides") {
+                        saveOverlayDataShowing.toggle()
+                    }
+                    .buttonStyle(.bordered)
+                    .fileExporter(
+                        isPresented: $saveOverlayDataShowing,
+                        document: OverlayDataDocument(overlayDataForSave: state.scoring),
+                        contentType: OverlayDataDocument.fileType,
+                        defaultFilename: state.scoring.skaterFullName) { result in
+                            print("overlay data save: \(result)")
+                        }
+                    NavigationLink("Edit Slides", value: Destination.editSlides)
+                        .buttonStyle(.bordered)
+                }
             }
             .onAppear {
                 state.generateSlides()
@@ -246,7 +281,6 @@ struct MovieDocument: FileDocument {
         return FileWrapper(regularFileWithContents: data)
     }
 }
-
 
 #Preview {
     MainView()

@@ -37,6 +37,13 @@ class OverlayData: Codable {
         self.introductionTexts = introductionTexts
         self.elementScores = elementScores
     }
+    
+    func update(from data: OverlayData) {
+        skaterFullName = data.skaterFullName
+        skaterAbbreviatedName = data.skaterAbbreviatedName
+        introductionTexts = data.introductionTexts
+        elementScores = data.elementScores
+    }
 
     // MARK: - Load / Save
     func save() {

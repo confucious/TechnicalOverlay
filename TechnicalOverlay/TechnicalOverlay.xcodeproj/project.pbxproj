@@ -77,6 +77,7 @@
 
 /* Begin PBXFileReference section */
 		AB666FD42E9D791400C1994D /* VideoProcessor.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; path = VideoProcessor.framework; sourceTree = BUILT_PRODUCTS_DIR; };
+		AB824A7D2EB7BE12004A56E8 /* Technical-Overlay-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = "Technical-Overlay-Info.plist"; sourceTree = "<group>"; };
 		ABBCB6402E80534C00C9B65E /* TechnicalOverlayMac.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = TechnicalOverlayMac.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		ABBCB64D2E80534C00C9B65E /* TechnicalOverlayTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = TechnicalOverlayTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		ABBCB6572E80534C00C9B65E /* TechnicalOverlayUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = TechnicalOverlayUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -97,6 +98,7 @@
 				ElementBuilderView.swift,
 				MainView.swift,
 				OverlayData.swift,
+				OverlayDataDocument.swift,
 				ScoringListView.swift,
 				TechnicalOverlayApp.swift,
 				TimeSettingsView.swift,
@@ -179,6 +181,7 @@
 		ABBCB6372E80534C00C9B65E = {
 			isa = PBXGroup;
 			children = (
+				AB824A7D2EB7BE12004A56E8 /* Technical-Overlay-Info.plist */,
 				ABBCB6422E80534C00C9B65E /* TechnicalOverlay */,
 				ABBCB6502E80534C00C9B65E /* TechnicalOverlayTests */,
 				ABBCB65A2E80534C00C9B65E /* TechnicalOverlayUITests */,
@@ -869,6 +872,7 @@
 				DEVELOPMENT_TEAM = 9MY93JMP2W;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "Technical-Overlay-Info.plist";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.sports";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
@@ -903,6 +907,7 @@
 				DEVELOPMENT_TEAM = 9MY93JMP2W;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "Technical-Overlay-Info.plist";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.sports";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;

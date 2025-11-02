@@ -17,9 +17,6 @@ struct TimeSettingsView: View {
             ForEach(state.introductionTexts.enumerated(), id: \.0) { (index, row) in
                 GridRow(alignment: .top) {
                     Text(row.displayValue
-                    
-                    
-                    
                     )
                         .gridColumnAlignment(.leading)
                     VStack {
