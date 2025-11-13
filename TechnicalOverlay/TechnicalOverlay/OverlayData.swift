@@ -260,7 +260,7 @@ class ElementData: Codable {
             formatValue(baseValue)
         }
         set {
-            baseValue = Int((Double(newValue) ?? 0.0) * 100)
+            baseValue = newValue.toHundredthsInt()
         }
     }
     var goeValue: Int
@@ -269,7 +269,7 @@ class ElementData: Codable {
             formatValue(goeValue)
         }
         set {
-            goeValue = Int((Double(newValue) ?? 0.0) * 100)
+            goeValue = newValue.toHundredthsInt()
         }
     }
     var bonusValue: Int
@@ -278,7 +278,7 @@ class ElementData: Codable {
             bonusValue > 0 ? formatValue(bonusValue, decimalPlaces: 1) : ""
         }
         set {
-            bonusValue = Int((Double(newValue) ?? 0.0) * 100)
+            bonusValue = newValue.toHundredthsInt()
         }
     }
     var displayTime: TimeInterval?
@@ -313,5 +313,21 @@ class ElementData: Codable {
         } else {
             return String(format: "%d.%0\(decimalPlaces)d", whole, fractional)
         }
+    }
+}
+
+extension String {
+    func toHundredthsInt() -> Int {
+        if isEmpty {
+            return 0
+        }
+        let components = self.split(
+            separator: ".",
+            maxSplits: 2,
+            omittingEmptySubsequences: false
+        )
+        let whole = Int(components[0]) ?? 0
+        let fractional = components.count > 1 ? Int(components[1]) ?? 0 : 0
+        return whole * 100 + fractional
     }
 }
