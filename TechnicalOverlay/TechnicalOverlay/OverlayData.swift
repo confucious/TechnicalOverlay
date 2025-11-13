@@ -317,17 +317,37 @@ class ElementData: Codable {
 }
 
 extension String {
+    func numberCharacters() -> String {
+        let digits = CharacterSet(charactersIn: "-.0123456789")
+        return String(
+            unicodeScalars.filter { digits.contains($0) }
+        )
+    }
+    func onlyDigits() -> String {
+        let digits = CharacterSet(charactersIn: "0123456789")
+        return String(
+            unicodeScalars.filter { digits.contains($0) }
+        )
+    }
     func toHundredthsInt() -> Int {
-        if isEmpty {
+        let trimmed = numberCharacters()
+        if trimmed.isEmpty {
             return 0
         }
-        let components = self.split(
+        let components = trimmed.split(
             separator: ".",
             maxSplits: 2,
             omittingEmptySubsequences: false
         )
+        let isNegative = components[0].first == "-"
         let whole = Int(components[0]) ?? 0
-        let fractional = components.count > 1 ? Int(components[1]) ?? 0 : 0
-        return whole * 100 + fractional
+        let fractionalString = components.count > 1 ? String(components[1]).onlyDigits() + "00" : "00"
+        let index = fractionalString.index(
+            fractionalString.startIndex,
+            offsetBy: 2
+        )
+        let fractionalValue = Int(fractionalString[..<index]) ?? 0
+        
+        return (abs(whole) * 100 + fractionalValue) * (isNegative ? -1 : 1)
     }
 }
