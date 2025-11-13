@@ -217,6 +217,19 @@ struct MainView: View {
                     ) { result in
                         print("Save: \(result)")
                     }
+                    .sheet(isPresented: showProgressModal, content: {
+                        VStack {
+                            if let exportProgress {
+                                ProgressView(exportProgress).padding(20.0)
+                            } else {
+                                Text("Export error")
+                                Button("Close") {
+                                    exportProgress = nil
+                                }
+                            }
+                        }.interactiveDismissDisabled()
+                    })
+
                 }
                 if !state.scoring.isEmpty,
                    let player = state.player {
@@ -273,29 +286,17 @@ struct MainView: View {
                         }
                     NavigationLink("Edit Slides", value: Destination.editSlides)
                         .buttonStyle(.bordered)
+                        .navigationDestination(for: Destination.self) { destination in
+                            switch destination {
+                            case .editSlides:
+                                ScoringListView(state: state.scoring)
+                            }
+                        }
                 }
             }
         }
-        .sheet(isPresented: showProgressModal, content: {
-            VStack {
-                if let exportProgress {
-                    ProgressView(exportProgress).padding(20.0)
-                } else {
-                    Text("Export error")
-                    Button("Close") {
-                        exportProgress = nil
-                    }
-                }
-            }.interactiveDismissDisabled()
-        })
         .onAppear {
             state.generateSlides()
-        }
-        .navigationDestination(for: Destination.self) { destination in
-            switch destination {
-            case .editSlides:
-                ScoringListView(state: state.scoring)
-            }
         }
     }
 }
