@@ -93,6 +93,7 @@
 		AB29E57D2EC629F3006E158B /* Exceptions for "TechnicalOverlayTests" folder in "TechnicalOverlayTests" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
+				ChunkSegmentTests.swift,
 				TechnicalOverlayTests.swift,
 			);
 			target = ABBCB64C2E80534C00C9B65E /* TechnicalOverlayTests */;
@@ -100,9 +101,18 @@
 		AB29E57E2EC629F3006E158B /* Exceptions for "TechnicalOverlayTests" folder in "Technical OverlayTests" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
+				ChunkSegmentTests.swift,
 				TechnicalOverlayTests.swift,
 			);
 			target = ABD4F2DF2EAEF009002D9CD8 /* Technical OverlayTests */;
+		};
+		AB3732392FEB7DED007D5ACB /* Exceptions for "TechnicalOverlayUITests" folder in "TechnicalOverlayUITests" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				TechnicalOverlayUITests.swift,
+				TechnicalOverlayUITestsLaunchTests.swift,
+			);
+			target = ABBCB6562E80534C00C9B65E /* TechnicalOverlayUITests */;
 		};
 		ABD4F2FC2EAEF0D4002D9CD8 /* Exceptions for "TechnicalOverlay" folder in "Technical Overlay" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
@@ -141,6 +151,9 @@
 		};
 		ABBCB65A2E80534C00C9B65E /* TechnicalOverlayUITests */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				AB3732392FEB7DED007D5ACB /* Exceptions for "TechnicalOverlayUITests" folder in "TechnicalOverlayUITests" target */,
+			);
 			path = TechnicalOverlayUITests;
 			sourceTree = "<group>";
 		};

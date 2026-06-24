@@ -123,6 +123,29 @@ class OverlayData: Codable {
         }
     }
 
+    // MARK: - Rendering Hash
+
+    /// Deterministic hash of all rendering-affecting fields.
+    var renderingHash: String {
+        var hasher = Hasher()
+        skaterFullName.hash(into: &hasher)
+        skaterAbbreviatedName.hash(into: &hasher)
+        for intro in introductionTexts {
+            intro.left.hash(into: &hasher)
+            intro.center.hash(into: &hasher)
+            intro.right.hash(into: &hasher)
+            intro.displayTime?.hash(into: &hasher)
+        }
+        for elem in elementScores {
+            elem.name.hash(into: &hasher)
+            elem.baseValue.hash(into: &hasher)
+            elem.goeValue.hash(into: &hasher)
+            elem.bonusValue.hash(into: &hasher)
+            elem.displayTime?.hash(into: &hasher)
+        }
+        return String(hasher.finalize())
+    }
+
     // MARK: - Generation
     private struct CacheKey: Hashable {
         let size: CGSize
