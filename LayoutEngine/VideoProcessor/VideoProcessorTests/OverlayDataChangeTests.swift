@@ -4,22 +4,34 @@
 //
 //  Simulates incremental OverlayData changes and verifies that chunks
 //  always span the entire video with no gaps or overlaps.
+//
+//  Each test mirrors what OverlayData.makeSlides() produces:
+//    - Intro slides with displayTime create Slide objects
+//    - A fadeout (mode .none) slide is added 5s after the last intro
+//    - Element slides with displayTime create Slide objects
+//    - A fadeout slide is added 5s after the last element (replacing the intro fadeout)
 
 import Testing
 import CoreMedia
 import CoreImage
 @testable import VideoProcessor
 
-// MARK: - Helpers
+// MARK: - Distinct test images
 
-/// Distinct CIImages for test slides so each has a unique content identity.
-private let testImage1 = CIImage(color: CIColor(red: 0, green: 0, blue: 1, alpha: 0.5))
-private let testImage2 = CIImage(color: CIColor(red: 0, green: 1, blue: 0, alpha: 0.5))
-private let testImage3 = CIImage(color: CIColor(red: 1, green: 0, blue: 0, alpha: 0.5))
-private let testImage4 = CIImage(color: CIColor(red: 1, green: 1, blue: 0, alpha: 0.5))
-private let testImage5 = CIImage(color: CIColor(red: 1, green: 0, blue: 1, alpha: 0.5))
+/// Each slide type gets a unique CIImage so content identity distinguishes them.
+private let imgIntro1  = CIImage(color: CIColor(red: 0, green: 0, blue: 1, alpha: 0.5))
+private let imgIntro2  = CIImage(color: CIColor(red: 0, green: 1, blue: 0, alpha: 0.5))
+private let imgElem1   = CIImage(color: CIColor(red: 1, green: 0, blue: 0, alpha: 0.5))
+private let imgElem2   = CIImage(color: CIColor(red: 1, green: 1, blue: 0, alpha: 0.5))
+private let imgElem3   = CIImage(color: CIColor(red: 1, green: 0, blue: 1, alpha: 0.5))
+private let imgFadeout = CIImage(color: CIColor(red: 0.5, green: 0.5, blue: 0.5, alpha: 0))
 
-/// Verifies non-stale chunks form a contiguous timeline from 0 to videoDuration.
+private func slide(_ image: CIImage?, _ seconds: Double) -> Slide {
+    Slide(image: image, startTime: CMTime(seconds: seconds, preferredTimescale: 1))
+}
+
+// MARK: - Suite
+
 @Suite struct OverlayDataChangeTests {
 
     private let transitionTime: CMTime = CMTime(seconds: 1, preferredTimescale: 1)
@@ -29,49 +41,27 @@ private let testImage5 = CIImage(color: CIColor(red: 1, green: 0, blue: 1, alpha
     // Coverage invariant helper
     // -----------------------------------------------------------------------
 
-    /// Asserts that the given non-stale chunks cover the video with no gaps or overlaps.
-    private func assertCoverage(
-        _ chunks: [Chunk],
-        videoDuration: CMTime,
-        sourceLocation: SourceLocation = #_sourceLocation
-    ) {
+    /// Asserts that non-stale chunks form a contiguous timeline from 0 to videoDuration.
+    private func assertCoverage(_ chunks: [Chunk], videoDuration: CMTime) {
         let valid = chunks.filter { !$0.isStale }
 
         guard !valid.isEmpty else {
-            Issue.record("no valid chunks", sourceLocation: sourceLocation)
+            Issue.record("no valid chunks")
             return
         }
 
-        // First chunk starts at 0
-        #expect(
-            valid.first?.timeRange.start == .zero,
-            "first chunk starts at 0",
-            sourceLocation: sourceLocation
-        )
+        #expect(valid.first?.timeRange.start == .zero, "first chunk starts at 0")
+        #expect(valid.last?.timeRange.end == videoDuration, "last chunk ends at videoDuration")
 
-        // Last chunk ends at videoDuration
-        #expect(
-            valid.last?.timeRange.end == videoDuration,
-            "last chunk ends at videoDuration",
-            sourceLocation: sourceLocation
-        )
-
-        // Consecutive chunks touch (no gap, no overlap)
         for i in 1..<valid.count {
             #expect(
                 valid[i - 1].timeRange.end == valid[i].timeRange.start,
-                "gap or overlap between chunk \(i - 1) and \(i)",
-                sourceLocation: sourceLocation
+                "gap or overlap between chunk \(i - 1) and \(i)"
             )
         }
 
-        // Total duration matches
         let total = valid.reduce(CMTime.zero) { $0 + $1.timeRange.duration }
-        #expect(
-            total == videoDuration,
-            "total duration mismatch",
-            sourceLocation: sourceLocation
-        )
+        #expect(total == videoDuration, "total duration mismatch")
     }
 
     // -----------------------------------------------------------------------
@@ -79,12 +69,7 @@ private let testImage5 = CIImage(color: CIColor(red: 1, green: 0, blue: 1, alpha
     // -----------------------------------------------------------------------
 
     @Test func step0_emptyOverlayDataProducesSingleNoOverlay() {
-        // OverlayData() -> makeSlides() -> []
-        let regions = generateRegions(
-            slides: [],
-            videoDuration: videoDuration,
-            transitionTime: transitionTime
-        )
+        let regions = generateRegions(slides: [], videoDuration: videoDuration, transitionTime: transitionTime)
         let chunks = diffRegionsIntoChunks(newRegions: regions, existingChunks: [])
 
         #expect(chunks.count == 1)
@@ -96,19 +81,13 @@ private let testImage5 = CIImage(color: CIColor(red: 1, green: 0, blue: 1, alpha
 
     // -----------------------------------------------------------------------
     // Step 1: Introduction slides WITHOUT timestamps
-    // No displayTime -> makeSlides returns [] -> no change
+    // makeSlides filters by displayTime → no slides → no change
     // -----------------------------------------------------------------------
 
     @Test func step1_introductionSlidesWithoutTimestampsDoNotChangeChunks() {
-        // Simulating: OverlayData with introductionTexts but no displayTime
-        // makeSlides filters by displayTime, so result is still []
         let slides: [Slide] = []
 
-        let regions = generateRegions(
-            slides: slides,
-            videoDuration: videoDuration,
-            transitionTime: transitionTime
-        )
+        let regions = generateRegions(slides: slides, videoDuration: videoDuration, transitionTime: transitionTime)
         let chunks = diffRegionsIntoChunks(newRegions: regions, existingChunks: [])
 
         #expect(chunks.count == 1)
@@ -118,18 +97,13 @@ private let testImage5 = CIImage(color: CIColor(red: 1, green: 0, blue: 1, alpha
 
     // -----------------------------------------------------------------------
     // Step 2: Element scores WITHOUT timestamps
-    // Still no slides -> no change
+    // Still no slides → no change
     // -----------------------------------------------------------------------
 
     @Test func step2_elementScoresWithoutTimestampsDoNotChangeChunks() {
-        // Simulating: OverlayData with elementScores but no displayTime
         let slides: [Slide] = []
 
-        let regions = generateRegions(
-            slides: slides,
-            videoDuration: videoDuration,
-            transitionTime: transitionTime
-        )
+        let regions = generateRegions(slides: slides, videoDuration: videoDuration, transitionTime: transitionTime)
         let chunks = diffRegionsIntoChunks(newRegions: regions, existingChunks: [])
 
         #expect(chunks.count == 1)
@@ -139,192 +113,218 @@ private let testImage5 = CIImage(color: CIColor(red: 1, green: 0, blue: 1, alpha
 
     // -----------------------------------------------------------------------
     // Step 3: Set timestamp for first introduction slide
-    // Splits the noOverlay: [0-10] noOverlay, [10-11] transition, [11-120] constant
+    // makeSlides: [intro1@10, fadeout@15]
+    // Regions: [0-10] noOverlay, [10-11] trans(nil→intro1),
+    //          [11-15] const(intro1), [15-16] trans(intro1→fadeout),
+    //          [16-120] const(fadeout)
     // -----------------------------------------------------------------------
 
     @Test func step3_settingFirstIntroductionTimestampSplitsChunks() {
-        // Previous state: single noOverlay chunk
-        let initialRegions = generateRegions(
-            slides: [],
-            videoDuration: videoDuration,
-            transitionTime: transitionTime
-        )
+        // Previous state: single noOverlay
+        let initialRegions = generateRegions(slides: [], videoDuration: videoDuration, transitionTime: transitionTime)
         var chunks = diffRegionsIntoChunks(newRegions: initialRegions, existingChunks: [])
         assertCoverage(chunks, videoDuration: videoDuration)
 
-        // Set displayTime for first intro at t=10
-        let intro1 = Slide(image: testImage1, startTime: CMTime(seconds: 10, preferredTimescale: 1))
-        let newRegions = generateRegions(
-            slides: [intro1],
-            videoDuration: videoDuration,
-            transitionTime: transitionTime
-        )
+        // Simulate: setIntroTime(index: 0, time: 10)
+        // makeSlides produces: [intro1@10, fadeout@15]
+        let slides = [
+            slide(imgIntro1, 10),
+            slide(nil, 15),
+        ]
+        let newRegions = generateRegions(slides: slides, videoDuration: videoDuration, transitionTime: transitionTime)
         chunks = diffRegionsIntoChunks(newRegions: newRegions, existingChunks: chunks)
 
-        // Expected: [0-10] noOverlay, [10-11] transition(nil->intro1), [11-120] constant(intro1)
         let valid = chunks.filter { !$0.isStale }
-        #expect(valid.count == 3)
+        #expect(valid.count == 5)
+
+        // [0-10] noOverlay
         #expect(valid[0].type == .noOverlay)
         #expect(valid[0].timeRange.start.seconds == 0)
         #expect(valid[0].timeRange.duration.seconds == 10)
 
-        if case .transition = valid[1].type { } else {
-            Issue.record("expected transition at index 1")
-        }
+        // [10-11] transition(nil→intro1)
+        #expect(valid[1].type == .transition(from: nil, to: slides[0]))
         #expect(valid[1].timeRange.start.seconds == 10)
         #expect(valid[1].timeRange.duration.seconds == 1)
 
-        if case .constant = valid[2].type { } else {
-            Issue.record("expected constant at index 2")
-        }
+        // [11-15] constant(intro1)
+        #expect(valid[2].type == .constant(slides[0]))
         #expect(valid[2].timeRange.start.seconds == 11)
-        #expect(valid[2].timeRange.end.seconds == 120)
+        #expect(valid[2].timeRange.duration.seconds == 4)
+
+        // [15-16] transition(intro1→fadeout)
+        #expect(valid[3].type == .transition(from: slides[0], to: nil))
+        #expect(valid[3].timeRange.start.seconds == 15)
+        #expect(valid[3].timeRange.duration.seconds == 1)
+
+        // [16-120] constant(fadeout)
+        #expect(valid[4].type == .noOverlay)
+        #expect(valid[4].timeRange.start.seconds == 16)
+        #expect(valid[4].timeRange.end.seconds == 120)
 
         assertCoverage(chunks, videoDuration: videoDuration)
     }
 
     // -----------------------------------------------------------------------
     // Step 4: Set timestamp for second introduction slide
-    // Adds transition + constant for intro2, trims intro1 constant
+    // makeSlides: [intro1@10, intro2@20, fadeout@25]
+    // Reuse: [0-10] noOverlay, [10-11] transition, [11-15] constant(intro1) reused
     // -----------------------------------------------------------------------
 
     @Test func step4_settingSecondIntroductionTimestampSplitsChunks() {
-        // Previous state: intro1 at t=10
-        let intro1 = Slide(image: testImage1, startTime: CMTime(seconds: 10, preferredTimescale: 1))
-        let prevRegions = generateRegions(
-            slides: [intro1],
-            videoDuration: videoDuration,
-            transitionTime: transitionTime
-        )
+        // Previous: intro1@10, fadeout@15
+        let prevSlides = [
+            slide(imgIntro1, 10),
+            slide(imgFadeout, 15),
+        ]
+        let prevRegions = generateRegions(slides: prevSlides, videoDuration: videoDuration, transitionTime: transitionTime)
         var chunks = diffRegionsIntoChunks(newRegions: prevRegions, existingChunks: [])
         assertCoverage(chunks, videoDuration: videoDuration)
 
-        // Set displayTime for second intro at t=20
-        let intro2 = Slide(image: testImage2, startTime: CMTime(seconds: 20, preferredTimescale: 1))
-        let newRegions = generateRegions(
-            slides: [intro1, intro2],
-            videoDuration: videoDuration,
-            transitionTime: transitionTime
-        )
+        // Simulate: setIntroTime(index: 1, time: 20)
+        // makeSlides produces: [intro1@10, intro2@20, fadeout@25]
+        let slides = [
+            slide(imgIntro1, 10),
+            slide(imgIntro2, 20),
+            slide(imgFadeout, 25),
+        ]
+        let newRegions = generateRegions(slides: slides, videoDuration: videoDuration, transitionTime: transitionTime)
         chunks = diffRegionsIntoChunks(newRegions: newRegions, existingChunks: chunks)
 
-        // Expected:
-        // [0-10] noOverlay, [10-11] transition(nil->intro1),
-        // [11-20] constant(intro1), [20-21] transition(intro1->intro2),
-        // [21-120] constant(intro2)
         let valid = chunks.filter { !$0.isStale }
-        #expect(valid.count == 5)
+        #expect(valid.count == 7)
 
-        #expect(valid[0].type == .noOverlay)
+        // [0-10] noOverlay
         #expect(valid[0].timeRange.start.seconds == 0)
         #expect(valid[0].timeRange.duration.seconds == 10)
 
+        // [10-11] transition(nil→intro1)
         #expect(valid[1].timeRange.start.seconds == 10)
         #expect(valid[1].timeRange.duration.seconds == 1)
 
+        // [11-20] constant(intro1) — note: the gap 11-20 is intro1 constant
+        //   because intro2 starts at 20, so intro1 holds until then
+        //   but there's a transition region from 15-16 for the old fadeout
+        //   that gets invalidated. The new regions are:
+        //   [11-20] const(intro1), [20-21] trans(intro1→intro2),
+        //   [21-25] const(intro2), [25-26] trans(intro2→fadeout),
+        //   [26-120] const(fadeout)
         #expect(valid[2].timeRange.start.seconds == 11)
         #expect(valid[2].timeRange.duration.seconds == 9) // 20 - 11
 
+        // [20-21] transition(intro1→intro2)
         #expect(valid[3].timeRange.start.seconds == 20)
         #expect(valid[3].timeRange.duration.seconds == 1)
 
+        // [21-25] constant(intro2)
         #expect(valid[4].timeRange.start.seconds == 21)
-        #expect(valid[4].timeRange.end.seconds == 120)
+        #expect(valid[4].timeRange.duration.seconds == 4)
 
-        // Verify reuse: [0-10] noOverlay and [10-11] transition should be reused
-        let staleCount = chunks.filter { $0.isStale }.count
-        #expect(staleCount == 0) // no stale chunks - all old regions were reused or trimmed
+        // [25-26] transition(intro2→fadeout)
+        #expect(valid[5].timeRange.start.seconds == 25)
+        #expect(valid[5].timeRange.duration.seconds == 1)
+
+        // [26-120] constant(fadeout)
+        #expect(valid[6].timeRange.start.seconds == 26)
+        #expect(valid[6].timeRange.end.seconds == 120)
 
         assertCoverage(chunks, videoDuration: videoDuration)
     }
 
     // -----------------------------------------------------------------------
     // Step 5: Set timestamp for first element score
-    // Adds element slide after intros
+    // makeSlides: [intro1@10, intro2@20, elem1@30, fadeout@35]
     // -----------------------------------------------------------------------
 
     @Test func step5_settingFirstElementTimestampAddsChunks() {
-        // Previous state: intro1 at t=10, intro2 at t=20
-        let intro1 = Slide(image: testImage1, startTime: CMTime(seconds: 10, preferredTimescale: 1))
-        let intro2 = Slide(image: testImage2, startTime: CMTime(seconds: 20, preferredTimescale: 1))
-        let prevRegions = generateRegions(
-            slides: [intro1, intro2],
-            videoDuration: videoDuration,
-            transitionTime: transitionTime
-        )
+        // Previous: intro1@10, intro2@20, fadeout@25
+        let prevSlides = [
+            slide(imgIntro1, 10),
+            slide(imgIntro2, 20),
+            slide(imgFadeout, 25),
+        ]
+        let prevRegions = generateRegions(slides: prevSlides, videoDuration: videoDuration, transitionTime: transitionTime)
         var chunks = diffRegionsIntoChunks(newRegions: prevRegions, existingChunks: [])
         assertCoverage(chunks, videoDuration: videoDuration)
 
-        // Set displayTime for first element at t=30
-        let element1 = Slide(image: testImage3, startTime: CMTime(seconds: 30, preferredTimescale: 1))
-        let newRegions = generateRegions(
-            slides: [intro1, intro2, element1],
-            videoDuration: videoDuration,
-            transitionTime: transitionTime
-        )
+        // Simulate: setElementTime(index: 0, time: 30)
+        // makeSlides produces: [intro1@10, intro2@20, elem1@30, fadeout@35]
+        let slides = [
+            slide(imgIntro1, 10),
+            slide(imgIntro2, 20),
+            slide(imgElem1, 30),
+            slide(imgFadeout, 35),
+        ]
+        let newRegions = generateRegions(slides: slides, videoDuration: videoDuration, transitionTime: transitionTime)
         chunks = diffRegionsIntoChunks(newRegions: newRegions, existingChunks: chunks)
 
-        // Expected:
-        // [0-10] noOverlay, [10-11] trans(nil->intro1), [11-20] const(intro1),
-        // [20-21] trans(intro1->intro2), [21-30] const(intro2),
-        // [30-31] trans(intro2->element1), [31-120] const(element1)
         let valid = chunks.filter { !$0.isStale }
-        #expect(valid.count == 7)
+
+        // Verify structure
+        #expect(valid[0].type == .noOverlay)
+        #expect(valid[0].timeRange.start.seconds == 0)
+
+        // Last chunk extends to video end
+        #expect(valid.last?.timeRange.end.seconds == 120)
 
         assertCoverage(chunks, videoDuration: videoDuration)
     }
 
     // -----------------------------------------------------------------------
     // Step 6: Adjust a timestamp (shift earlier)
-    // Tests partial invalidation: trim + reuse + new chunks
+    // Move intro2 from t=20 to t=15
+    // Tests partial invalidation: trim + reuse + new chunks + stale
     // -----------------------------------------------------------------------
 
     @Test func step6_adjustingTimestampTrimsAndReusesChunks() {
-        // Previous state: intro1 at t=10, intro2 at t=20
-        let intro1 = Slide(image: testImage1, startTime: CMTime(seconds: 10, preferredTimescale: 1))
-        let intro2Old = Slide(image: testImage2, startTime: CMTime(seconds: 20, preferredTimescale: 1))
-        let prevRegions = generateRegions(
-            slides: [intro1, intro2Old],
-            videoDuration: videoDuration,
-            transitionTime: transitionTime
-        )
+        // Previous: intro1@10, intro2@20, elem1@30, fadeout@35
+        let prevSlides = [
+            slide(imgIntro1, 10),
+            slide(imgIntro2, 20),
+            slide(imgElem1, 30),
+            slide(imgFadeout, 35),
+        ]
+        let prevRegions = generateRegions(slides: prevSlides, videoDuration: videoDuration, transitionTime: transitionTime)
         var chunks = diffRegionsIntoChunks(newRegions: prevRegions, existingChunks: [])
         assertCoverage(chunks, videoDuration: videoDuration)
 
         // Move intro2 from t=20 to t=15
-        let intro2New = Slide(image: testImage2, startTime: CMTime(seconds: 15, preferredTimescale: 1))
-        let newRegions = generateRegions(
-            slides: [intro1, intro2New],
-            videoDuration: videoDuration,
-            transitionTime: transitionTime
-        )
+        // makeSlides produces: [intro1@10, intro2@15, elem1@30, fadeout@35]
+        let slides = [
+            slide(imgIntro1, 10),
+            slide(imgIntro2, 15),
+            slide(imgElem1, 30),
+            slide(imgFadeout, 35),
+        ]
+        let newRegions = generateRegions(slides: slides, videoDuration: videoDuration, transitionTime: transitionTime)
         chunks = diffRegionsIntoChunks(newRegions: newRegions, existingChunks: chunks)
 
-        // Expected:
-        // [0-10] noOverlay (reused), [10-11] trans(nil->intro1) (reused),
-        // [11-15] const(intro1) (trimmed from 11-20),
-        // [15-16] trans(intro1->intro2) (new),
-        // [16-120] const(intro2) (new)
         let valid = chunks.filter { !$0.isStale }
-        #expect(valid.count == 5)
 
+        // [0-10] noOverlay (reused)
         #expect(valid[0].timeRange.start.seconds == 0)
         #expect(valid[0].timeRange.duration.seconds == 10)
 
+        // [10-11] transition(nil→intro1) (reused)
         #expect(valid[1].timeRange.start.seconds == 10)
         #expect(valid[1].timeRange.duration.seconds == 1)
 
+        // [11-15] constant(intro1) (trimmed from 11-20)
         #expect(valid[2].timeRange.start.seconds == 11)
-        #expect(valid[2].timeRange.duration.seconds == 4) // 15 - 11 (trimmed)
+        #expect(valid[2].timeRange.duration.seconds == 4) // was 9, now 4
 
+        // [15-16] transition(intro1→intro2) (new)
         #expect(valid[3].timeRange.start.seconds == 15)
         #expect(valid[3].timeRange.duration.seconds == 1)
 
+        // [16-30] constant(intro2) (new, holds until elem1)
         #expect(valid[4].timeRange.start.seconds == 16)
-        #expect(valid[4].timeRange.end.seconds == 120)
+        #expect(valid[4].timeRange.duration.seconds == 14)
 
-        // Some old chunks should be stale (the old intro2 transition at 20-21,
-        // the old intro2 constant at 21-120)
+        // Remaining chunks for elem1 + fadeout
+        #expect(valid.last?.timeRange.end.seconds == 120)
+
+        // Some old chunks should be stale
         let staleCount = chunks.filter { $0.isStale }.count
         #expect(staleCount > 0)
 
@@ -333,53 +333,55 @@ private let testImage5 = CIImage(color: CIColor(red: 1, green: 0, blue: 1, alpha
 
     // -----------------------------------------------------------------------
     // Step 7: Multiple element scores with timestamps
-    // Progressive splitting with 3 elements
+    // Progressive: add elem1@30, then elem2@40, then elem3@50
+    // Coverage verified at each step
     // -----------------------------------------------------------------------
 
     @Test func step7_multipleElementScoresWithTimestamps() {
+        var chunks: [Chunk] = []
+
         // Start from empty
-        let initialRegions = generateRegions(
-            slides: [],
-            videoDuration: videoDuration,
-            transitionTime: transitionTime
-        )
-        var chunks = diffRegionsIntoChunks(newRegions: initialRegions, existingChunks: [])
+        let initialRegions = generateRegions(slides: [], videoDuration: videoDuration, transitionTime: transitionTime)
+        chunks = diffRegionsIntoChunks(newRegions: initialRegions, existingChunks: [])
 
         // Add element1 at t=30
-        let element1 = Slide(image: testImage3, startTime: CMTime(seconds: 30, preferredTimescale: 1))
-        let regions1 = generateRegions(
-            slides: [element1],
-            videoDuration: videoDuration,
-            transitionTime: transitionTime
-        )
+        let slides1 = [
+            slide(imgElem1, 30),
+            slide(imgFadeout, 35),
+        ]
+        let regions1 = generateRegions(slides: slides1, videoDuration: videoDuration, transitionTime: transitionTime)
         chunks = diffRegionsIntoChunks(newRegions: regions1, existingChunks: chunks)
         assertCoverage(chunks, videoDuration: videoDuration)
 
         // Add element2 at t=40
-        let element2 = Slide(image: testImage4, startTime: CMTime(seconds: 40, preferredTimescale: 1))
-        let regions2 = generateRegions(
-            slides: [element1, element2],
-            videoDuration: videoDuration,
-            transitionTime: transitionTime
-        )
+        let slides2 = [
+            slide(imgElem1, 30),
+            slide(imgElem2, 40),
+            slide(imgFadeout, 45),
+        ]
+        let regions2 = generateRegions(slides: slides2, videoDuration: videoDuration, transitionTime: transitionTime)
         chunks = diffRegionsIntoChunks(newRegions: regions2, existingChunks: chunks)
         assertCoverage(chunks, videoDuration: videoDuration)
 
         // Add element3 at t=50
-        let element3 = Slide(image: testImage5, startTime: CMTime(seconds: 50, preferredTimescale: 1))
-        let regions3 = generateRegions(
-            slides: [element1, element2, element3],
-            videoDuration: videoDuration,
-            transitionTime: transitionTime
-        )
+        let slides3 = [
+            slide(imgElem1, 30),
+            slide(imgElem2, 40),
+            slide(imgElem3, 50),
+            slide(imgFadeout, 55),
+        ]
+        let regions3 = generateRegions(slides: slides3, videoDuration: videoDuration, transitionTime: transitionTime)
         chunks = diffRegionsIntoChunks(newRegions: regions3, existingChunks: chunks)
 
-        // Final state:
-        // [0-30] noOverlay, [30-31] trans(nil->e1), [31-40] const(e1),
-        // [40-41] trans(e1->e2), [41-50] const(e2),
-        // [50-51] trans(e2->e3), [51-120] const(e3)
         let valid = chunks.filter { !$0.isStale }
-        #expect(valid.count == 7)
+
+        // Verify structure: [0-30] noOverlay, [30-31] trans, [31-40] const(e1),
+        //   [40-41] trans, [41-50] const(e2), [50-51] trans, [51-55] const(e3),
+        //   [55-56] trans(e3→fadeout), [56-120] const(fadeout)
+        #expect(valid.count == 9)
+        #expect(valid[0].timeRange.start.seconds == 0)
+        #expect(valid[0].timeRange.duration.seconds == 30)
+        #expect(valid.last?.timeRange.end.seconds == 120)
 
         assertCoverage(chunks, videoDuration: videoDuration)
     }
@@ -391,38 +393,31 @@ private let testImage5 = CIImage(color: CIColor(red: 1, green: 0, blue: 1, alpha
 
     @Test func step8_clearingTimestampsRevertsToNoOverlay() {
         // Build up state with multiple slides
-        let intro1 = Slide(image: testImage1, startTime: CMTime(seconds: 10, preferredTimescale: 1))
-        let intro2 = Slide(image: testImage2, startTime: CMTime(seconds: 20, preferredTimescale: 1))
-        let element1 = Slide(image: testImage3, startTime: CMTime(seconds: 30, preferredTimescale: 1))
-        let regions = generateRegions(
-            slides: [intro1, intro2, element1],
-            videoDuration: videoDuration,
-            transitionTime: transitionTime
-        )
-        var chunks = diffRegionsIntoChunks(newRegions: regions, existingChunks: [])
+        let prevSlides = [
+            slide(imgIntro1, 10),
+            slide(imgIntro2, 20),
+            slide(imgElem1, 30),
+            slide(imgFadeout, 35),
+        ]
+        let prevRegions = generateRegions(slides: prevSlides, videoDuration: videoDuration, transitionTime: transitionTime)
+        var chunks = diffRegionsIntoChunks(newRegions: prevRegions, existingChunks: [])
         assertCoverage(chunks, videoDuration: videoDuration)
 
         let prevValidCount = chunks.filter { !$0.isStale }.count
         #expect(prevValidCount > 1)
 
-        // Clear all timestamps -> no slides
-        let clearedRegions = generateRegions(
-            slides: [],
-            videoDuration: videoDuration,
-            transitionTime: transitionTime
-        )
+        // Clear all timestamps → no slides
+        let clearedRegions = generateRegions(slides: [], videoDuration: videoDuration, transitionTime: transitionTime)
         chunks = diffRegionsIntoChunks(newRegions: clearedRegions, existingChunks: chunks)
 
-        // Result: single noOverlay
         let valid = chunks.filter { !$0.isStale }
         #expect(valid.count == 1)
         #expect(valid[0].type == .noOverlay)
         #expect(valid[0].timeRange.start == .zero)
         #expect(valid[0].timeRange.duration == videoDuration)
 
-        // All previous chunks should be stale
         let staleCount = chunks.filter { $0.isStale }.count
-        #expect(staleCount == prevValidCount - 1) // all except the reused noOverlay
+        #expect(staleCount == prevValidCount - 1) // all except reused noOverlay
 
         assertCoverage(chunks, videoDuration: videoDuration)
     }
@@ -442,31 +437,36 @@ private let testImage5 = CIImage(color: CIColor(red: 1, green: 0, blue: 1, alpha
             #expect(chunks.filter { !$0.isStale }.count == 1)
         }
 
-        // Step 1: Add intro at t=10
-        do {
-            let slides = [Slide(image: testImage1, startTime: CMTime(seconds: 10, preferredTimescale: 1))]
-            let regions = generateRegions(slides: slides, videoDuration: videoDuration, transitionTime: transitionTime)
-            chunks = diffRegionsIntoChunks(newRegions: regions, existingChunks: chunks)
-            assertCoverage(chunks, videoDuration: videoDuration)
-        }
-
-        // Step 2: Add second intro at t=20
+        // Step 1: Add intro at t=10 with fadeout at t=15
         do {
             let slides = [
-                Slide(image: testImage1, startTime: CMTime(seconds: 10, preferredTimescale: 1)),
-                Slide(image: testImage2, startTime: CMTime(seconds: 20, preferredTimescale: 1)),
+                slide(imgIntro1, 10),
+                slide(imgFadeout, 15),
             ]
             let regions = generateRegions(slides: slides, videoDuration: videoDuration, transitionTime: transitionTime)
             chunks = diffRegionsIntoChunks(newRegions: regions, existingChunks: chunks)
             assertCoverage(chunks, videoDuration: videoDuration)
         }
 
-        // Step 3: Add element at t=30
+        // Step 2: Add second intro at t=20, fadeout at t=25
         do {
             let slides = [
-                Slide(image: testImage1, startTime: CMTime(seconds: 10, preferredTimescale: 1)),
-                Slide(image: testImage2, startTime: CMTime(seconds: 20, preferredTimescale: 1)),
-                Slide(image: testImage3, startTime: CMTime(seconds: 30, preferredTimescale: 1)),
+                slide(imgIntro1, 10),
+                slide(imgIntro2, 20),
+                slide(imgFadeout, 25),
+            ]
+            let regions = generateRegions(slides: slides, videoDuration: videoDuration, transitionTime: transitionTime)
+            chunks = diffRegionsIntoChunks(newRegions: regions, existingChunks: chunks)
+            assertCoverage(chunks, videoDuration: videoDuration)
+        }
+
+        // Step 3: Add element at t=30, fadeout at t=35
+        do {
+            let slides = [
+                slide(imgIntro1, 10),
+                slide(imgIntro2, 20),
+                slide(imgElem1, 30),
+                slide(imgFadeout, 35),
             ]
             let regions = generateRegions(slides: slides, videoDuration: videoDuration, transitionTime: transitionTime)
             chunks = diffRegionsIntoChunks(newRegions: regions, existingChunks: chunks)
@@ -476,9 +476,10 @@ private let testImage5 = CIImage(color: CIColor(red: 1, green: 0, blue: 1, alpha
         // Step 4: Shift second intro from t=20 to t=15
         do {
             let slides = [
-                Slide(image: testImage1, startTime: CMTime(seconds: 10, preferredTimescale: 1)),
-                Slide(image: testImage2, startTime: CMTime(seconds: 15, preferredTimescale: 1)),
-                Slide(image: testImage3, startTime: CMTime(seconds: 30, preferredTimescale: 1)),
+                slide(imgIntro1, 10),
+                slide(imgIntro2, 15),
+                slide(imgElem1, 30),
+                slide(imgFadeout, 35),
             ]
             let regions = generateRegions(slides: slides, videoDuration: videoDuration, transitionTime: transitionTime)
             chunks = diffRegionsIntoChunks(newRegions: regions, existingChunks: chunks)

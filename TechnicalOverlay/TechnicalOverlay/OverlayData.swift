@@ -214,6 +214,12 @@ class OverlayData: Codable {
     }
 
     func makeSlide(size: CGSize, mode: VideoOverlay.Mode, startTime: TimeInterval) -> Slide {
+        if mode == .none {
+            return Slide(
+                image: nil,
+                startTime: CMTime(seconds: startTime, preferredTimescale: 1000)
+            )
+        }
         let image: CIImage
         if let cachedImage = imageCache[CacheKey(size: size, mode: mode)] {
             image = cachedImage

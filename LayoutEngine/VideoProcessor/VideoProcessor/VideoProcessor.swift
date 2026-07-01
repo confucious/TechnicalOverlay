@@ -10,10 +10,10 @@ import CoreImage
 import CoreImage.CIFilterBuiltins
 
 public struct Slide: Sendable, Equatable {
-    let image: CIImage
+    let image: CIImage?
     public let startTime: CMTime
     
-    public init(image: CIImage, startTime: CMTime) {
+    public init(image: CIImage?, startTime: CMTime) {
         self.image = image
         self.startTime = startTime
     }
@@ -64,10 +64,17 @@ public class VideoComposer {
                             context: nil
                         )
                     } else {
-                        request.finish(
-                            with: slide.image.composited(over: request.sourceImage),
-                            context: nil
-                        )
+                        if let slideImage = slide.image {
+                            request.finish(
+                                with: slideImage.composited(over: request.sourceImage),
+                                context: nil
+                            )
+                        } else {
+                            request.finish(
+                                with: request.sourceImage,
+                                context: nil
+                            )
+                        }
                     }
                 } else {
                     request.finish(with: request.sourceImage, context: nil)
@@ -293,7 +300,8 @@ public func generateRegions(
         let transDuration = transitionTime
         let transRange = CMTimeRange(start: cursor, duration: transDuration)
         let previousSlide = index > 0 ? sorted[index - 1] : nil
-        let transType: ChunkType = .transition(from: previousSlide, to: slide)
+        let effectiveSlide = slide.image == nil ? nil : slide // nil if the current slide has no image.
+        let transType: ChunkType = .transition(from: previousSlide, to: effectiveSlide)
         regions.append(ChunkRegion(
             identity: transType.contentIdentity,
             timeRange: transRange,
@@ -306,7 +314,9 @@ public func generateRegions(
         if cursor < nextSlideStart {
             let constDuration = nextSlideStart - cursor
             let constRange = CMTimeRange(start: cursor, duration: constDuration)
-            let constType: ChunkType = .constant(slide)
+            let constType: ChunkType = slide.image == nil ?
+                .noOverlay :
+                .constant(slide)
             regions.append(ChunkRegion(
                 identity: constType.contentIdentity,
                 timeRange: constRange,
@@ -314,31 +324,31 @@ public func generateRegions(
             ))
             cursor = nextSlideStart
         }
-
-        // After last slide: transition out (fade to noOverlay)
-        if index == sorted.count - 1 {
-            if cursor < videoDuration {
-                let transDuration = min(transitionTime, videoDuration - cursor)
-                if transDuration.value > 0 {
-                    let transRange = CMTimeRange(start: cursor, duration: transDuration)
-                    // Transition out: from slide to noOverlay (fade out).
-                    let transType: ChunkType = .transition(from: slide, to: nil)
-                    regions.append(ChunkRegion(
-                        identity: transType.contentIdentity,
-                        timeRange: transRange,
-                        type: transType
-                    ))
-                    cursor = cursor + transDuration
-                }
-            }
-
-            // Final noOverlay if there's remaining time
-            if cursor < videoDuration {
-                let gapDuration = videoDuration - cursor
-                let gapRange = CMTimeRange(start: cursor, duration: gapDuration)
-                regions.append(ChunkRegion(identity: .noOverlay(), timeRange: gapRange, type: .noOverlay))
-            }
-        }
+//
+//        // After last slide: transition out (fade to noOverlay)
+//        if index == sorted.count - 1 {
+//            if cursor < videoDuration {
+//                let transDuration = min(transitionTime, videoDuration - cursor)
+//                if transDuration.value > 0 {
+//                    let transRange = CMTimeRange(start: cursor, duration: transDuration)
+//                    // Transition out: from slide to noOverlay (fade out).
+//                    let transType: ChunkType = .transition(from: slide, to: nil)
+//                    regions.append(ChunkRegion(
+//                        identity: transType.contentIdentity,
+//                        timeRange: transRange,
+//                        type: transType
+//                    ))
+//                    cursor = cursor + transDuration
+//                }
+//            }
+//
+//            // Final noOverlay if there's remaining time
+//            if cursor < videoDuration {
+//                let gapDuration = videoDuration - cursor
+//                let gapRange = CMTimeRange(start: cursor, duration: gapDuration)
+//                regions.append(ChunkRegion(identity: .noOverlay(), timeRange: gapRange, type: .noOverlay))
+//            }
+//        }
     }
 
     if regions.isEmpty {
