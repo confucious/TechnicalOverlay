@@ -40,7 +40,10 @@ import CoreImage
                 type: .noOverlay
             ),
             makeRenderedChunk(
-                timeRange: CMTimeRange(start: 10, duration: 1, timescale: 1),
+                timeRange: CMTimeRange(
+                    start: .init(seconds: 10, preferredTimescale: 1),
+                    duration: .init(seconds: 1, preferredTimescale: 1)
+                ),
                 type: .transition(from: nil, to: slide)
             ),
         ]

@@ -48,28 +48,14 @@ import CoreImage
         #expect(regions[0].type == .noOverlay)
         #expect(regions[0].timeRange.start.seconds == 0)
         #expect(regions[0].timeRange.duration.seconds == 10)
-    }
 
-    @Test func singleSlideTransitionStartsAtSlideTime() {
-        let regions = generateRegions(
-            slides: [slide],
-            videoDuration: videoDuration,
-            transitionTime: transitionTime
-        )
         // Region 1: transition(nil -> slide)
         if case .transition = regions[1].type { } else {
             Issue.record("expected transition at index 1")
         }
         #expect(regions[1].timeRange.start.seconds == 10)
         #expect(regions[1].timeRange.duration.seconds == 1)
-    }
 
-    @Test func singleSlideConstantAfterTransition() {
-        let regions = generateRegions(
-            slides: [slide],
-            videoDuration: videoDuration,
-            transitionTime: transitionTime
-        )
         // Region 2: constant(slide)
         if case .constant = regions[2].type { } else {
             Issue.record("expected constant at index 2")

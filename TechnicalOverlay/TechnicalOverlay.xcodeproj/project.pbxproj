@@ -25,21 +25,7 @@
 			remoteGlobalIDString = ABBCB63F2E80534C00C9B65E;
 			remoteInfo = TechnicalOverlay;
 		};
-		ABBCB6582E80534C00C9B65E /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = ABBCB6382E80534C00C9B65E /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = ABBCB63F2E80534C00C9B65E;
-			remoteInfo = TechnicalOverlay;
-		};
 		ABD4F2E12EAEF009002D9CD8 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = ABBCB6382E80534C00C9B65E /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = ABD4F2D32EAEF008002D9CD8;
-			remoteInfo = "Technical Overlay";
-		};
-		ABD4F2EB2EAEF009002D9CD8 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = ABBCB6382E80534C00C9B65E /* Project object */;
 			proxyType = 1;
@@ -80,11 +66,9 @@
 		AB824A7D2EB7BE12004A56E8 /* Technical-Overlay-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = "Technical-Overlay-Info.plist"; sourceTree = "<group>"; };
 		ABBCB6402E80534C00C9B65E /* TechnicalOverlayMac.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = TechnicalOverlayMac.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		ABBCB64D2E80534C00C9B65E /* TechnicalOverlayTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = TechnicalOverlayTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
-		ABBCB6572E80534C00C9B65E /* TechnicalOverlayUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = TechnicalOverlayUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		ABBCB6A32E9AEF8600C9B65E /* LayoutEngine.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; path = LayoutEngine.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		ABD4F2D42EAEF008002D9CD8 /* Technical Overlay.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Technical Overlay.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		ABD4F2E02EAEF009002D9CD8 /* Technical OverlayTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "Technical OverlayTests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
-		ABD4F2EA2EAEF009002D9CD8 /* Technical OverlayUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "Technical OverlayUITests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
 		ABD4F3032EAEF0F5002D9CD8 /* LayoutEngine.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; path = LayoutEngine.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		ABD4F3042EAEF0F5002D9CD8 /* VideoProcessor.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; path = VideoProcessor.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
@@ -105,14 +89,6 @@
 				TechnicalOverlayTests.swift,
 			);
 			target = ABD4F2DF2EAEF009002D9CD8 /* Technical OverlayTests */;
-		};
-		AB3732392FEB7DED007D5ACB /* Exceptions for "TechnicalOverlayUITests" folder in "TechnicalOverlayUITests" target */ = {
-			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
-			membershipExceptions = (
-				TechnicalOverlayUITests.swift,
-				TechnicalOverlayUITestsLaunchTests.swift,
-			);
-			target = ABBCB6562E80534C00C9B65E /* TechnicalOverlayUITests */;
 		};
 		ABD4F2FC2EAEF0D4002D9CD8 /* Exceptions for "TechnicalOverlay" folder in "Technical Overlay" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
@@ -151,9 +127,6 @@
 		};
 		ABBCB65A2E80534C00C9B65E /* TechnicalOverlayUITests */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			exceptions = (
-				AB3732392FEB7DED007D5ACB /* Exceptions for "TechnicalOverlayUITests" folder in "TechnicalOverlayUITests" target */,
-			);
 			path = TechnicalOverlayUITests;
 			sourceTree = "<group>";
 		};
@@ -176,13 +149,6 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		ABBCB6542E80534C00C9B65E /* Frameworks */ = {
-			isa = PBXFrameworksBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
 		ABD4F2D12EAEF008002D9CD8 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -193,13 +159,6 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		ABD4F2DD2EAEF009002D9CD8 /* Frameworks */ = {
-			isa = PBXFrameworksBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		ABD4F2E72EAEF009002D9CD8 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -226,10 +185,8 @@
 			children = (
 				ABBCB6402E80534C00C9B65E /* TechnicalOverlayMac.app */,
 				ABBCB64D2E80534C00C9B65E /* TechnicalOverlayTests.xctest */,
-				ABBCB6572E80534C00C9B65E /* TechnicalOverlayUITests.xctest */,
 				ABD4F2D42EAEF008002D9CD8 /* Technical Overlay.app */,
 				ABD4F2E02EAEF009002D9CD8 /* Technical OverlayTests.xctest */,
-				ABD4F2EA2EAEF009002D9CD8 /* Technical OverlayUITests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -294,29 +251,6 @@
 			productReference = ABBCB64D2E80534C00C9B65E /* TechnicalOverlayTests.xctest */;
 			productType = "com.apple.product-type.bundle.unit-test";
 		};
-		ABBCB6562E80534C00C9B65E /* TechnicalOverlayUITests */ = {
-			isa = PBXNativeTarget;
-			buildConfigurationList = ABBCB6672E80534C00C9B65E /* Build configuration list for PBXNativeTarget "TechnicalOverlayUITests" */;
-			buildPhases = (
-				ABBCB6532E80534C00C9B65E /* Sources */,
-				ABBCB6542E80534C00C9B65E /* Frameworks */,
-				ABBCB6552E80534C00C9B65E /* Resources */,
-			);
-			buildRules = (
-			);
-			dependencies = (
-				ABBCB6592E80534C00C9B65E /* PBXTargetDependency */,
-			);
-			fileSystemSynchronizedGroups = (
-				ABBCB65A2E80534C00C9B65E /* TechnicalOverlayUITests */,
-			);
-			name = TechnicalOverlayUITests;
-			packageProductDependencies = (
-			);
-			productName = TechnicalOverlayUITests;
-			productReference = ABBCB6572E80534C00C9B65E /* TechnicalOverlayUITests.xctest */;
-			productType = "com.apple.product-type.bundle.ui-testing";
-		};
 		ABD4F2D32EAEF008002D9CD8 /* Technical Overlay */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = ABD4F2F22EAEF009002D9CD8 /* Build configuration list for PBXNativeTarget "Technical Overlay" */;
@@ -357,26 +291,6 @@
 			productReference = ABD4F2E02EAEF009002D9CD8 /* Technical OverlayTests.xctest */;
 			productType = "com.apple.product-type.bundle.unit-test";
 		};
-		ABD4F2E92EAEF009002D9CD8 /* Technical OverlayUITests */ = {
-			isa = PBXNativeTarget;
-			buildConfigurationList = ABD4F2F82EAEF009002D9CD8 /* Build configuration list for PBXNativeTarget "Technical OverlayUITests" */;
-			buildPhases = (
-				ABD4F2E62EAEF009002D9CD8 /* Sources */,
-				ABD4F2E72EAEF009002D9CD8 /* Frameworks */,
-				ABD4F2E82EAEF009002D9CD8 /* Resources */,
-			);
-			buildRules = (
-			);
-			dependencies = (
-				ABD4F2EC2EAEF009002D9CD8 /* PBXTargetDependency */,
-			);
-			name = "Technical OverlayUITests";
-			packageProductDependencies = (
-			);
-			productName = "Technical OverlayUITests";
-			productReference = ABD4F2EA2EAEF009002D9CD8 /* Technical OverlayUITests.xctest */;
-			productType = "com.apple.product-type.bundle.ui-testing";
-		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -394,18 +308,10 @@
 						CreatedOnToolsVersion = 26.0;
 						TestTargetID = ABBCB63F2E80534C00C9B65E;
 					};
-					ABBCB6562E80534C00C9B65E = {
-						CreatedOnToolsVersion = 26.0;
-						TestTargetID = ABBCB63F2E80534C00C9B65E;
-					};
 					ABD4F2D32EAEF008002D9CD8 = {
 						CreatedOnToolsVersion = 26.0;
 					};
 					ABD4F2DF2EAEF009002D9CD8 = {
-						CreatedOnToolsVersion = 26.0;
-						TestTargetID = ABD4F2D32EAEF008002D9CD8;
-					};
-					ABD4F2E92EAEF009002D9CD8 = {
 						CreatedOnToolsVersion = 26.0;
 						TestTargetID = ABD4F2D32EAEF008002D9CD8;
 					};
@@ -427,10 +333,8 @@
 			targets = (
 				ABBCB63F2E80534C00C9B65E /* TechnicalOverlayMac */,
 				ABBCB64C2E80534C00C9B65E /* TechnicalOverlayTests */,
-				ABBCB6562E80534C00C9B65E /* TechnicalOverlayUITests */,
 				ABD4F2D32EAEF008002D9CD8 /* Technical Overlay */,
 				ABD4F2DF2EAEF009002D9CD8 /* Technical OverlayTests */,
-				ABD4F2E92EAEF009002D9CD8 /* Technical OverlayUITests */,
 			);
 		};
 /* End PBXProject section */
@@ -450,13 +354,6 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		ABBCB6552E80534C00C9B65E /* Resources */ = {
-			isa = PBXResourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
 		ABD4F2D22EAEF008002D9CD8 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -465,13 +362,6 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		ABD4F2DE2EAEF009002D9CD8 /* Resources */ = {
-			isa = PBXResourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		ABD4F2E82EAEF009002D9CD8 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -495,13 +385,6 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		ABBCB6532E80534C00C9B65E /* Sources */ = {
-			isa = PBXSourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
 		ABD4F2D02EAEF008002D9CD8 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -516,13 +399,6 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		ABD4F2E62EAEF009002D9CD8 /* Sources */ = {
-			isa = PBXSourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
@@ -531,20 +407,10 @@
 			target = ABBCB63F2E80534C00C9B65E /* TechnicalOverlayMac */;
 			targetProxy = ABBCB64E2E80534C00C9B65E /* PBXContainerItemProxy */;
 		};
-		ABBCB6592E80534C00C9B65E /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = ABBCB63F2E80534C00C9B65E /* TechnicalOverlayMac */;
-			targetProxy = ABBCB6582E80534C00C9B65E /* PBXContainerItemProxy */;
-		};
 		ABD4F2E22EAEF009002D9CD8 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = ABD4F2D32EAEF008002D9CD8 /* Technical Overlay */;
 			targetProxy = ABD4F2E12EAEF009002D9CD8 /* PBXContainerItemProxy */;
-		};
-		ABD4F2EC2EAEF009002D9CD8 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = ABD4F2D32EAEF008002D9CD8 /* Technical Overlay */;
-			targetProxy = ABD4F2EB2EAEF009002D9CD8 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -843,56 +709,6 @@
 			};
 			name = Release;
 		};
-		ABBCB6682E80534C00C9B65E /* Debug */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = 9MY93JMP2W;
-				GENERATE_INFOPLIST_FILE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
-				MACOSX_DEPLOYMENT_TARGET = 26.0;
-				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = org.cjas.jhsu.TechnicalOverlayUITests;
-				PRODUCT_NAME = "$(TARGET_NAME)";
-				SDKROOT = auto;
-				STRING_CATALOG_GENERATE_SYMBOLS = NO;
-				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx xros xrsimulator";
-				SWIFT_APPROACHABLE_CONCURRENCY = YES;
-				SWIFT_EMIT_LOC_STRINGS = NO;
-				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
-				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = "1,2,7";
-				TEST_TARGET_NAME = TechnicalOverlay;
-				XROS_DEPLOYMENT_TARGET = 26.0;
-			};
-			name = Debug;
-		};
-		ABBCB6692E80534C00C9B65E /* Release */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = 9MY93JMP2W;
-				GENERATE_INFOPLIST_FILE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
-				MACOSX_DEPLOYMENT_TARGET = 26.0;
-				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = org.cjas.jhsu.TechnicalOverlayUITests;
-				PRODUCT_NAME = "$(TARGET_NAME)";
-				SDKROOT = auto;
-				STRING_CATALOG_GENERATE_SYMBOLS = NO;
-				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx xros xrsimulator";
-				SWIFT_APPROACHABLE_CONCURRENCY = YES;
-				SWIFT_EMIT_LOC_STRINGS = NO;
-				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
-				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = "1,2,7";
-				TEST_TARGET_NAME = TechnicalOverlay;
-				XROS_DEPLOYMENT_TARGET = 26.0;
-			};
-			name = Release;
-		};
 		ABD4F2F32EAEF009002D9CD8 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -1009,49 +825,6 @@
 			};
 			name = Release;
 		};
-		ABD4F2F92EAEF009002D9CD8 /* Debug */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = 9MY93JMP2W;
-				GENERATE_INFOPLIST_FILE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
-				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = "org.cjas.Technical-OverlayUITests";
-				PRODUCT_NAME = "$(TARGET_NAME)";
-				STRING_CATALOG_GENERATE_SYMBOLS = NO;
-				SWIFT_APPROACHABLE_CONCURRENCY = YES;
-				SWIFT_EMIT_LOC_STRINGS = NO;
-				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
-				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = "1,2";
-				TEST_TARGET_NAME = "Technical Overlay";
-			};
-			name = Debug;
-		};
-		ABD4F2FA2EAEF009002D9CD8 /* Release */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = 9MY93JMP2W;
-				GENERATE_INFOPLIST_FILE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
-				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = "org.cjas.Technical-OverlayUITests";
-				PRODUCT_NAME = "$(TARGET_NAME)";
-				STRING_CATALOG_GENERATE_SYMBOLS = NO;
-				SWIFT_APPROACHABLE_CONCURRENCY = YES;
-				SWIFT_EMIT_LOC_STRINGS = NO;
-				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
-				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = "1,2";
-				TEST_TARGET_NAME = "Technical Overlay";
-				VALIDATE_PRODUCT = YES;
-			};
-			name = Release;
-		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -1082,15 +855,6 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		ABBCB6672E80534C00C9B65E /* Build configuration list for PBXNativeTarget "TechnicalOverlayUITests" */ = {
-			isa = XCConfigurationList;
-			buildConfigurations = (
-				ABBCB6682E80534C00C9B65E /* Debug */,
-				ABBCB6692E80534C00C9B65E /* Release */,
-			);
-			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
-		};
 		ABD4F2F22EAEF009002D9CD8 /* Build configuration list for PBXNativeTarget "Technical Overlay" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
@@ -1105,15 +869,6 @@
 			buildConfigurations = (
 				ABD4F2F62EAEF009002D9CD8 /* Debug */,
 				ABD4F2F72EAEF009002D9CD8 /* Release */,
-			);
-			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
-		};
-		ABD4F2F82EAEF009002D9CD8 /* Build configuration list for PBXNativeTarget "Technical OverlayUITests" */ = {
-			isa = XCConfigurationList;
-			buildConfigurations = (
-				ABD4F2F92EAEF009002D9CD8 /* Debug */,
-				ABD4F2FA2EAEF009002D9CD8 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

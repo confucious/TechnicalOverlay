@@ -231,8 +231,7 @@ public struct Chunk: Sendable {
 
 // MARK: - Protocols
 
-public protocol ChunkRendererProtocol: AsyncSequence {
-    associatedtype Element = Chunk
+public protocol ChunkRendererProtocol {
     func render(_ chunk: Chunk) async -> URL?
 }
 

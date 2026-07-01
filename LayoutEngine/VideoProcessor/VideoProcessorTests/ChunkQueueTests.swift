@@ -11,22 +11,16 @@ import CoreImage
 // MARK: - Fake Renderer
 
 final class FakeRenderer: ChunkRendererProtocol, @unchecked Sendable {
+
     var rendered: [Chunk] = []
     var shouldFail = false
-    private var _continuation: AsyncStream<Chunk>.Continuation?
 
-    private var _stream: AsyncStream<Chunk>
-    var stream: AsyncStream<Chunk> { _stream }
-
-    init() {
-        _stream = AsyncStream { self._continuation = $0 }
-    }
+    init() {}
 
     func render(_ chunk: Chunk) async -> URL? {
         if shouldFail { return nil }
         let url = URL(fileURLWithPath: "/fake/output/\(chunk.id.uuidString).mov")
         rendered.append(chunk)
-        _continuation?.yield(chunk)
         return url
     }
 }
@@ -44,7 +38,7 @@ final class FakeRenderer: ChunkRendererProtocol, @unchecked Sendable {
         Slide(image: CIImage.clear, startTime: CMTime(seconds: 10, preferredTimescale: 1))
     }
 
-    func setUp() {
+    init() {
         renderer = FakeRenderer()
         queue = ChunkQueue(renderer: renderer, transitionTime: transitionTime)
     }
@@ -52,7 +46,6 @@ final class FakeRenderer: ChunkRendererProtocol, @unchecked Sendable {
     // MARK: - Basic enqueue + drain
 
     @Test func enqueueAndDrainRendersAllChunks() async {
-        setUp()
         await queue.enqueue(slides: [slide], videoDuration: videoDuration)
         await queue.waitForCompletion()
 
@@ -62,8 +55,6 @@ final class FakeRenderer: ChunkRendererProtocol, @unchecked Sendable {
     }
 
     @Test func emptyEnqueueDoesNothing() async {
-        setUp()
-        let oldChunks = await queue.chunks
         await queue.enqueue(slides: [], videoDuration: videoDuration)
         // Should have single noOverlay
         let chunks = await queue.chunks
@@ -74,7 +65,6 @@ final class FakeRenderer: ChunkRendererProtocol, @unchecked Sendable {
     // MARK: - Chunk type generation
 
     @Test func singleSlideProducesTransitionAndConstant() async {
-        setUp()
         await queue.enqueue(slides: [slide], videoDuration: videoDuration)
         let chunks = await queue.chunks
 
@@ -85,7 +75,6 @@ final class FakeRenderer: ChunkRendererProtocol, @unchecked Sendable {
     }
 
     @Test func noSlidesProducesNoRenderableChunks() async {
-        setUp()
         await queue.enqueue(slides: [], videoDuration: videoDuration)
         let chunks = await queue.chunks
         #expect(chunks.count == 1)
@@ -95,7 +84,6 @@ final class FakeRenderer: ChunkRendererProtocol, @unchecked Sendable {
     // MARK: - Staleness
 
     @Test func enqueueWithNewSlidesMarksOldChunksStale() async {
-        setUp()
         await queue.enqueue(slides: [slide], videoDuration: videoDuration)
         await queue.waitForCompletion()
 
@@ -113,7 +101,6 @@ final class FakeRenderer: ChunkRendererProtocol, @unchecked Sendable {
     }
 
     @Test func markStaleByPredicate() async {
-        setUp()
         await queue.enqueue(slides: [slide], videoDuration: videoDuration)
 
         await queue.markStale { $0.type == .noOverlay }
@@ -127,7 +114,6 @@ final class FakeRenderer: ChunkRendererProtocol, @unchecked Sendable {
     // MARK: - NoOverlay never enters render queue
 
     @Test func drainSkipsNoOverlayChunks() async {
-        setUp()
         await queue.enqueue(slides: [], videoDuration: videoDuration)
         await queue.waitForCompletion()
 
@@ -138,7 +124,6 @@ final class FakeRenderer: ChunkRendererProtocol, @unchecked Sendable {
     // MARK: - Ordering
 
     @Test func chunksRenderInTimeOrder() async {
-        setUp()
         let slide1 = Slide(image: CIImage.clear, startTime: CMTime(seconds: 10, preferredTimescale: 1))
         let slide2 = Slide(image: CIImage.clear, startTime: CMTime(seconds: 20, preferredTimescale: 1))
         let slide3 = Slide(image: CIImage.clear, startTime: CMTime(seconds: 30, preferredTimescale: 1))
@@ -156,7 +141,6 @@ final class FakeRenderer: ChunkRendererProtocol, @unchecked Sendable {
     // MARK: - Valid chunks
 
     @Test func validChunksReturnsOnlyRenderedNonStale() async {
-        setUp()
         await queue.enqueue(slides: [slide], videoDuration: videoDuration)
         await queue.waitForCompletion()
 
@@ -173,7 +157,6 @@ final class FakeRenderer: ChunkRendererProtocol, @unchecked Sendable {
     }
 
     @Test func validChunksIncludesNoOverlayAlways() async {
-        setUp()
         await queue.enqueue(slides: [], videoDuration: videoDuration)
         // noOverlay doesn't need rendering
         let valid = await queue.validChunks()
@@ -181,7 +164,6 @@ final class FakeRenderer: ChunkRendererProtocol, @unchecked Sendable {
     }
 
     @Test func validChunksSortedByTime() async {
-        setUp()
         let slide1 = Slide(image: CIImage.clear, startTime: CMTime(seconds: 10, preferredTimescale: 1))
         let slide2 = Slide(image: CIImage.clear, startTime: CMTime(seconds: 20, preferredTimescale: 1))
 
@@ -199,7 +181,6 @@ final class FakeRenderer: ChunkRendererProtocol, @unchecked Sendable {
     // MARK: - Render failure
 
     @Test func renderFailureMarksChunkStale() async {
-        setUp()
         renderer.shouldFail = true
         await queue.enqueue(slides: [slide], videoDuration: videoDuration)
         await queue.waitForCompletion()
@@ -212,7 +193,6 @@ final class FakeRenderer: ChunkRendererProtocol, @unchecked Sendable {
     // MARK: - Re-enqueue after invalidation
 
     @Test func reEnqueueAfterInvalidation() async {
-        setUp()
         await queue.enqueue(slides: [slide], videoDuration: videoDuration)
         await queue.waitForCompletion()
 
