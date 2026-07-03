@@ -97,10 +97,7 @@ private func slide(_ image: CIImage?, _ seconds: Double) -> Slide {
         let regions = generateRegions(slides: [], videoDuration: videoDuration, transitionTime: transitionTime)
         let chunks = diffRegionsIntoChunks(newRegions: regions, existingChunks: [])
 
-        #expect(chunks.count == 1)
-        #expect(chunks[0].type == .noOverlay)
-        #expect(chunks[0].timeRange.start == .zero)
-        #expect(chunks[0].timeRange.duration == videoDuration)
+        assertExpectedChunks([(.noOverlay, 0)], chunks: chunks)
         assertCoverage(chunks, videoDuration: videoDuration)
     }
 
@@ -115,8 +112,7 @@ private func slide(_ image: CIImage?, _ seconds: Double) -> Slide {
         let regions = generateRegions(slides: slides, videoDuration: videoDuration, transitionTime: transitionTime)
         let chunks = diffRegionsIntoChunks(newRegions: regions, existingChunks: [])
 
-        #expect(chunks.count == 1)
-        #expect(chunks[0].type == .noOverlay)
+        assertExpectedChunks([(.noOverlay, 0)], chunks: chunks)
         assertCoverage(chunks, videoDuration: videoDuration)
     }
 
@@ -131,8 +127,7 @@ private func slide(_ image: CIImage?, _ seconds: Double) -> Slide {
         let regions = generateRegions(slides: slides, videoDuration: videoDuration, transitionTime: transitionTime)
         let chunks = diffRegionsIntoChunks(newRegions: regions, existingChunks: [])
 
-        #expect(chunks.count == 1)
-        #expect(chunks[0].type == .noOverlay)
+        assertExpectedChunks([(.noOverlay, 0)], chunks: chunks)
         assertCoverage(chunks, videoDuration: videoDuration)
     }
 
@@ -159,33 +154,13 @@ private func slide(_ image: CIImage?, _ seconds: Double) -> Slide {
         let newRegions = generateRegions(slides: slides, videoDuration: videoDuration, transitionTime: transitionTime)
         chunks = diffRegionsIntoChunks(newRegions: newRegions, existingChunks: chunks)
 
-        let valid = chunks.filter { !$0.isStale }
-        #expect(valid.count == 5)
-
-        // [0-10] noOverlay (new, not reused from old [0-120])
-        #expect(valid[0].type == .noOverlay)
-        #expect(valid[0].timeRange.start.seconds == 0)
-        #expect(valid[0].timeRange.duration.seconds == 10)
-
-        // [10-11] transition(nil→intro1)
-        #expect(valid[1].type == .transition(from: nil, to: slides[0].image))
-        #expect(valid[1].timeRange.start.seconds == 10)
-        #expect(valid[1].timeRange.duration.seconds == 1)
-
-        // [11-15] constant(intro1)
-        #expect(valid[2].type == .constant(slides[0].image!))
-        #expect(valid[2].timeRange.start.seconds == 11)
-        #expect(valid[2].timeRange.duration.seconds == 4)
-
-        // [15-16] transition(intro1→fadeout)
-        #expect(valid[3].type == .transition(from: slides[0].image, to: nil))
-        #expect(valid[3].timeRange.start.seconds == 15)
-        #expect(valid[3].timeRange.duration.seconds == 1)
-
-        // [16-120] constant(fadeout) → noOverlay
-        #expect(valid[4].type == .noOverlay)
-        #expect(valid[4].timeRange.start.seconds == 16)
-        #expect(valid[4].timeRange.end.seconds == 120)
+        assertExpectedChunks([
+            (.noOverlay, 0),
+            (.transition(from: nil, to: slides[0].image), 10),
+            (.constant(slides[0].image!), 11),
+            (.transition(from: slides[0].image, to: nil), 15),
+            (.noOverlay, 16)
+        ], chunks: chunks)
 
         assertCoverage(chunks, videoDuration: videoDuration)
     }
@@ -218,48 +193,16 @@ private func slide(_ image: CIImage?, _ seconds: Double) -> Slide {
         let newRegions = generateRegions(slides: slides, videoDuration: videoDuration, transitionTime: transitionTime)
         chunks = diffRegionsIntoChunks(newRegions: newRegions, existingChunks: chunks)
 
-        let valid = chunks.filter { !$0.isStale }
-        #expect(valid.count == 8)
-
-        // [0-10] noOverlay (new)
-        #expect(valid[0].type == .noOverlay)
-        #expect(valid[0].timeRange.start.seconds == 0)
-        #expect(valid[0].timeRange.duration.seconds == 10)
-
-        // [10-11] transition(nil→intro1) — exact match, reused
-        #expect(valid[1].type == .transition(from: nil, to: slides[0].image))
-        #expect(valid[1].timeRange.start.seconds == 10)
-        #expect(valid[1].timeRange.duration.seconds == 1)
-
-        // [11-15] constant(intro1) — reused from old [11-15] overlap
-        #expect(valid[2].type == .constant(slides[0].image!))
-        #expect(valid[2].timeRange.start.seconds == 11)
-        #expect(valid[2].timeRange.duration.seconds == 4)
-
-        // [15-20] constant(intro1) — new pending gap
-        #expect(valid[3].type == .constant(slides[0].image!))
-        #expect(valid[3].timeRange.start.seconds == 15)
-        #expect(valid[3].timeRange.duration.seconds == 5)
-
-        // [20-21] transition(intro1→intro2)
-        #expect(valid[4].type == .transition(from: slides[0].image, to: slides[1].image))
-        #expect(valid[4].timeRange.start.seconds == 20)
-        #expect(valid[4].timeRange.duration.seconds == 1)
-
-        // [21-25] constant(intro2)
-        #expect(valid[5].type == .constant(slides[1].image!))
-        #expect(valid[5].timeRange.start.seconds == 21)
-        #expect(valid[5].timeRange.duration.seconds == 4)
-
-        // [25-26] transition(intro2→fadeout)
-        #expect(valid[6].type == .transition(from: slides[1].image, to: nil))
-        #expect(valid[6].timeRange.start.seconds == 25)
-        #expect(valid[6].timeRange.duration.seconds == 1)
-
-        // [26-120] noOverlay
-        #expect(valid[7].type == .noOverlay)
-        #expect(valid[7].timeRange.start.seconds == 26)
-        #expect(valid[7].timeRange.end.seconds == 120)
+        assertExpectedChunks([
+            (.noOverlay, 0),
+            (.transition(from: nil, to: slides[0].image), 10),
+            (.constant(slides[0].image!), 11),
+            (.constant(slides[0].image!), 15),
+            (.transition(from: slides[0].image, to: slides[1].image), 20),
+            (.constant(slides[1].image!), 21),
+            (.transition(from: slides[1].image, to: nil), 25),
+            (.noOverlay, 26)
+        ], chunks: chunks)
 
         assertCoverage(chunks, videoDuration: videoDuration)
     }
@@ -292,56 +235,19 @@ private func slide(_ image: CIImage?, _ seconds: Double) -> Slide {
         let newRegions = generateRegions(slides: slides, videoDuration: videoDuration, transitionTime: transitionTime)
         chunks = diffRegionsIntoChunks(newRegions: newRegions, existingChunks: chunks)
 
-        let valid = chunks.filter { !$0.isStale }
-
-        // [0-10] noOverlay
-        #expect(valid[0].timeRange.start.seconds == 0)
-        #expect(valid[0].timeRange.duration.seconds == 10)
-
-        // [10-11] transition(nil→intro1)
-        #expect(valid[1].type == .transition(from: nil, to: slides[0].image))
-        #expect(valid[1].timeRange.start.seconds == 10)
-        #expect(valid[1].timeRange.duration.seconds == 1)
-
-        // [11-20] constant(intro1)
-        #expect(valid[2].type == .constant(slides[0].image!))
-        #expect(valid[2].timeRange.start.seconds == 11)
-        #expect(valid[2].timeRange.duration.seconds == 9)
-
-        // [20-21] transition(intro1→intro2)
-        #expect(valid[3].type == .transition(from: slides[0].image, to: slides[1].image))
-        #expect(valid[3].timeRange.start.seconds == 20)
-        #expect(valid[3].timeRange.duration.seconds == 1)
-
-        // [21-25] constant(intro2)
-        #expect(valid[4].type == .constant(slides[1].image!))
-        #expect(valid[4].timeRange.start.seconds == 21)
-        #expect(valid[4].timeRange.duration.seconds == 4)
-
-        // [25-26] transition(intro2→fadeout)
-        #expect(valid[5].type == .transition(from: slides[1].image, to: nil))
-        #expect(valid[5].timeRange.start.seconds == 25)
-        #expect(valid[5].timeRange.duration.seconds == 1)
-
-        #expect(valid[6].type == .noOverlay)
-        #expect(valid[6].timeRange.start.seconds == 26)
-        #expect(valid[6].timeRange.duration.seconds == 4)
-
-        #expect(valid[7].type == .transition(from: nil, to: slides[3].image))
-        #expect(valid[7].timeRange.start.seconds == 30)
-        #expect(valid[7].timeRange.duration.seconds == 1)
-
-        #expect(valid[8].type == .constant(slides[3].image!))
-        #expect(valid[8].timeRange.start.seconds == 31)
-        #expect(valid[8].timeRange.duration.seconds == 4)
-
-        #expect(valid[9].type == .transition(from: slides[3].image, to: nil))
-        #expect(valid[9].timeRange.start.seconds == 35)
-        #expect(valid[9].timeRange.duration.seconds == 1)
-
-        #expect(valid[10].type == .noOverlay)
-        #expect(valid[10].timeRange.start.seconds == 36)
-        #expect(valid[10].timeRange.end.seconds == 120)
+        assertExpectedChunks([
+            (.noOverlay, 0),
+            (.transition(from: nil, to: slides[0].image), 10),
+            (.constant(slides[0].image!), 11),
+            (.transition(from: slides[0].image, to: slides[1].image), 20),
+            (.constant(slides[1].image!), 21),
+            (.transition(from: slides[1].image, to: nil), 25),
+            (.noOverlay, 26),
+            (.transition(from: nil, to: slides[3].image), 30),
+            (.constant(slides[3].image!), 31),
+            (.transition(from: slides[3].image, to: nil), 35),
+            (.noOverlay, 36)
+        ], chunks: chunks)
 
         assertCoverage(chunks, videoDuration: videoDuration)
     }
@@ -376,42 +282,19 @@ private func slide(_ image: CIImage?, _ seconds: Double) -> Slide {
         let newRegions = generateRegions(slides: slides, videoDuration: videoDuration, transitionTime: transitionTime)
         chunks = diffRegionsIntoChunks(newRegions: newRegions, existingChunks: chunks)
 
-        let valid = chunks.filter { !$0.isStale }
-
-        // [0-10] noOverlay (new)
-        #expect(valid[0].type == .noOverlay)
-        #expect(valid[0].timeRange.start.seconds == 0)
-
-        // [10-11] transition(nil→intro1) (exact match, reused)
-        #expect(valid[1].type == .transition(from: nil, to: slides[0].image))
-        #expect(valid[1].timeRange.start.seconds == 10)
-
-        // [11-15] constant(intro1) (trimmed from old [11-20] → overlap [11-15] reused)
-        #expect(valid[2].type == .constant(slides[0].image!))
-        #expect(valid[2].stitchingTimeRange?.start.seconds == 11)
-        #expect(valid[2].stitchingTimeRange?.duration.seconds == 4)
-
-        // [15-16] transition(intro1→intro2) (new)
-        #expect(valid[3].type == .transition(from: slides[0].image, to: slides[1].image))
-        #expect(valid[3].timeRange.start.seconds == 15)
-
-        #expect(valid[4].type == .constant(slides[1].image!))
-        #expect(valid[4].timeRange.start.seconds == 16)
-
-        #expect(valid[5].type == .transition(from: slides[1].image, to: nil))
-        #expect(valid[5].timeRange.start.seconds == 20)
-
-        #expect(valid[6].type == .noOverlay)
-        #expect(valid[6].timeRange.start.seconds == 21)
-
-        #expect(valid[7].type == .transition(from: nil, to: slides[3].image))
-        #expect(valid[7].timeRange.start.seconds == 30)
-
-        #expect(valid[8].type == .constant(slides[3].image!))
-        #expect(valid[8].timeRange.start.seconds == 31)
-
-        #expect(valid[9].type == .transition(from: slides[3].image, to: nil))
-        #expect(valid[9].timeRange.start.seconds == 35)
+        assertExpectedChunks([
+            (.noOverlay, 0),
+            (.transition(from: nil, to: slides[0].image), 10),
+            (.constant(slides[0].image!), 11),
+            (.transition(from: slides[0].image, to: slides[1].image), 15),
+            (.constant(slides[1].image!), 16),
+            (.transition(from: slides[1].image, to: nil), 20),
+            (.noOverlay, 21),
+            (.transition(from: nil, to: slides[3].image), 30),
+            (.constant(slides[3].image!), 31),
+            (.transition(from: slides[3].image, to: nil), 35),
+            (.noOverlay, 36)
+        ], chunks: chunks)
 
         // Some old chunks should be stale
         let staleCount = chunks.filter { $0.isStale }.count
