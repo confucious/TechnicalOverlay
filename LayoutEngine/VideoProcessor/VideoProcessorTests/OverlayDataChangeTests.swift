@@ -439,6 +439,7 @@ private func slide(_ image: CIImage?, _ seconds: Double) -> Slide {
         let prevSlides = [
             slide(imgIntro1, 10),
             slide(imgIntro2, 20),
+            slide(nil, 25),
             slide(imgElem1, 30),
             slide(nil, 35),
         ]
@@ -455,15 +456,10 @@ private func slide(_ image: CIImage?, _ seconds: Double) -> Slide {
         let clearedRegions = generateRegions(slides: [], videoDuration: videoDuration, transitionTime: transitionTime)
         chunks = diffRegionsIntoChunks(newRegions: clearedRegions, existingChunks: chunks)
 
-        let valid = chunks.filter { !$0.isStale }
-        #expect(valid.count == 1)
-        #expect(valid[0].type == .noOverlay)
-        #expect(valid[0].timeRange.start == .zero)
-        #expect(valid[0].timeRange.duration == videoDuration)
-
         let staleCount = chunks.filter { $0.isStale }.count
         #expect(staleCount == prevValidCount) // all previous valid non-noOverlay chunks become stale.
 
+        assertExpectedChunks([(.noOverlay, 0)], chunks: chunks)
         assertCoverage(chunks, videoDuration: videoDuration)
     }
 
@@ -510,6 +506,7 @@ private func slide(_ image: CIImage?, _ seconds: Double) -> Slide {
             let slides = [
                 slide(imgIntro1, 10),
                 slide(imgIntro2, 20),
+                slide(nil, 25),
                 slide(imgElem1, 30),
                 slide(nil, 35),
             ]
@@ -523,6 +520,7 @@ private func slide(_ image: CIImage?, _ seconds: Double) -> Slide {
             let slides = [
                 slide(imgIntro1, 10),
                 slide(imgIntro2, 15),
+                slide(nil, 20),
                 slide(imgElem1, 30),
                 slide(nil, 35),
             ]
@@ -535,6 +533,7 @@ private func slide(_ image: CIImage?, _ seconds: Double) -> Slide {
         do {
             let regions = generateRegions(slides: [], videoDuration: videoDuration, transitionTime: transitionTime)
             chunks = diffRegionsIntoChunks(newRegions: regions, existingChunks: chunks)
+            assertExpectedChunks([(.noOverlay, 0)], chunks: chunks)
             assertCoverage(chunks, videoDuration: videoDuration)
             #expect(chunks.filter { !$0.isStale }.count == 1)
         }
