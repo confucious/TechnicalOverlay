@@ -300,8 +300,9 @@ public func generateRegions(
         let transDuration = transitionTime
         let transRange = CMTimeRange(start: cursor, duration: transDuration)
         let previousSlide = index > 0 ? sorted[index - 1] : nil
+        let effectivePreviousSlide = previousSlide?.image == nil ? nil : previousSlide
         let effectiveSlide = slide.image == nil ? nil : slide // nil if the current slide has no image.
-        let transType: ChunkType = .transition(from: previousSlide, to: effectiveSlide)
+        let transType: ChunkType = .transition(from: effectivePreviousSlide, to: effectiveSlide)
         regions.append(ChunkRegion(
             identity: transType.contentIdentity,
             timeRange: transRange,
