@@ -332,31 +332,6 @@ public func generateRegions(
             ))
             cursor = nextSlideStart
         }
-//
-//        // After last slide: transition out (fade to noOverlay)
-//        if index == sorted.count - 1 {
-//            if cursor < videoDuration {
-//                let transDuration = min(transitionTime, videoDuration - cursor)
-//                if transDuration.value > 0 {
-//                    let transRange = CMTimeRange(start: cursor, duration: transDuration)
-//                    // Transition out: from slide to noOverlay (fade out).
-//                    let transType: ChunkType = .transition(from: slide, to: nil)
-//                    regions.append(ChunkRegion(
-//                        identity: transType.contentIdentity,
-//                        timeRange: transRange,
-//                        type: transType
-//                    ))
-//                    cursor = cursor + transDuration
-//                }
-//            }
-//
-//            // Final noOverlay if there's remaining time
-//            if cursor < videoDuration {
-//                let gapDuration = videoDuration - cursor
-//                let gapRange = CMTimeRange(start: cursor, duration: gapDuration)
-//                regions.append(ChunkRegion(identity: .noOverlay(), timeRange: gapRange, type: .noOverlay))
-//            }
-//        }
     }
 
     if regions.isEmpty {
