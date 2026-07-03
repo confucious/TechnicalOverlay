@@ -160,14 +160,14 @@ public struct ContentIdentity: Hashable, Sendable {
         ContentIdentity(kind: .noOverlay, hash: 0)
     }
 
-    public static func constant(slide: Slide) -> ContentIdentity {
-        ContentIdentity(kind: .constant, hash: slide.image.hashValue)
+    public static func constant(image: CIImage) -> ContentIdentity {
+        ContentIdentity(kind: .constant, hash: image.hashValue)
     }
 
-    public static func transition(from: Slide?, to: Slide?) -> ContentIdentity {
+    public static func transition(from: CIImage?, to: CIImage?) -> ContentIdentity {
         var hasher = Hasher()
-        hasher.combine(from?.image.hashValue)
-        hasher.combine(to?.image.hashValue)
+        hasher.combine(from?.hashValue)
+        hasher.combine(to?.hashValue)
         return ContentIdentity(kind: .transition, hash: hasher.finalize())
     }
 }
@@ -176,15 +176,15 @@ public struct ContentIdentity: Hashable, Sendable {
 
 public enum ChunkType: Sendable, Equatable {
     case noOverlay
-    case constant(Slide)
-    case transition(from: Slide?, to: Slide?)
+    case constant(CIImage)
+    case transition(from: CIImage?, to: CIImage?)
 
     public var contentIdentity: ContentIdentity {
         switch self {
         case .noOverlay:
             return .noOverlay()
-        case .constant(let slide):
-            return .constant(slide: slide)
+        case .constant(let image):
+            return .constant(image: image)
         case .transition(let from, let to):
             return .transition(from: from, to: to)
         }
@@ -195,7 +195,6 @@ public enum ChunkState: Sendable, Equatable {
     case pending
     case rendering
     case rendered(URL)
-    case stale
 }
 
 // MARK: - Chunk
@@ -205,33 +204,41 @@ public struct Chunk: Sendable {
     public var timeRange: CMTimeRange
     public let type: ChunkType
     public let contentIdentity: ContentIdentity
-    public var state: ChunkState
+    public var renderState: ChunkState
+    public var stitchingTimeRange: CMTimeRange?
 
     public init(
         id: UUID = UUID(),
         timeRange: CMTimeRange,
         type: ChunkType,
-        state: ChunkState = .pending
+        renderState: ChunkState = .pending
     ) {
         self.id = id
         self.timeRange = timeRange
         self.type = type
         self.contentIdentity = type.contentIdentity
-        self.state = state
+        self.renderState = renderState
+        self.stitchingTimeRange = timeRange
     }
 
     public var isRendered: Bool {
-        if case .rendered = state { return true }
+        if type == .noOverlay {
+            // noOverlay chunks are always considered rendered regardless
+            // of renderState because there is no work to do for them.
+            return true
+        }
+        if case .rendered = renderState {
+            return true
+        }
         return false
     }
 
     public var isStale: Bool {
-        if case .stale = state { return true }
-        return false
+        stitchingTimeRange == nil
     }
 
     public var outputURL: URL? {
-        if case .rendered(let url) = state { return url }
+        if case .rendered(let url) = renderState { return url }
         return nil
     }
 }
@@ -302,7 +309,7 @@ public func generateRegions(
         let previousSlide = index > 0 ? sorted[index - 1] : nil
         let effectivePreviousSlide = previousSlide?.image == nil ? nil : previousSlide
         let effectiveSlide = slide.image == nil ? nil : slide // nil if the current slide has no image.
-        let transType: ChunkType = .transition(from: effectivePreviousSlide, to: effectiveSlide)
+        let transType: ChunkType = .transition(from: effectivePreviousSlide?.image, to: effectiveSlide?.image)
         regions.append(ChunkRegion(
             identity: transType.contentIdentity,
             timeRange: transRange,
@@ -317,7 +324,7 @@ public func generateRegions(
             let constRange = CMTimeRange(start: cursor, duration: constDuration)
             let constType: ChunkType = slide.image == nil ?
                 .noOverlay :
-                .constant(slide)
+                .constant(slide.image!)
             regions.append(ChunkRegion(
                 identity: constType.contentIdentity,
                 timeRange: constRange,
@@ -369,42 +376,94 @@ public func diffRegionsIntoChunks(
     guard !newRegions.isEmpty else {
         return existingChunks.map { chunk in
             var updated = chunk
-            updated.state = .stale
+            updated.stitchingTimeRange = nil
             return updated
         }
     }
 
-    var available = existingChunks.map { ($0, false) }
+    var reusedIDs: Set<UUID> = []
     var result: [Chunk] = []
 
     for region in newRegions {
-        var bestIndex: Int?
-        for (i, (chunk, reused)) in available.enumerated() {
-            guard !reused else { continue }
-            guard chunk.contentIdentity == region.identity else { continue }
-            guard !chunk.isStale else { continue }
-            let overlap = chunk.timeRange.intersection(region.timeRange)
-            guard !overlap.isEmpty else { continue }
-            bestIndex = i
-            break
-        }
-
-        if let idx = bestIndex {
-            let (chunk, _) = available[idx]
-            var updated = chunk
-            updated.timeRange = region.timeRange
-            result.append(updated)
-            available[idx] = (chunk, true)
-        } else {
-            let newChunk = Chunk(timeRange: region.timeRange, type: region.type, state: .pending)
+        switch region.type {
+        case .noOverlay:
+            // noOverlay chunks are never reused — always create new
+            let newChunk = Chunk(timeRange: region.timeRange, type: region.type, renderState: .pending)
             result.append(newChunk)
+
+        case .transition:
+            // Transition chunks require exact timeRange match
+            var matchIndex: Int?
+            for (i, chunk) in existingChunks.enumerated() {
+                guard !reusedIDs.contains(chunk.id) else { continue }
+                guard chunk.contentIdentity == region.identity else { continue }
+                guard chunk.timeRange.start == region.timeRange.start &&
+                      chunk.timeRange.duration == region.timeRange.duration else { continue }
+                matchIndex = i
+                break
+            }
+
+            if let idx = matchIndex {
+                let chunk = existingChunks[idx]
+                var updated = chunk
+                updated.stitchingTimeRange = region.timeRange
+                result.append(updated)
+                reusedIDs.insert(chunk.id)
+            } else {
+                let newChunk = Chunk(timeRange: region.timeRange, type: region.type, renderState: .pending)
+                result.append(newChunk)
+            }
+
+        case .constant:
+            // Constant chunks can be reused for overlapping portions
+            var matchIndex: Int?
+            for (i, chunk) in existingChunks.enumerated() {
+                guard !reusedIDs.contains(chunk.id) else { continue }
+                guard chunk.contentIdentity == region.identity else { continue }
+                let overlap = chunk.timeRange.intersection(region.timeRange)
+                guard !overlap.isEmpty else { continue }
+                matchIndex = i
+                break
+            }
+
+            if let idx = matchIndex {
+                let chunk = existingChunks[idx]
+                let overlap = chunk.timeRange.intersection(region.timeRange)
+
+                // If region extends before the overlap, create a new pending chunk
+                if region.timeRange.start < overlap.start {
+                    let gapDuration = overlap.start - region.timeRange.start
+                    let gapRange = CMTimeRange(start: region.timeRange.start, duration: gapDuration)
+                    let gapChunk = Chunk(timeRange: gapRange, type: region.type, renderState: .pending)
+                    result.append(gapChunk)
+                }
+
+                // Reuse the existing chunk trimmed to the overlap
+                // Existing chunk's timeRange should not change. just the region used for stitching.
+                var updated = chunk
+                updated.stitchingTimeRange = overlap
+                result.append(updated)
+                reusedIDs.insert(chunk.id)
+
+                // If region extends after the overlap, create a new pending chunk
+                if overlap.end < region.timeRange.end {
+                    let gapDuration = region.timeRange.end - overlap.end
+                    let gapRange = CMTimeRange(start: overlap.end, duration: gapDuration)
+                    let gapChunk = Chunk(timeRange: gapRange, type: region.type, renderState: .pending)
+                    result.append(gapChunk)
+                }
+            } else {
+                let newChunk = Chunk(timeRange: region.timeRange, type: region.type, renderState: .pending)
+                result.append(newChunk)
+            }
         }
     }
 
-    for (chunk, reused) in available {
-        if !reused {
+    // Mark unreused existing chunks as stale (stitchingTimeRange = nil)
+    for chunk in existingChunks {
+        if !reusedIDs.contains(chunk.id) && chunk.type != .noOverlay {
             var updated = chunk
-            updated.state = .stale
+            updated.stitchingTimeRange = nil
             result.append(updated)
         }
     }
@@ -440,7 +499,7 @@ public actor ChunkQueue {
     public func markStale(where predicate: (Chunk) -> Bool) {
         for i in chunks.indices {
             if predicate(chunks[i]) {
-                chunks[i].state = .stale
+                chunks[i].stitchingTimeRange = nil
             }
         }
     }
@@ -452,7 +511,7 @@ public actor ChunkQueue {
     public func waitForCompletion() async {
         while !Task.isCancelled {
             let hasPending = chunks.contains { chunk in
-                chunk.state == .pending && chunk.type != .noOverlay
+                chunk.renderState == .pending && chunk.type != .noOverlay
             }
             guard hasPending else { break }
             await drain()
@@ -479,28 +538,34 @@ public actor ChunkQueue {
                 isDraining = false
                 break
             }
-            markChunkState(next.id, state: .rendering)
+            markChunkRenderState(next.id, state: .rendering)
             if let outputURL = await renderer.render(next) {
                 markChunkRendered(next.id, outputURL: outputURL)
             } else {
-                markChunkState(next.id, state: .stale)
+                markChunkStale(next.id)
             }
         }
     }
 
     private func dequeueNextRenderable() -> Chunk? {
-        guard let index = chunks.firstIndex(where: { $0.state == .pending && $0.type != .noOverlay })
+        guard let index = chunks.firstIndex(where: { $0.renderState == .pending && $0.type != .noOverlay })
         else { return nil }
         return chunks[index]
     }
 
-    private func markChunkState(_ id: UUID, state: ChunkState) {
+    private func markChunkRenderState(_ id: UUID, state: ChunkState) {
         if let index = chunks.firstIndex(where: { $0.id == id }) {
-            chunks[index].state = state
+            chunks[index].renderState = state
+        }
+    }
+
+    private func markChunkStale(_ id: UUID) {
+        if let index = chunks.firstIndex(where: { $0.id == id }) {
+            chunks[index].stitchingTimeRange = nil
         }
     }
 
     private func markChunkRendered(_ id: UUID, outputURL: URL) {
-        markChunkState(id, state: .rendered(outputURL))
+        markChunkRenderState(id, state: .rendered(outputURL))
     }
 }

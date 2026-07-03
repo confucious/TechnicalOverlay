@@ -74,7 +74,7 @@ import CoreImage
             videoDuration: videoDuration,
             transitionTime: transitionTime
         )
-        #expect(regions[0].type == .transition(from: nil, to: zeroSlide) ||
+        #expect(regions[0].type == .transition(from: nil, to: zeroSlide.image) ||
                 regions[0].type != .noOverlay)
         #expect(regions[0].timeRange.start == .zero)
     }
