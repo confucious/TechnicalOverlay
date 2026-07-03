@@ -201,7 +201,7 @@ public enum ChunkState: Sendable, Equatable {
 
 public struct Chunk: Sendable {
     public let id: UUID
-    public var timeRange: CMTimeRange
+    public let timeRange: CMTimeRange
     public let type: ChunkType
     public let contentIdentity: ContentIdentity
     public var renderState: ChunkState

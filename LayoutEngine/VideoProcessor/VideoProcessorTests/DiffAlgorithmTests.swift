@@ -301,7 +301,7 @@ import CoreImage
 
         // Second: reused chunk trimmed to [10,15]
         #expect(valid[1].timeRange.start.seconds == 10)
-        // timeRange of chunk (representing the video that was rendered) shoudl not change.
+        // timeRange of chunk (representing the video that was rendered) should not change.
         #expect(valid[1].timeRange.duration.seconds == 10)
         #expect(valid[1].stitchingTimeRange?.start.seconds == 10)
         #expect(valid[1].stitchingTimeRange?.duration.seconds == 5)
