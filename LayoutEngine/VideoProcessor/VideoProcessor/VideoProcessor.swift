@@ -141,6 +141,144 @@ public class VideoComposer {
             }
         }
     }
+
+    // MARK: - CIImage-based Composition (for chunk rendering)
+
+    /// Creates an `AVVideoComposition` that composites a single overlay image
+    /// over the source video for every frame. Mirrors the constant-overlay
+    /// path of `setupComposition()` but operates directly on `CIImage`.
+    public func setupComposition(overlay image: CIImage?) async throws -> AVVideoComposition {
+        return try await AVVideoComposition.videoComposition(with: asset) { request in
+            guard let image else {
+                request.finish(with: request.sourceImage, context: nil)
+                return
+            }
+            request.finish(
+                with: image.composited(over: request.sourceImage),
+                context: nil
+            )
+        }
+    }
+
+    /// Creates an `AVVideoComposition` that applies a cross-dissolve transition
+    /// between `from` and `to` images, composited over the source video.
+    /// The transition begins at `transitionStart` and lasts `Metrics.transitionTime`.
+    /// After the transition, the `to` image is held for remaining frames.
+    public func setupComposition(
+        from: CIImage?,
+        to: CIImage?,
+        transitionStart: CMTime
+    ) async throws -> AVVideoComposition {
+        let transitionTime = CMTime(seconds: Metrics.transitionTime, preferredTimescale: 1000)
+        return try await AVVideoComposition.videoComposition(with: asset) { request in
+            guard let fromImage = from, let toImage = to else {
+                request.finish(with: request.sourceImage, context: nil)
+                return
+            }
+
+            let diff = request.compositionTime - transitionStart
+            if diff <= transitionTime {
+                let dissolve = CIFilter.dissolveTransition()
+                dissolve.inputImage = fromImage
+                dissolve.targetImage = toImage
+                let progress = max(0.0, min(diff.seconds, transitionTime.seconds)) / transitionTime.seconds
+                dissolve.time = Float(progress)
+                request.finish(
+                    with: dissolve.outputImage!.composited(over: request.sourceImage),
+                    context: nil
+                )
+            } else {
+                request.finish(
+                    with: toImage.composited(over: request.sourceImage),
+                    context: nil
+                )
+            }
+        }
+    }
+
+    // MARK: - CIImage-based Export
+
+    /// Creates an `ExportSession` for exporting the asset with a constant overlay.
+    /// Mirrors `setupExport()` but uses `setupComposition(overlay:)`.
+    public func setupExport(
+        overlay image: CIImage?,
+        withPreset preset: String = AVAssetExportPresetHighestQuality,
+        toFileType outputFileType: AVFileType = .mov,
+        atURL outputURL: URL
+    ) async -> ExportSession? {
+        guard await AVAssetExportSession.compatibility(
+            ofExportPreset: preset,
+            with: asset,
+            outputFileType: outputFileType
+        ) else {
+            print("The preset can't export the video to the output file type.")
+            return nil
+        }
+
+        guard let exportSession = AVAssetExportSession(
+            asset: asset,
+            presetName: preset
+        ) else {
+            print("Failed to create export session.")
+            return nil
+        }
+
+        do {
+            exportSession.videoComposition = try await setupComposition(overlay: image)
+            return ExportSession(
+                exportSession: exportSession,
+                outputUrl: outputURL,
+                outputFileType: outputFileType
+            )
+        } catch {
+            print("export failed \(error)")
+            return nil
+        }
+    }
+
+    /// Creates an `ExportSession` for exporting the asset with a transition overlay.
+    /// Mirrors `setupExport()` but uses `setupComposition(from:to:transitionStart:)`.
+    public func setupExport(
+        from: CIImage?,
+        to: CIImage?,
+        transitionStart: CMTime,
+        withPreset preset: String = AVAssetExportPresetHighestQuality,
+        toFileType outputFileType: AVFileType = .mov,
+        atURL outputURL: URL
+    ) async -> ExportSession? {
+        guard await AVAssetExportSession.compatibility(
+            ofExportPreset: preset,
+            with: asset,
+            outputFileType: outputFileType
+        ) else {
+            print("The preset can't export the video to the output file type.")
+            return nil
+        }
+
+        guard let exportSession = AVAssetExportSession(
+            asset: asset,
+            presetName: preset
+        ) else {
+            print("Failed to create export session.")
+            return nil
+        }
+
+        do {
+            exportSession.videoComposition = try await setupComposition(
+                from: from,
+                to: to,
+                transitionStart: transitionStart
+            )
+            return ExportSession(
+                exportSession: exportSession,
+                outputUrl: outputURL,
+                outputFileType: outputFileType
+            )
+        } catch {
+            print("export failed \(error)")
+            return nil
+        }
+    }
 }
 
 // MARK: - Content Identity
