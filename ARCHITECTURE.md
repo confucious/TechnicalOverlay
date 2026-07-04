@@ -28,7 +28,8 @@ TechnicalOverlay/                          # Workspace root (Tuist-managed)
 │   │   └── TechnicalPaneComponents/       # Pane subviews (5 files)
 │   ├── VideoProcessor/                    # VideoProcessor framework (AVFoundation)
 │   │   └── VideoProcessor/
-│   │       └── VideoProcessor.swift       # Slide, VideoComposer, Chunk pipeline
+│   │       ├── VideoProcessor.swift       # Slide, VideoComposer, Chunk pipeline
+│   │       └── DefaultChunkRenderer.swift # ChunkRendererProtocol implementation
 │   └── ProtocolParser/                    # Placeholder (empty stub)
 │       └── ProtocolParser/
 │           └── ProtocolParser.swift       # Empty import stub
@@ -94,7 +95,7 @@ AVPlayer plays video with overlays composited in real-time
 
 4. **Image caching:** `OverlayData` caches rendered `CIImage` objects keyed by `(size, mode)`. Cache is cleared on data changes.
 
-5. **Two rendering paths:** The main `VideoComposer` path is used for both preview and export (simple, single pipeline). The `ChunkQueue` path is a separate, more complex pipeline designed for incremental rendering — not yet wired into the main app.
+5. **Two rendering paths:** The main `VideoComposer` path is used for both preview and export (simple, single pipeline). The `ChunkQueue` + `DefaultChunkRenderer` path is a separate pipeline designed for incremental rendering — `DefaultChunkRenderer` is implemented but not yet wired into the main app export flow.
 
 6. **No external dependencies:** The project uses only Apple frameworks (SwiftUI, AVFoundation, CoreImage, UIKit, CoreMedia, Observation). No SPM packages, CocoaPods, or Carthage.
 
