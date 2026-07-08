@@ -393,7 +393,7 @@ public protocol StitcherProtocol: Sendable {
         sourceAsset: AVAsset,
         videoDuration: CMTime,
         to outputURL: URL
-    ) async -> URL?
+    ) async throws -> VideoComposer.ExportSession?
 }
 
 // MARK: - Region
