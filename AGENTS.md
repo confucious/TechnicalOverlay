@@ -1,0 +1,158 @@
+# TechnicalOverlay — Agent Instructions
+
+## Build & Run
+
+Two separate Xcode project workspaces — commands must target the correct `.xcodeproj`:
+
+```bash
+# App
+xcodebuild -project TechnicalOverlay/TechnicalOverlay.xcodeproj -scheme TechnicalOverlay -destination 'platform=macOS' build
+
+# LayoutEngine framework
+xcodebuild -project LayoutEngine/LayoutEngine.xcodeproj -scheme LayoutEngine -destination 'platform=macOS' build
+
+# VideoProcessor framework
+xcodebuild -project LayoutEngine/VideoProcessor/VideoProcessor.xcodeproj -scheme VideoProcessor -destination 'platform=macOS' build
+```
+
+Test all schemes at once:
+
+```bash
+xcodebuild test \
+  -project TechnicalOverlay/TechnicalOverlay.xcodeproj -scheme TechnicalOverlay \
+  -project LayoutEngine/LayoutEngine.xcodeproj -scheme LayoutEngine \
+  -project LayoutEngine/VideoProcessor/VideoProcessor.xcodeproj -scheme VideoProcessor \
+  -destination 'platform=macOS'
+```
+
+No lint, no typecheck, no formatter. Swift only, no SPM dependencies. Tests use the **Swift Testing** framework (`@Suite`, `#expect`).
+
+## Architecture
+
+Three Xcode projects in two workspaces, **not one monorepo**:
+
+```
+TechnicalOverlay/                          # Main app (macOS)
+├── TechnicalOverlay.xcodeproj/
+│   └── TechnicalOverlay/
+│       ├── TechnicalOverlayApp.swift      # @main → MainView
+│       ├── MainView.swift                 # Primary UI + export orchestration
+│       ├── OverlayData.swift              # Core data model (@Observable)
+│       ├── OverlayDataDocument.swift      # .tod file I/O (versioned JSON)
+│       ├── ScoringListView.swift          # Full-screen data entry (NavigationLink destination)
+│       ├── TimeSettingsView.swift         # Timeline editor with "Start Now"
+│       ├── ElementBuilderView.swift       # Placeholder — not wired in
+│       └── ContentView.swift              # Legacy/prototype — not used
+├── TechnicalOverlayTests/                 # App unit tests
+└── TechnicalOverlayUITests/               # UI tests
+
+LayoutEngine/                              # Shared library workspace
+├── LayoutEngine.xcodeproj/
+│   └── LayoutEngine/                      # UIKit overlay views
+│       ├── LayoutEngine.swift             # Color, Metrics, UIView extensions
+│       ├── VideoOverlay.swift             # Main overlay container (1280×720)
+│       ├── IsuLowerThirdView.swift        # Skater intro overlay
+│       ├── IsuTechnicalPaneView.swift     # Technical scoring overlay
+│       └── TechnicalPaneComponents/       # 5 subviews (ElementBoxView, etc.)
+├── VideoProcessor.xcodeproj/
+│   └── VideoProcessor/                    # AVFoundation pipeline
+│       ├── VideoProcessor.swift           # Slide, VideoComposer, ExportSession
+│       ├── DefaultChunkRenderer.swift     # ChunkRendererProtocol impl
+│       └── DefaultStitcher.swift          # StitcherProtocol impl
+├── LayoutEngineTests/
+└── VideoProcessorTests/                   # 7 test files — best coverage here
+    ├── DiffAlgorithmTests.swift           # Most comprehensive tests
+    ├── ChunkQueueTests.swift
+    ├── DefaultChunkRendererTests.swift
+    ├── DefaultStitcherTests.swift
+    ├── RegionGenerationTests.swift
+    ├── OverlayDataChangeTests.swift
+    └── VideoProcessorTests.swift
+
+ProtocolParser/                            # Empty stub — not linked
+```
+
+**Zero external dependencies.** Only Apple frameworks: SwiftUI, AVFoundation, CoreImage, UIKit, CoreMedia, Observation, UniformTypeIdentifiers.
+
+**ARCHITECTURE.md** at the repo root has the full module map and data flow. **Read it before making changes.**
+
+## Data Model — Critical Details
+
+`OverlayData` is marked `@Observable` (Observation framework). Scores are stored as `Int` in **hundredths** (3.40 → 340, -1.19 → -119). All `ElementData` fields (`baseValue`, `goeValue`, `bonusValue`) use this. String ↔ hundredths conversion via `String.toHundredthsInt()` and `ElementData.formatValue()`.
+
+**Cascading timing** — `setIntroTime(index:time:)` and `setElementTime(index:time:)` propagate the delta to all subsequent items, preserving relative spacing. Recursive implementation.
+
+Persistence: `OverlayData.save()`/`load()` writes JSON to UserDefaults under key `"state"`. `.tod` files are versioned JSON (current version 1) via SwiftUI `FileDocument`.
+
+Two `Metrics` enums exist:
+- `VideoProcessor.Metrics.transitionTime = 0.75` — dissolve duration, used in `VideoComposer.setupComposition()` and chunk rendering
+- `LayoutEngine.Metrics` — layout constants (`techPaneHeightPercent`, `overlayBorderPercent`, `lowerThirdHeightPercent`, etc.)
+
+## Export Pipeline
+
+Two rendering paths:
+
+1. **VideoComposer** — live preview. `AVVideoComposition` with a render handler that composites slides over source frames in real-time via `CIFilter.dissolveTransition`.
+
+2. **ChunkQueue → DefaultChunkRenderer → DefaultStitcher** — export pipeline. `ChunkQueue.enqueue(slides:)` generates regions, diffs against existing chunks, renders pending ones sequentially. `DefaultStitcher` assembles rendered chunks + source video segments into final output via `AVMutableComposition` track appending.
+
+Export flow in `MainView`:
+```
+enqueue(slides:) → waitForCompletion() → stitch(chunks:sourceAsset:videoDuration:to:) → ExportSession.performExport()
+```
+
+Chunk types: `.noOverlay` (source-only, never reused), `.constant` (single CIImage overlay), `.transition` (cross-dissolve between two CIImages).
+
+Chunk diffing (`diffRegionsIntoChunks`) reuses rendered chunks when content identity and time range match — key for incremental updates. `DefaultChunkRenderer` is implemented but the main app export flow uses the chunk queue + stitcher path, not the older `VideoComposer.setupExport()` path.
+
+## Control Flow
+
+```
+User loads video (MainView → fileImporter)
+    │
+    ▼
+ViewModel.assetUrl = fileUrl
+    │  (startAccessingSecurityScopedResource, generateSlides())
+    ▼
+generateSlides()
+    │  scoring.makeSlides(size:) → VideoOverlay.Mode → VideoOverlay.render() → CIImage → Slide[]
+    │  (imageCache keyed by (size, mode) in OverlayData)
+    ▼
+VideoComposer(asset:slides:) → setupComposition() → AVVideoComposition
+    │  AVPlayerItem.videoComposition = composition
+    ▼
+AVPlayer plays video with overlays composited in real-time
+
+User edits timing (TimeSettingsView)
+    │  setIntroTime/setElementTime (cascading)
+    │  → generateSlides() → new VideoComposer → replaceCurrentItem
+    │  → queue.enqueue(slides:) (re-enqueues for export)
+
+User exports (MainView "Save Video" button)
+    │  queue.waitForCompletion()
+    │  DefaultStitcher.stitch(chunks:queue.validChunks(), …)
+    │  → AVMutableComposition with sequential track inserts
+    │  → ExportSession.performExport() → temp .mov
+    │  → fileExporter dialog to save
+```
+
+## Testing
+
+Tests live in separate Xcode test targets alongside each framework. The most comprehensive coverage is in `VideoProcessorTests/DiffAlgorithmTests.swift` (chunk diffing algorithm). Use `xcodebuild test` (see Build & Run above).
+
+## Gotchas
+
+- `ContentView.swift` is a **legacy prototype** with hardcoded test data. Main entry point is `MainView`.
+- `ElementBuilderView.swift` is a **placeholder** — not wired into the app.
+- `Metrics.transitionTime = 0.75` in `VideoProcessor` — the dissolve duration, used everywhere in video composition.
+- Overlay views render at **1280×720** (hardcoded in `VideoOverlay` init frame).
+- Security-scoped URLs: `startAccessingSecurityScopedResource()` / `stopAccessingSecurityScopedResource()` must be paired (see `MainView.ViewModel.assetUrl` setter with `willSet`/`didSet`). Also used in `OverlayDataDocument.read()`.
+- `OverlayData` clears its `imageCache` on data changes. Cache is keyed by `(size, mode)`.
+- `ScoringListView` saves data and clears cache on `onDisappear`.
+- Test bundle identifiers are `org.cjas.jhsu.*` for frameworks, `org.cjas.technical-overlay` for the app.
+- `ChunkQueue` is an `actor` — all calls to `render(chunk:)` are serialized. No additional synchronization needed in `DefaultChunkRenderer`.
+- `DefaultStitcher` is **not `Sendable`** — `AVAssetReader`/`AVAssetWriter` are not thread-safe.
+- The stitcher creates a single `AVMutableComposition` with one video track and one audio track, appending chunks sequentially.
+- Export output is `.mov` for chunk rendering, `.mp4` for final stitch.
+- `VideoComposer.setupComposition()` (async) returns `AVVideoComposition?` — errors are caught and printed in `generateSlides()`.
+- `OverlayData.renderingHash` computes a deterministic hash of all rendering-affecting fields (names, scores, times) — used for cache invalidation decisions.

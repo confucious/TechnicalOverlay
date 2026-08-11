@@ -16,6 +16,13 @@ import VideoProcessor
 //}
 
 struct MainView: View {
+    enum ExportPhase: Sendable {
+        case idle
+        case rendering
+        case stitching
+        case done
+    }
+
     @Observable
     class ViewModel {
         internal init(player: AVPlayer? = nil, assetUrl: URL? = nil, scoring: OverlayData = OverlayData()) {
@@ -23,7 +30,6 @@ struct MainView: View {
             self.assetUrl = assetUrl
             self.scoring = scoring
             scoring.load()
-//            self.scoring = overlayData
         }
 
         var saveVideoDisabled: Bool {
@@ -38,6 +44,7 @@ struct MainView: View {
                 }
                 print("Invalidating cachedSize")
                 cachedSize = nil
+                chunkQueue = nil
             }
             didSet {
                 guard let assetUrl else {
@@ -54,10 +61,18 @@ struct MainView: View {
 
         @ObservationIgnored
         var videoComposer: VideoComposer?
-        
+
+        @ObservationIgnored
+        var chunkQueue: ChunkQueue?
+
+        // Progress tracking
+        var renderingProgress: ChunkQueueProgress?
+        var stitchingProgress: Progress?
+        var exportPhase: ExportPhase = .idle
+
         @ObservationIgnored
         var cachedSize: CGSize?
-        
+
         @ObservationIgnored
         var outputFilename: String {
             if let assetUrl {
@@ -67,11 +82,11 @@ struct MainView: View {
                 return "Scored.mov"
             }
         }
-        
+
         deinit {
             assetUrl = nil
         }
-        
+
         func getSize(of asset: AVAsset) async -> CGSize? {
             if let cachedSize {
                 print("Returned cached size \(cachedSize)")
@@ -110,7 +125,8 @@ struct MainView: View {
                     return
                 }
                 
-                let videoComposer = VideoComposer(asset: asset, slides: scoring.makeSlides(size: size))
+                let slides = scoring.makeSlides(size: size)
+                let videoComposer = VideoComposer(asset: asset, slides: slides)
                 self.videoComposer = videoComposer
                 let playerItem = AVPlayerItem(asset: asset)
                 do {
@@ -126,6 +142,28 @@ struct MainView: View {
                 } else {
                     player = AVPlayer(playerItem: playerItem)
                 }
+
+                // Create chunk queue for incremental rendering pipeline
+                let queue = chunkQueue ?? ChunkQueue(
+                    renderer: DefaultChunkRenderer(
+                        sourceAsset: asset,
+                        outputDirectory: FileManager.default.temporaryDirectory
+                    ),
+                    transitionTime: CMTime(seconds: Metrics.transitionTime, preferredTimescale: 1000)
+                )
+                await queue
+                    .setProgressCallback { [renderingProgress] progress in
+                    Task { @MainActor in
+                        self?.renderingProgress = progress
+                    }
+                }
+                self.chunkQueue = queue
+
+                // Pre-enqueue slides so the queue is ready for "Save Video"
+                let videoDuration = try? await asset.load(.duration)
+                if let videoDuration {
+                    queue.enqueue(slides: slides, videoDuration: videoDuration)
+                }
             }
         }    }
 
@@ -139,15 +177,14 @@ struct MainView: View {
     @State private var saveFileShowing = false
     @State private var loadOverlayDataShowing = false
     @State private var saveOverlayDataShowing = false
-    @State private var exportProgress: Progress? = nil
     private var showProgressModal: Binding<Bool> {
         Binding(
             get: {
-                exportProgress != nil
+                state.exportPhase != .idle
             },
             set: {
                 if !$0 {
-                    exportProgress = nil
+                    state.exportPhase = .idle
                 }
             }
         )
@@ -176,35 +213,66 @@ struct MainView: View {
                         }
                     Button("Save Video") {
                         Task {
-                            guard let videoComposer = state.videoComposer
-                            else {
+                            guard let queue = state.chunkQueue,
+                                  let videoComposer = state.videoComposer,
+                                  let assetUrl = state.assetUrl else {
+                                print("queue, videoComposer or assetUrl not set")
                                 return
                             }
+
+                            state.exportPhase = .rendering
+                            state.renderingProgress = nil
+                            state.stitchingProgress = nil
+
+                            let asset = AVURLAsset(url: assetUrl)
+                            guard let videoDuration = try? await asset.load(.duration) else {
+                                print("Failed to load video duration")
+                                state.exportPhase = .idle
+                                return
+                            }
+
+//                            // Enqueue slides for incremental rendering
+//                            queue.enqueue(slides: videoComposer.slides, videoDuration: videoDuration)
+//
+                            // Wait for all chunks to finish rendering
+                            await queue.waitForCompletion()
+
+                            // All chunks rendered — now stitch
+                            state.exportPhase = .stitching
                             let filename = UUID().uuidString + ".mov"
                             let tempFileURL = FileManager.default.temporaryDirectory.appendingPathComponent(filename)
-                            guard let exportSession = await videoComposer.setupExport(
-                                atURL: tempFileURL
+
+                            let stitcher = DefaultStitcher()
+                            guard let exportSession = try await stitcher.stitch(
+                                chunks: queue.validChunks(),
+                                sourceAsset: asset,
+                                videoDuration: videoDuration,
+                                to: tempFileURL
                             ) else {
-                                print("Failed to setup export session")
+                                print("Stitching failed — last chunk didn't reach end of video")
+                                state.exportPhase = .idle
                                 return
                             }
+
+                            // Monitor stitching progress
                             Task {
-                                for await state in exportSession.exportState {
-                                    switch state {
-                                    case .pending: print("pending export")
-                                    case .waiting: print("waiting export")
+                                for await stitchState in exportSession.exportState {
+                                    switch stitchState {
+                                    case .pending: print("pending stitch export")
+                                    case .waiting: print("waiting stitch export")
                                     case let .exporting(progress: progress):
-                                        print("exporting \(progress)")
-                                        exportProgress = progress
+                                        print("stitch exporting \(progress)")
+                                        state.stitchingProgress = progress
                                     @unknown default:
-                                        print("unknown state")
+                                        print("unknown stitch state")
                                     }
                                 }
                             }
                             await exportSession.performExport()
+
                             shareUrl = tempFileURL
                             saveFileShowing = true
-                            exportProgress = nil
+                            state.exportPhase = .done
                         }
                     }
                     .buttonStyle(.bordered)
@@ -219,12 +287,26 @@ struct MainView: View {
                     }
                     .sheet(isPresented: showProgressModal, content: {
                         VStack {
-                            if let exportProgress {
-                                ProgressView(exportProgress).padding(20.0)
+                            if let progress = state.renderingProgress, state.exportPhase == .rendering {
+                                ProgressView(
+                                    "Rendering overlay chunks (\(progress.completed)/\(progress.total))",
+                                    value: Double(progress.completed),
+                                    total: Double(max(progress.total, 1))
+                                ).padding(20.0)
+                            } else if let stitchProgress = state.stitchingProgress, state.exportPhase == .stitching {
+                                ProgressView(
+                                    "Stitching final video...",
+                                    value: stitchProgress.fractionCompleted
+                                ).padding(20.0)
+                            } else if state.exportPhase == .done {
+                                Text("Export complete")
+                                Button("Close") {
+                                    state.exportPhase = .idle
+                                }
                             } else {
                                 Text("Export error")
                                 Button("Close") {
-                                    exportProgress = nil
+                                    state.exportPhase = .idle
                                 }
                             }
                         }.interactiveDismissDisabled()

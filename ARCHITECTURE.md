@@ -6,8 +6,6 @@ A SwiftUI iOS/macOS app that creates video overlays for figure skating competiti
 
 ```
 TechnicalOverlay/                          # Workspace root (Tuist-managed)
-├── mise.toml                              # Tool versioning (tuist 4.61.2)
-├── Tuist.swift                            # Tuist project config
 ├── TechnicalOverlay/                      # Main app target
 │   ├── TechnicalOverlay.xcodeproj/
 │   └── TechnicalOverlay/

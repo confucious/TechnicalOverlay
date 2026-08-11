@@ -19,8 +19,8 @@ public struct Slide: Sendable, Equatable {
     }
 }
 
-enum Metrics {
-    static let transitionTime = 0.75
+public enum Metrics {
+    public static let transitionTime = 0.75
 }
 
 public class VideoComposer {
@@ -586,15 +586,26 @@ public func diffRegionsIntoChunks(
 
 // MARK: - ChunkQueue
 
+/// Progress reported during chunk rendering.
+public struct ChunkQueueProgress: Sendable {
+    public let completed: Int
+    public let total: Int
+}
+
 public actor ChunkQueue {
     public var chunks: [Chunk] = []
     private let renderer: any ChunkRendererProtocol
     private let transitionTime: CMTime
     private var isDraining = false
+    private var progressCallback: (@Sendable (ChunkQueueProgress) -> Void)?
 
     public init(renderer: any ChunkRendererProtocol, transitionTime: CMTime) {
         self.renderer = renderer
         self.transitionTime = transitionTime
+    }
+
+    public func setProgressCallback(_ callback: @escaping @Sendable (ChunkQueueProgress) -> Void) {
+        progressCallback = callback
     }
 
     public func enqueue(slides: [Slide], videoDuration: CMTime) {
@@ -644,6 +655,14 @@ public actor ChunkQueue {
 
     // MARK: - Internal
 
+    private func reportProgress() {
+        let total = chunks.count(where: { $0.type != .noOverlay })
+        let completed = chunks.count(where: {
+            $0.type != .noOverlay && $0.isRendered
+        })
+        progressCallback?(ChunkQueueProgress(completed: completed, total: total))
+    }
+
     private func drain() async {
         isDraining = true
         while !Task.isCancelled {
@@ -657,6 +676,7 @@ public actor ChunkQueue {
             } else {
                 markChunkStale(next.id)
             }
+            reportProgress()
         }
     }
 
