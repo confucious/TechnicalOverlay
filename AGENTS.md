@@ -1,18 +1,22 @@
 # TechnicalOverlay — Agent Instructions
 
+**Platform: iOS only (iPhone/iPad) at this time.** The app, LayoutEngine (UIKit), and
+VideoProcessor target iOS. Build and test against the **iOS simulator** (e.g.
+`iPhone 17`). There is no macOS target.
+
 ## Build & Run
 
 Two separate Xcode project workspaces — commands must target the correct `.xcodeproj`:
 
 ```bash
 # App
-xcodebuild -project TechnicalOverlay/TechnicalOverlay.xcodeproj -scheme TechnicalOverlay -destination 'platform=macOS' build
+xcodebuild -project TechnicalOverlay/TechnicalOverlay.xcodeproj -scheme TechnicalOverlay -destination 'platform=iOS Simulator,name=iPhone 17' build
 
 # LayoutEngine framework
-xcodebuild -project LayoutEngine/LayoutEngine.xcodeproj -scheme LayoutEngine -destination 'platform=macOS' build
+xcodebuild -project LayoutEngine/LayoutEngine.xcodeproj -scheme LayoutEngine -destination 'platform=iOS Simulator,name=iPhone 17' build
 
 # VideoProcessor framework
-xcodebuild -project LayoutEngine/VideoProcessor/VideoProcessor.xcodeproj -scheme VideoProcessor -destination 'platform=macOS' build
+xcodebuild -project LayoutEngine/VideoProcessor/VideoProcessor.xcodeproj -scheme VideoProcessor -destination 'platform=iOS Simulator,name=iPhone 17' build
 ```
 
 Test all schemes at once:
@@ -22,7 +26,7 @@ xcodebuild test \
   -project TechnicalOverlay/TechnicalOverlay.xcodeproj -scheme TechnicalOverlay \
   -project LayoutEngine/LayoutEngine.xcodeproj -scheme LayoutEngine \
   -project LayoutEngine/VideoProcessor/VideoProcessor.xcodeproj -scheme VideoProcessor \
-  -destination 'platform=macOS'
+  -destination 'platform=iOS Simulator,name=iPhone 17'
 ```
 
 No lint, no typecheck, no formatter. Swift only, no SPM dependencies. Tests use the **Swift Testing** framework (`@Suite`, `#expect`).
@@ -32,7 +36,7 @@ No lint, no typecheck, no formatter. Swift only, no SPM dependencies. Tests use 
 Three Xcode projects in two workspaces, **not one monorepo**:
 
 ```
-TechnicalOverlay/                          # Main app (macOS)
+TechnicalOverlay/                          # Main app (iOS)
 ├── TechnicalOverlay.xcodeproj/
 │   └── TechnicalOverlay/
 │       ├── TechnicalOverlayApp.swift      # @main → MainView
