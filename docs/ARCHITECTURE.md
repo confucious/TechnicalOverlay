@@ -1,0 +1,219 @@
+# TechnicalOverlay — Architecture & Specification
+
+> **Status**: Living spec · **Last updated**: 2026-09-01
+> **Source of truth for the project.** Detailed per-module docs live in
+> [`docs/architecture/`](#2-module-docs). For day-to-day build/test/run commands see
+> [`AGENTS.md`](AGENTS.md) at the repo root. This document consolidates that material into a
+> single spec for future development.
+
+## 1. Purpose
+
+A SwiftUI **iOS/macOS app** that creates video overlays for **figure-skating competitions**. It
+takes a video of a skating performance and overlays technical scoring information (element
+names, base values, GOE scores, running **totals**) and introduction slides, producing a
+**scored video** with dissolve transitions.
+
+Authoring model: the user loads a video, enters a skater's **introduction slides** and
+scoring **elements** (with per-item display timestamps set against a live preview player), and
+the app composites the overlays onto the video and exports a new file.
+
+### 1.1 Non-Goals
+
+- Not a camera / recorder (that is the separate InstantReplay **"Retake"** project).
+- No live broadcast output — an author-and-burn pipeline producing a finished file.
+- No audio manipulation — source audio passes through unchanged.
+- No automatic element recognition; elements and timing are entered by hand
+  (protocol import is a planned `ProtocolParser` future, §7).
+
+## 2. Module Docs
+
+The repo is **three Xcode projects in two workspaces**, not one monorepo.
+
+| Module | Doc | Source |
+|--------|-----|--------|
+| **Main App** | [`docs/architecture/main-app.md`](docs/architecture/main-app.md) | `TechnicalOverlay/TechnicalOverlay/` |
+| **Layout Engine** | [`docs/architecture/layout-engine.md`](docs/architecture/layout-engine.md) | `LayoutEngine/LayoutEngine/` |
+| **Video Processor** | [`docs/architecture/video-processor.md`](docs/architecture/video-processor.md) | `LayoutEngine/VideoProcessor/` |
+| **Protocol Parser** | [`docs/architecture/protocol-parser.md`](docs/architecture/protocol-parser.md) | `LayoutEngine/ProtocolParser/` |
+
+The rest of this document is the consolidated summary; each module doc has the full, current
+detail and is the authoritative reference for its module.
+
+### 2.1 Project structure
+
+```
+TechnicalOverlay/                          # Main app target (SwiftUI)
+├── TechnicalOverlay/                      #   source (MainView, OverlayData, ScoringList…)
+TechnicalOverlay.xcworkspace               # workspace that ties the app together
+LayoutEngine/
+├── LayoutEngine/                          # UIKit overlay-view framework
+├── VideoProcessor/                        # AVFoundation composition + chunk pipeline
+└── ProtocolParser/                        # empty stub (not yet implemented)
+docs/
+└── architecture/                          # per-module docs (this file links here)
+```
+
+**Dependencies between modules:**
+
+```
+TechnicalOverlay (app)
+├── LayoutEngine (UIKit overlay views → CIImage)
+├── VideoProcessor (AVFoundation composition; works with CIImage directly, does NOT import LayoutEngine)
+└── ProtocolParser (placeholder, not linked)
+```
+
+**Zero external dependencies** — only Apple frameworks: SwiftUI, AVFoundation, CoreImage,
+UIKit, CoreMedia, Observation, UniformTypeIdentifiers. No SPM/CocoaPods/Carthage. Tuist
+`TechnicalOverlay` generates standard `.xcodeproj` files.
+
+## 3. Data Model
+
+All data uses Apple's `@Observable` macro (Observation framework). The core model is
+`OverlayData` in `OverlayData.swift`:
+
+| Type | Purpose |
+|------|---------|
+| `OverlayData` | Top-level: `skaterFullName`, `skaterAbbreviatedName`, `introductionTexts: [IntroductionData]`, `elementScores: [ElementData]`. Methods: `save()`/`load()` (UserDefaults), `update(from:)`, `setIntroTime/setElementTime`, `makeSlides(size:)`, `makeSlide(size:mode:startTime:)`, `renderingHash`, `imageCache`, `clearCache()`. |
+| `IntroductionData` | One intro slide: `left`/`center`/`right` + optional `displayTime`. `makeMode(skaterName:)` → `.lowerThirdPane`. |
+| `ElementData` | One scoring element: `name`, `baseValue`, `goeValue`, `bonusValue` (all `Int` hundredths), optional `displayTime`. String accessors `baseValueString`/`goeValueString`/`bonusValueString` round-trip through `toHundredthsInt()`. `makeMode(skaterName:runningTotal:boxModes:)` → `.technicalPane`. |
+
+### 3.1 Scores are integer hundredths
+
+All score quantities are stored as **`Int` hundredths** (3.40 → `340`, −1.19 → `-119`), **not**
+`Double`. This avoids floating-point precision issues in comparisons and hashing, and is a
+deliberate, regression-guarded decision. Do not reintroduce `Double` for these fields.
+
+String↔Int conversion lives in a `String` extension (`numberCharacters()`, `onlyDigits()`,
+`toHundredthsInt()`), and `ElementData.formatValue(_:decimalPlaces:)` renders `w.ff` with a fixed
+fractional width.
+
+### 3.2 Cascading timing
+
+`setIntroTime(index:time:)` / `setElementTime(index:time:)` propagate the delta to all
+**subsequent** items of the same kind, preserving relative spacing (recursive implementation).
+Unset trailing intro siblings default to `+5s`.
+
+### 3.3 Element colors
+
+Element box color is derived per element: `baseValue == 0` → `.neutral`; `goeValue >= 0` →
+`.positive` (green); else `.negative` (red). The running total is the cumulative sum of
+`baseValue + goeValue + bonusValue`.
+
+### 3.4 `renderingHash`
+
+`OverlayData.renderingHash` is a deterministic hash of all rendering-affecting fields (names,
+scores, times) — used for cache-invalidation decisions in the chunk pipeline.
+
+## 4. Persistence
+
+- **Autosave** — `OverlayData.save()`/`load()` write the whole model as JSON to `UserDefaults`
+  under key `"state"`. Saved on every "Start Now" and on `ScoringListView.onDisappear`.
+- **File interchange (`.tod`)** — `OverlayDataDocument` (a SwiftUI `FileDocument`) reads/writes
+  **versioned** JSON (`VersionedOverlayData`, `version == 1`) with a custom `tod` UTType.
+  Adding a persisted-model field must bump the version or stay backward-compatible.
+
+## 5. Rendering & Composition
+
+### 5.1 Overlay layout — UIKit, proportion-scaled
+
+Overlay graphics are **pure UIKit `UIView` subclasses** in `LayoutEngine`, laid out with
+percentage-based metrics so they scale to any output resolution. `VideoOverlay` (base frame
+**1280×720**, `alpha = 0.9`, clear background) hosts `IsuTechnicalPaneView` (top-left,
+16% height, 2.65 aspect) + `IsuLowerThirdView` (bottom-center, 15% height, 8.5 aspect); its
+`Mode` enum (`none | technicalPane | lowerThirdPane`) shows one pane at a time.
+
+`VideoOverlay.render(size:)` sets bounds, lays out, and rasterizes the `CALayer` to a
+`CIImage` via `UIGraphicsImageRenderer` (`scale = 1`, `opaque = false`). Full view hierarchy and
+the named `Color`/`Metrics` constants are in `docs/architecture/layout-engine.md`.
+
+### 5.2 Composing onto video — two rendering paths
+
+**`Metrics.transitionTime = 0.75`** (in `VideoProcessor`) is the dissolve duration used
+everywhere. `OverlayData.imageCache` caches rendered `CIImage`s keyed by `(size, mode)`;
+`clearCache()` empties it on data changes.
+
+**Path 1 — `VideoComposer` (live preview + full-video export).**
+`AVVideoComposition` with a per-frame handler that finds the last `Slide` with
+`startTime <= compositionTime`, cross-dissolves (0.75s `CIFilter.dissolveTransition`) from the
+previous slide, and composites `slide.image.composited(over: request.sourceImage)`. Before the
+first slide / for nil slides it passes the source through unchanged. `setupExport` →
+`AVAssetExportSession` (highest-quality preset, `.mov`).
+
+**Path 2 — Chunk pipeline (`ChunkQueue` → `DefaultChunkRenderer` → `DefaultStitcher`), wired
+into the main app's "Save Video".**
+Designed for incremental/reusable rendering:
+
+```
+enqueue(slides:, videoDuration:)
+  → generateRegions()        → [ChunkRegion]   (contiguous sweep: noOverlay gaps,
+                                                 transition windows, constant holds)
+  → diffRegionsIntoChunks()  → [Chunk]          (reuse unchanged content, mark rest stale)
+  → ChunkQueue.drain()       (actor; dequeue pending → renderer → rendered(URL)/stale)
+  → waitForCompletion()
+  → validChunks()
+  → DefaultStitcher.stitch() → AVMutableComposition track append → final export
+```
+
+- **Chunk types**: `.noOverlay` (source-only, never reused), `.constant(CIImage)` (single
+  overlay), `.transition(from, to)` (cross-dissolve). `ContentIdentity` = stable content hash
+  independent of time range.
+- **Diffing**: `.noOverlay` never reused; `.transition` requires exact time-range match;
+  `.constant` may be reused for overlapping portions (splitting new-reuse-new). Unreused
+  existing chunks are marked stale (`stitchingTimeRange = nil`).
+- **Renderer**: `DefaultChunkRenderer` (implements `ChunkRendererProtocol`) exports each chunk
+  as a time-limited `AVAssetExportSession` segment with the appropriate CIImage composition
+  (`chunk_<uuid>.mov`). `ChunkQueue` is an actor so `render(chunk:)` calls are serialized.
+- **Stitcher**: `DefaultStitcher` (implements `StitcherProtocol`) builds a single
+  `AVMutableComposition` with one video + one audio track and appends chunks sequentially,
+  mapping absolute stitching ranges to local chunk times (`localTimeRange`). **Not `Sendable`** —
+  `AVAssetReader`/`AVAssetWriter` are not thread-safe. Final export is **`.mp4`** via
+  `AVAssetExportPresetPassthrough`.
+
+`MainView.generateSlides()` pre-enqueues slides into the queue so it is ready when the user taps
+"Save Video"; the export flow sets `exportPhase` (idle → rendering → stitching → done) and
+drives a progress sheet.
+
+Full detail (types, per-chunk composition methods, region/diff algorithms) is in
+`docs/architecture/video-processor.md`.
+
+## 6. App Flow
+
+```
+Load Video (fileImporter, .movie) → ViewModel.assetUrl
+  → startAccessingSecurityScopedResource, generateSlides()
+  → makeSlides(size:) (size = naturalSize.applying(transform), abs'ed) → VideoComposer
+  → AVPlayerItem.videoComposition → replaceCurrentItem (seek preserves position)
+  → chunkQueue.enqueue(slides:) (pre-render for export)
+
+Edit timing (TimeSettingsView "Start Now" → setIntro/setElementTime, cascading)
+  → generateSlides() → new VideoComposer + re-enqueue
+
+Edit data (ScoringListView → onDisappear save() + clearCache())
+
+Save Video → queue.waitForCompletion() → DefaultStitcher.stitch()
+  → ExportSession.performExport() → temp .mov → fileExporter
+```
+
+UI surface (`MainView`): `VideoPlayer`, `TimeSettingsView`, and a button row
+**Load Video | Save Video | Load Slides | Save Slides | Edit Slides** (→ `ScoringListView`
+NavigationStack destination). `ContentView.swift` is a **legacy prototype** (hardcoded Scotty HSU
+test data) and `ElementBuilderView.swift` is a **placeholder (not wired in)** — the real entry
+point is `MainView`.
+
+## 7. Future Development (Backlog)
+
+- **Data Entry Aid** (`TODO.md`): reduce manual element entry — intended via a future
+  `ProtocolParser` that parses ISU/competition protocol data into `OverlayData`.
+- **Polish / "Make it look nicer"** (`TODO.md`): visual refinements to overlays + editing UI;
+  decide whether to delete legacy `ContentView` / stub `ElementBuilderView`.
+- **Incremental-export gains** are already designed into the chunk pipeline (reuse unchanged
+  chunks when only one timestamp shifts) — the pieces exist; tuning/finishing is the work.
+
+## 8. Decision Log
+
+| Date | Decision |
+|------|----------|
+| 2025-10 → 11 | Scores in integer hundredths; cascading timing; `(size, mode)` image cache; UIKit→CIImage overlay rendering. |
+| 2025-11 | Chunk-based incremental rendering pipeline built (`generateRegions`/`diffRegionsIntoChunks`/`ChunkQueue`/`DefaultChunkRenderer`/`DefaultStitcher`), wired into the app's "Save Video" export flow. |
+| 2026-09-01 | `graphify-out/` deleted and Graphify commit/checkout hooks uninstalled — do not regenerate; not part of the project. |
+| 2026-09-01 | Documentation consolidated: root `ARCHITECTURE.md` folded into `docs/ARCHITECTURE.md`; detailed module docs stay in `docs/architecture/`. |

@@ -74,7 +74,7 @@ ProtocolParser/                            # Empty stub — not linked
 
 **Zero external dependencies.** Only Apple frameworks: SwiftUI, AVFoundation, CoreImage, UIKit, CoreMedia, Observation, UniformTypeIdentifiers.
 
-**ARCHITECTURE.md** at the repo root has the full module map and data flow. **Read it before making changes.**
+**`docs/ARCHITECTURE.md`** is the consolidated spec (module map + data flow + design decisions); per-module detail lives in `docs/architecture/`. **Read `docs/ARCHITECTURE.md` before making changes.**
 
 ## Data Model — Critical Details
 
