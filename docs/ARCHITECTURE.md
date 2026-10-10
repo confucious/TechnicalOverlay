@@ -117,8 +117,8 @@ scores, times) — used for cache-invalidation decisions in the chunk pipeline.
 
 - **Autosave** — `OverlayData.save()`/`load()` write the whole model as JSON to `UserDefaults`
   under key `"state"`. Saved on every "Start Now" and on `ScoringListView.onDisappear`.
-- **File interchange (`.tod`)** — `OverlayDataDocument` (a SwiftUI `FileDocument`) reads/writes
-  **versioned** JSON (`VersionedOverlayData`, `version == 1`) with a custom `tod` UTType.
+- **File interchange (`.tojson`)** — `OverlayDataDocument` (a SwiftUI `FileDocument`) reads/writes
+  **versioned** JSON (`VersionedOverlayData`, `version == 1`) with a custom `tojson` UTType.
   Adding a persisted-model field must bump the version or stay backward-compatible.
 
 ## 5. Rendering & Composition

@@ -66,7 +66,7 @@ TechnicalOverlay/                          # Main app (iOS)
     ├── TechnicalOverlayApp.swift      # @main → MainView
     ├── MainView.swift                 # Primary UI + export orchestration
     ├── OverlayData.swift              # Core data model (@Observable)
-    ├── OverlayDataDocument.swift      # .tod file I/O (versioned JSON)
+    ├── OverlayDataDocument.swift      # .tojson file I/O (versioned JSON)
     ├── ScoringListView.swift          # Full-screen data entry (NavigationLink destination)
     ├── TimeSettingsView.swift         # Timeline editor with "Start Now"
     ├── ElementBuilderView.swift       # Placeholder — not wired in
@@ -108,7 +108,7 @@ ProtocolParser/                            # Empty stub — not linked
 
 **Cascading timing** — `setIntroTime(index:time:)` and `setElementTime(index:time:)` propagate the delta to all subsequent items, preserving relative spacing. Recursive implementation.
 
-Persistence: `OverlayData.save()`/`load()` writes JSON to UserDefaults under key `"state"`. `.tod` files are versioned JSON (current version 1) via SwiftUI `FileDocument`.
+Persistence: `OverlayData.save()`/`load()` writes JSON to UserDefaults under key `"state"`. `.tojson` files are versioned JSON (current version 1) via SwiftUI `FileDocument`.
 
 Two `Metrics` enums exist:
 - `VideoProcessor.Metrics.transitionTime = 0.75` — dissolve duration, used in `VideoComposer.setupComposition()` and chunk rendering

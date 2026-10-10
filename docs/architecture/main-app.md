@@ -2,7 +2,7 @@
 
 **Source:** `TechnicalOverlay/TechnicalOverlay/`
 
-A SwiftUI iOS/macOS app that creates video overlays for figure skating competitions. It takes a video of a skating performance and overlays technical scoring information (element names, base values, GOE scores, running totals) and introduction slides, producing a scored video with dissolve transitions.
+A SwiftUI iOS app that creates video overlays for figure skating competitions. It takes a video of a skating performance and overlays technical scoring information (element names, base values, GOE scores, running totals) and introduction slides, producing a scored video with dissolve transitions.
 
 ## Entry Point
 
@@ -13,8 +13,8 @@ A SwiftUI iOS/macOS app that creates video overlays for figure skating competiti
 | File | Role |
 |------|------|
 | `MainView.swift` | Primary UI. Contains inner `ViewModel` (`@Observable`) managing `AVPlayer`, `VideoComposer`, and `OverlayData`. Buttons: Load Video, Save Video (export), Load Slides, Save Slides, Edit Slides. Embeds `TimeSettingsView`. |
-| `OverlayData.swift` | Core data model. `OverlayData`, `IntroductionData`, `ElementData` types. Persistence (UserDefaults + `.tod` files), slide generation, image caching, `renderingHash`. |
-| `OverlayDataDocument.swift` | SwiftUI `FileDocument` for `.tod` file I/O. Versioned JSON via `VersionedOverlayData` (current version 1). |
+| `OverlayData.swift` | Core data model. `OverlayData`, `IntroductionData`, `ElementData` types. Persistence (UserDefaults + `.tojson` files), slide generation, image caching, `renderingHash`. |
+| `OverlayDataDocument.swift` | SwiftUI `FileDocument` for `.tojson` file I/O. Versioned JSON via `VersionedOverlayData` (current version 1). |
 | `ScoringListView.swift` | Full-screen data entry via `NavigationStack` destination. Edits skater names, intro slide texts, element scores (name, base, GOE, bonus) in a grid. Add/remove buttons. Saves on `onDisappear`. |
 | `TimeSettingsView.swift` | Timeline editor showing all intro slides and elements with timestamps. Each row has a "Start Now" button capturing the current video playback time. Cascading time propagation to subsequent items. |
 | `ElementBuilderView.swift` | Placeholder: discipline picker (Singles/Pairs/Ice Dance/Synchronized) and type picker (Jumps/Spins/Steps & Spirals). Not yet wired into the app. |
@@ -51,8 +51,8 @@ MainView (root)
 ├── TimeSettingsView (if scoring data + video loaded)
 └── Button row: Load Video | Save Video | Load Slides | Save Slides | Edit Slides
        │              │              │             │            └── ScoringListView (NavigationStack destination)
-       │              │              │             └── OverlayDataDocument export (.tod)
-       │              │              └── OverlayDataDocument import (.tod) → update + save
+       │              │              │             └── OverlayDataDocument export (.tojson)
+       │              │              └── OverlayDataDocument import (.tojson) → update + save
        │              └── VideoComposer.setupExport → ExportSession.performExport → fileExporter (.mov)
        └── fileImporter (.movie) → ViewModel.assetUrl → generateSlides() → new VideoComposer → replace player item
 ```
@@ -62,7 +62,7 @@ MainView (root)
 | Format | Mechanism | Details |
 |--------|-----------|---------|
 | UserDefaults (JSON) | `OverlayData.save()` / `load()` | Auto-save under key `"state"`. |
-| `.tod` files | `OverlayDataDocument` (SwiftUI `FileDocument`) | Versioned JSON (`VersionedOverlayData.version == 1`). Import via `fileImporter`, export via `fileExporter`. |
+| `.tojson` files | `OverlayDataDocument` (SwiftUI `FileDocument`) | Versioned JSON (`VersionedOverlayData.version == 1`). Import via `fileImporter`, export via `fileExporter`. |
 | Video files | `MainView` | `.movie` import via `fileImporter`. Exported `.mov` via `fileExporter` using `MovieDocument` wrapper (copies from temp URL). |
 
 ## Dependencies
