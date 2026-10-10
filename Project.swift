@@ -12,24 +12,15 @@ let baseSettings: SettingsDictionary = [
     "DEVELOPMENT_TEAM": "9MY93JMP2W",
 ]
 
-// The app previously declared the .tojson document type (UTType) via Technical-Overlay-Info.plist.
-// Reproduce those declarations here so the exported/imported type still registers.
+// The app declares its `.tojson` document type (UTType). Exported only: the same identifier
+// must not also be in UTImportedTypeDeclarations. See docs/ARCHITECTURE.md §4 (Persistence).
 let appInfoPlist: InfoPlist = .extendingDefault(with: [
     "UTExportedTypeDeclarations": [
         [
             "UTTypeConformsTo": ["public.json"],
             "UTTypeDescription": "Technical Overlay Data",
             "UTTypeIconFiles": [],
-            "UTTypeIdentifier": "org.cjas.jhsu.tojson-document",
-            "UTTypeTagSpecification": ["public.filename-extension": ["tojson"]],
-        ]
-    ],
-    "UTImportedTypeDeclarations": [
-        [
-            "UTTypeConformsTo": ["public.json"],
-            "UTTypeDescription": "Technical Overlay Data",
-            "UTTypeIconFiles": [],
-            "UTTypeIdentifier": "org.cjas.jhsu.tojson-document",
+            "UTTypeIdentifier": "org.cjas.jhsu.overlay-document",
             "UTTypeTagSpecification": ["public.filename-extension": ["tojson"]],
         ]
     ],
