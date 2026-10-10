@@ -118,7 +118,13 @@ scores, times) — used for cache-invalidation decisions in the chunk pipeline.
 - **Autosave** — `OverlayData.save()`/`load()` write the whole model as JSON to `UserDefaults`
   under key `"state"`. Saved on every "Start Now" and on `ScoringListView.onDisappear`.
 - **File interchange (`.tojson`)** — `OverlayDataDocument` (a SwiftUI `FileDocument`) reads/writes
-  **versioned** JSON (`VersionedOverlayData`, `version == 1`) with a custom `tojson` UTType.
+  **versioned** JSON (`VersionedOverlayData`, `version == 1`) under the custom UTType
+  `org.cjas.jhsu.overlay-document` (declared **exported only**, conforming to `public.json`).
+  `fileType` is `UTType(exportedAs:)` — never `UTType(filenameExtension:)`, which silently returns
+  a **dynamic** type when the extension is unregistered and can't be matched by the file importer.
+  The extension is `.tojson` rather than `.tod` because `.tod` is also claimed by VLC
+  (`org.videolan.tod`, conforms `public.movie`): when VLC's claim owns that tag, macOS types our
+  files as VLC's non-conforming type and the open panel greys every one of them out.
   Adding a persisted-model field must bump the version or stay backward-compatible.
 
 ## 5. Rendering & Composition
@@ -228,3 +234,4 @@ point is `MainView`.
 | 2026-09-01 | **Converted to Tuist.** `Project.swift`/`Config.swift` at repo root generate the project (`tuist generate`); generated `.xcodeproj`/`.xcworkspace` gitignored; the four hand-maintained `.xcodeproj` files removed. Platform is **iOS only (iPhone/iPad)** — LayoutEngine imports UIKit, so no native macOS target. Build/test via `tuist build` / `tuist test`. |
 | 2026-09-01 | Documentation consolidated: root `ARCHITECTURE.md` folded into `docs/ARCHITECTURE.md`; detailed module docs stay in `docs/architecture/`. |
 | 2026-10-10 | Tuist build/test commands re-verified (Tuist 4.205, Xcode 27.0 release). `tuist test <FrameworkTarget>` executes **zero tests** and exits 0; every `tuist test` run leaves a narrowed `.xcodeproj` that must be fixed with `tuist generate`. Documented the working commands; no manifest changes were needed. Known blockers are source bugs only: `MainView.swift` (app) and `DefaultStitcherTests.swift` (VideoProcessor test bundle) do not compile. |
+| 2026-10-10 | Overlay file extension `.tod` → **`.tojson`**, UTI renamed to exported-only `org.cjas.jhsu.overlay-document`. `.tod` was a filename-extension collision (VLC claims `org.videolan.tod` as `public.movie`), so macOS could type our files as a non-conforming type and the file importer greyed them all out; `UTType(exportedAs:)` replaces the dynamic-prone `UTType(filenameExtension:)` lookup, and the contradictory duplicate `UTImportedTypeDeclarations` entry is gone. Mirrors the fix already made on `inline-renderer`; there is no backward-compatibility shim, so existing `.tod` files must be renamed. |
