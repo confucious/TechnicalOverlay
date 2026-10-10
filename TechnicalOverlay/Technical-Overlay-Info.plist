@@ -14,12 +14,12 @@
 			<key>UTTypeIconFiles</key>
 			<array/>
 			<key>UTTypeIdentifier</key>
-			<string>org.cjas.jhsu.tod-document</string>
+			<string>org.cjas.jhsu.tojson-document</string>
 			<key>UTTypeTagSpecification</key>
 			<dict>
 				<key>public.filename-extension</key>
 				<array>
-					<string>tod</string>
+					<string>tojson</string>
 				</array>
 			</dict>
 		</dict>
@@ -36,12 +36,12 @@
 			<key>UTTypeIconFiles</key>
 			<array/>
 			<key>UTTypeIdentifier</key>
-			<string>org.cjas.jhsu.tod-document</string>
+			<string>org.cjas.jhsu.tojson-document</string>
 			<key>UTTypeTagSpecification</key>
 			<dict>
 				<key>public.filename-extension</key>
 				<array>
-					<string>tod</string>
+					<string>tojson</string>
 				</array>
 			</dict>
 		</dict>

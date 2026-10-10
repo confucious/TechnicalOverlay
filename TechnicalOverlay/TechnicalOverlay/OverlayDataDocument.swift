@@ -15,7 +15,7 @@ struct OverlayDataDocument: FileDocument {
         case unableToReadData
         case versionUnsupported
     }
-    static let fileType = UTType(filenameExtension: "tod", conformingTo: .json)!
+    static let fileType = UTType(filenameExtension: "tojson", conformingTo: .json)!
     static var readableContentTypes: [UTType] = [fileType]
     static var writableContentTypes: [UTType] = [fileType]
         

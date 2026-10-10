@@ -12,7 +12,7 @@ let baseSettings: SettingsDictionary = [
     "DEVELOPMENT_TEAM": "9MY93JMP2W",
 ]
 
-// The app previously declared the .tod document type (UTType) via Technical-Overlay-Info.plist.
+// The app previously declared the .tojson document type (UTType) via Technical-Overlay-Info.plist.
 // Reproduce those declarations here so the exported/imported type still registers.
 let appInfoPlist: InfoPlist = .extendingDefault(with: [
     "UTExportedTypeDeclarations": [
@@ -20,8 +20,8 @@ let appInfoPlist: InfoPlist = .extendingDefault(with: [
             "UTTypeConformsTo": ["public.json"],
             "UTTypeDescription": "Technical Overlay Data",
             "UTTypeIconFiles": [],
-            "UTTypeIdentifier": "org.cjas.jhsu.tod-document",
-            "UTTypeTagSpecification": ["public.filename-extension": ["tod"]],
+            "UTTypeIdentifier": "org.cjas.jhsu.tojson-document",
+            "UTTypeTagSpecification": ["public.filename-extension": ["tojson"]],
         ]
     ],
     "UTImportedTypeDeclarations": [
@@ -29,8 +29,8 @@ let appInfoPlist: InfoPlist = .extendingDefault(with: [
             "UTTypeConformsTo": ["public.json"],
             "UTTypeDescription": "Technical Overlay Data",
             "UTTypeIconFiles": [],
-            "UTTypeIdentifier": "org.cjas.jhsu.tod-document",
-            "UTTypeTagSpecification": ["public.filename-extension": ["tod"]],
+            "UTTypeIdentifier": "org.cjas.jhsu.tojson-document",
+            "UTTypeTagSpecification": ["public.filename-extension": ["tojson"]],
         ]
     ],
     "LSApplicationCategoryType": "public.app-category.sports",
