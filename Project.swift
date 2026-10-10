@@ -3,7 +3,11 @@ import ProjectDescription
 // MARK: - Shared settings
 
 let deploymentTarget = DeploymentTargets.iOS("26.0")
-let destinations: Destinations = [.iPhone, .iPad]
+// `.macWithiPadDesign` is what makes the app runnable on Apple-silicon Macs as a
+// "Designed for iPad" app: Tuist emits SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = YES
+// (it defaults to NO) and "My Mac (Designed for iPad)" becomes a run destination.
+// This is NOT Mac Catalyst — SUPPORTS_MACCATALYST stays NO.
+let destinations: Destinations = [.iPhone, .iPad, .macWithiPadDesign]
 
 // Shared base settings for all targets (matches the previous hand-maintained projects).
 let baseSettings: SettingsDictionary = [
