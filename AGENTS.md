@@ -21,15 +21,37 @@ iOS simulator:
 tuist build TechnicalOverlay --device 'iPhone 17' --platform ios
 ```
 
-Run tests (all schemes at once, or a specific scheme):
+Run tests:
 
 ```bash
-# All test bundles
+# All test bundles (no scheme argument — Tuist resolves <Project>-Workspace)
 tuist test --device 'iPhone 17' --platform ios
 
 # A single framework's tests
-tuist test LayoutEngine --device 'iPhone 17' --platform ios
+xcodebuild test -scheme LayoutEngine -workspace TechnicalOverlay.xcworkspace \
+  -destination 'platform=iOS Simulator,name=iPhone 17'
 ```
+
+**Two traps, both verified 2026-10-10 (Tuist 4.205):**
+
+1. **`tuist test <FrameworkTarget>` does not run tests.** e.g. `tuist test LayoutEngine` prints
+   `The scheme LayoutEngine's test action has no tests to run, finishing early.` and exits 0
+   having executed **zero** tests. The test flow focuses the graph on the tested target and
+   drops the test bundle before generation, so the scheme's test action is empty. Explicit
+   `Scheme` definitions and `--test-targets` / `--no-upload` / `--skip-ui-tests` don't help.
+   Use the two commands above instead. `-scheme <Framework>` via xcodebuild works because the
+   framework test bundles have no app host.
+2. **A `tuist test` run narrows the generated project on disk** to the tested subgraph —
+   afterwards `tuist build <X>` fails with `The workspace named TechnicalOverlay does not
+   contain a scheme named <X>`, and Xcode opens a gutted project. **Always re-run
+   `tuist generate` after a test run.**
+
+Current test health: `LayoutEngine` and `ProtocolParser` suites compile and pass (both are
+empty stubs — 1 trivial test each). `VideoProcessorTests` does **not compile**
+(`DefaultStitcherTests.swift` still expects `stitch() -> URL` while the protocol returns
+`VideoComposer.ExportSession?`), and the app target does **not compile**
+(`MainView.swift` optional-chains non-optional `self`), so no full-suite run is green.
+Both are pre-existing source bugs, not Tuist issues.
 
 No lint, no typecheck, no formatter. Swift only, no SPM dependencies. Tests use the **Swift Testing** framework (`@Suite`, `#expect`).
 
