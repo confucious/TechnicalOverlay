@@ -1,8 +1,9 @@
 # TechnicalOverlay — Agent Instructions
 
-**Platform: iOS only (iPhone/iPad) at this time.** The app, LayoutEngine (UIKit), and
-VideoProcessor target iOS. Build and test against the **iOS simulator** (e.g.
-`iPhone 17`). There is no macOS target.
+**Platform: iOS (iPhone/iPad).** The app, LayoutEngine (UIKit), and VideoProcessor target iOS.
+Build and test against the **iOS simulator** (e.g. `iPhone 17`). The app also runs on
+**Apple-silicon Macs as a "Designed for iPad" app** — there is no native macOS target and no Mac
+Catalyst (`SUPPORTS_MACCATALYST = NO`).
 
 ## Build & Run
 
@@ -20,6 +21,19 @@ iOS simulator:
 ```bash
 tuist build TechnicalOverlay --device 'iPhone 17' --platform ios
 ```
+
+Run the app **on this Mac** as a "Designed for iPad" app (Apple silicon). `tuist build` only
+targets simulators/devices, so use xcodebuild with the Mac variant of the iOS destination:
+
+```bash
+xcodebuild build -scheme TechnicalOverlay -workspace TechnicalOverlay.xcworkspace \
+  -destination 'platform=macOS,arch=arm64,variant=Designed for iPad'
+```
+
+The capability comes from `.macWithiPadDesign` in `Project.swift`'s `destinations` — Tuist emits
+`SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = YES` (it defaults to **NO**, and without it "My Mac" does
+not appear as a run destination at all). Xcode's product destination list shows it as
+`My Mac (Designed for iPad)`.
 
 Run tests:
 
