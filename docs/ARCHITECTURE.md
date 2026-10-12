@@ -164,7 +164,8 @@ enqueue(slides:, videoDuration:)
                                                  transition windows, constant holds)
   → diffRegionsIntoChunks()  → [Chunk]          (reuse unchanged content, mark rest stale)
   → ChunkQueue.drain()       (actor; dequeue pending → renderer → rendered(URL)/stale)
-  → waitForCompletion()
+  → waitForCompletion()      (waits for the drain enqueue() started too — a chunk in the
+                              .rendering state is still work, not a chunk that is done)
   → validChunks()
   → DefaultStitcher.stitch() → AVMutableComposition track append → final export
 ```
@@ -241,3 +242,4 @@ point is `MainView`.
 | 2026-10-10 | App runs on **Apple-silicon Macs as a "Designed for iPad" app**. Added `.macWithiPadDesign` to the shared target `destinations`, which makes Tuist emit `SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = YES` (it defaults to **NO**, and without it "My Mac" is not a run destination). Build with `-destination 'platform=macOS,arch=arm64,variant=Designed for iPad'`. Still no native macOS or Mac Catalyst target — `SUPPORTS_MACCATALYST = NO`, LayoutEngine stays UIKit/iOS. |
 | 2026-10-12 | Chunk-pipeline tracing added (plain `print`, per-chunk, `[ChunkQueue]`/`[ChunkRenderer]`/`[Stitcher]` prefixes). It immediately exposed a **stitcher bug**: `copyFrom` advanced the composition cursor by the source track's duration instead of the range it had appended, so every chunk after the first was written at a wild offset (a 3s slice of the 212s sample composed 212.5s). Fixed. Same pass: `DefaultStitcherTests` updated to the current contract (perform the export) and to pass `videoDuration` = the plan's end, app test bundles import the renamed module (`TechnicalOverlay`, not `Technical_Overlay`). All four test schemes now build and run. |
 | 2026-10-12 | Restored `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor` and `SWIFT_APPROACHABLE_CONCURRENCY = YES` on all targets. The Tuist conversion dropped them — they lived in the *project-level* settings of the old pbxproj — silently changing the concurrency model: `generateSlides()`'s `Task` left the main actor and `VideoOverlay.render` mutated `UILabel` layers off the main thread, which UIKit flags as illegal. The code was always written for default MainActor isolation (see the `nonisolated Codable` on `VersionedOverlayData`). |
+| 2026-10-12 | **`waitForCompletion()` fixed** — it returned while a chunk was still rendering (the drain started by `enqueue()` had dequeued it, so it was neither pending nor finished). `validChunks()` then omitted it, and the stitcher refused the plan, returning nil. That nil was the entire symptom of "Save Video does nothing": `MainView` resets to `.idle` and only writes to the console. The queue now keeps its drain task and awaits it. Regression test uses a renderer whose first render is 30× slower (the instant `FakeRenderer` could never see this race). |
