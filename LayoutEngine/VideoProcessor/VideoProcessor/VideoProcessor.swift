@@ -44,7 +44,10 @@ public class VideoComposer {
                 }
                 if let indexedSlide {
                     let index = indexedSlide.offset
-                    let previousImage = index > 0 ? slides[index - 1].image : CIImage.clear
+                    // A nil image means "no overlay" on that side, not "nothing to render":
+                    // dissolving against a clear image is what fades a slide in from (or out to)
+                    // noOverlay, and it keeps this in step with the chunk-rendering path.
+                    let previousImage = index > 0 ? slides[index - 1].image : nil
                     let slide = indexedSlide.element
 //                    print("Found slide \(slide.startTime)")
                     let diff = request.compositionTime - slide.startTime
@@ -53,14 +56,15 @@ public class VideoComposer {
                         preferredTimescale: 1000
                     ) {
                         let dissolve = CIFilter.dissolveTransition()
-                        dissolve.inputImage = previousImage
-                        dissolve.targetImage = slide.image
+                        dissolve.inputImage = previousImage ?? CIImage.clear
+                        dissolve.targetImage = slide.image ?? CIImage.clear
                         dissolve.time = Float(
                             diff.seconds / Metrics.transitionTime
                         )
                         request.finish(
-                            with: dissolve.outputImage!
-                                .composited(over: request.sourceImage),
+                            with: dissolve.outputImage?
+                                .composited(over: request.sourceImage)
+                                ?? request.sourceImage,
                             context: nil
                         )
                     } else {
@@ -162,6 +166,11 @@ public class VideoComposer {
     /// between `from` and `to` images, composited over the source video.
     /// The transition begins at `transitionStart` and lasts `Metrics.transitionTime`.
     /// After the transition, the `to` image is held for remaining frames.
+    ///
+    /// A `nil` side means "no overlay for this side", not "give up": the dissolve then runs into
+    /// or out of the plain source frame, which is exactly what makes a slide fade in from (or out
+    /// to) noOverlay — the same way the slide-based preview treats a missing image. Without this,
+    /// the whole noOverlay ↔ slide chunk rendered as bare source and the slide just popped in.
     public func setupComposition(
         from: CIImage?,
         to: CIImage?,
@@ -169,7 +178,8 @@ public class VideoComposer {
     ) async throws -> AVVideoComposition {
         let transitionTime = CMTime(seconds: Metrics.transitionTime, preferredTimescale: 1000)
         return try await AVVideoComposition.videoComposition(with: asset) { request in
-            guard let fromImage = from, let toImage = to else {
+            guard from != nil || to != nil else {
+                // Neither side carries an overlay — nothing to dissolve.
                 request.finish(with: request.sourceImage, context: nil)
                 return
             }
@@ -177,19 +187,24 @@ public class VideoComposer {
             let diff = request.compositionTime - transitionStart
             if diff <= transitionTime {
                 let dissolve = CIFilter.dissolveTransition()
-                dissolve.inputImage = fromImage
-                dissolve.targetImage = toImage
+                // A missing side dissolves as a fully transparent image, so the source frame shows
+                // through at progress 0 (and at 1 when fading out).
+                dissolve.inputImage = from ?? CIImage.clear
+                dissolve.targetImage = to ?? CIImage.clear
                 let progress = max(0.0, min(diff.seconds, transitionTime.seconds)) / transitionTime.seconds
                 dissolve.time = Float(progress)
                 request.finish(
-                    with: dissolve.outputImage!.composited(over: request.sourceImage),
+                    with: dissolve.outputImage?.composited(over: request.sourceImage)
+                        ?? request.sourceImage,
+                    context: nil
+                )
+            } else if let to {
+                request.finish(
+                    with: to.composited(over: request.sourceImage),
                     context: nil
                 )
             } else {
-                request.finish(
-                    with: toImage.composited(over: request.sourceImage),
-                    context: nil
-                )
+                request.finish(with: request.sourceImage, context: nil)
             }
         }
     }
