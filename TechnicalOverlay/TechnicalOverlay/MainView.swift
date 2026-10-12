@@ -26,6 +26,16 @@ struct MainView: View {
         case failed(String)
     }
 
+    /// State of the background chunk pipeline, shown as a dot in the button row.
+    enum QueueStatus: Sendable, Equatable {
+        /// Nothing loaded — nothing to render.
+        case noVideo
+        /// Work queued or rendering. **Yellow.**
+        case processing
+        /// Every renderable chunk is rendered and the queue is idle. **Green.**
+        case idle
+    }
+
     @Observable
     class ViewModel {
         internal init(player: AVPlayer? = nil, assetUrl: URL? = nil, scoring: OverlayData = OverlayData()) {
@@ -48,6 +58,7 @@ struct MainView: View {
                 print("Invalidating cachedSize")
                 cachedSize = nil
                 chunkQueue = nil
+                queueStatus = .noVideo
             }
             didSet {
                 guard let assetUrl else {
@@ -72,6 +83,9 @@ struct MainView: View {
         var renderingProgress: ChunkQueueProgress?
         var stitchingProgress: Progress?
         var exportPhase: ExportPhase = .idle
+
+        /// What the background chunk queue is doing, for the status indicator.
+        var queueStatus: QueueStatus = .noVideo
 
         @ObservationIgnored
         var cachedSize: CGSize?
@@ -158,9 +172,11 @@ struct MainView: View {
                     .setProgressCallback { progress in
                     Task { @MainActor in
                         self.renderingProgress = progress
+                        self.queueStatus = progress.isRendering ? .processing : .idle
                     }
                 }
                 self.chunkQueue = queue
+                self.queueStatus = .idle
 
                 // Pre-enqueue slides so the queue is ready for "Save Video"
                 let videoDuration = try? await asset.load(.duration)
@@ -279,6 +295,20 @@ struct MainView: View {
         )
     }
 
+    /// Dot + label for the background chunk queue.
+    private var queueStatusIndicator: some View {
+        HStack(spacing: 6) {
+            Circle()
+                .fill(state.queueStatus.indicatorColor)
+                .frame(width: 10, height: 10)
+            Text(state.queueStatus.label)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(state.queueStatus.accessibilityDescription)
+    }
+
     var body: some View {
         NavigationStack {
             VStack {
@@ -365,6 +395,11 @@ struct MainView: View {
                             }
                         }.interactiveDismissDisabled()
                     })
+
+                    // Background render state: yellow while the chunk queue has work, green once
+                    // everything is rendered and the queue is idle.
+                    Spacer()
+                    queueStatusIndicator
 
                 }
                 if !state.scoring.isEmpty,
@@ -465,4 +500,35 @@ struct SaveDestinationPlaceholder: FileDocument {
 
 #Preview {
     MainView()
+}
+
+// MARK: - Queue status presentation
+
+extension MainView.QueueStatus {
+
+    /// Yellow while the queue has work, green once it is fully rendered and idle. Grey when
+    /// there's no video to render at all (nothing is "fully rendered" yet).
+    var indicatorColor: Color {
+        switch self {
+        case .noVideo: return .gray
+        case .processing: return .yellow
+        case .idle: return .green
+        }
+    }
+
+    var label: String {
+        switch self {
+        case .noVideo: return "No video"
+        case .processing: return "Rendering"
+        case .idle: return "Rendered"
+        }
+    }
+
+    var accessibilityDescription: String {
+        switch self {
+        case .noVideo: return "No video loaded, nothing to render"
+        case .processing: return "Rendering overlay chunks in the background"
+        case .idle: return "All overlay chunks are rendered"
+        }
+    }
 }
