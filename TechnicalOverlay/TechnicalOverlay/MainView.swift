@@ -152,9 +152,9 @@ struct MainView: View {
                     transitionTime: CMTime(seconds: Metrics.transitionTime, preferredTimescale: 1000)
                 )
                 await queue
-                    .setProgressCallback { [renderingProgress] progress in
+                    .setProgressCallback { progress in
                     Task { @MainActor in
-                        self?.renderingProgress = progress
+                        self.renderingProgress = progress
                     }
                 }
                 self.chunkQueue = queue
@@ -162,7 +162,8 @@ struct MainView: View {
                 // Pre-enqueue slides so the queue is ready for "Save Video"
                 let videoDuration = try? await asset.load(.duration)
                 if let videoDuration {
-                    queue.enqueue(slides: slides, videoDuration: videoDuration)
+                    await queue
+                        .enqueue(slides: slides, videoDuration: videoDuration)
                 }
             }
         }    }
