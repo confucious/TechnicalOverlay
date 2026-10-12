@@ -70,7 +70,7 @@ extension DefaultStitcher: StitcherProtocol {
         func copyFrom(asset: AVAsset, timeRange: CMTimeRange) async throws {
             // --- HANDLE VIDEO ---
             let videoTracks = try await asset.loadTracks(withMediaType: .video)
-            var duration: CMTime? = nil
+            var appended = false
             
             if let sourceVideoTrack = videoTracks.first {
                 // Create the composition track only once
@@ -81,10 +81,9 @@ extension DefaultStitcher: StitcherProtocol {
                     compositionVideoTrack = track
                 }
                 
-                duration = try await sourceVideoTrack.load(.timeRange).duration
-                
                 // Append the video to the end of the current video timeline
                 try compositionVideoTrack?.insertTimeRange(timeRange, of: sourceVideoTrack, at: currentTime)
+                appended = true
             }
             
             // --- HANDLE AUDIO ---
@@ -100,10 +99,14 @@ extension DefaultStitcher: StitcherProtocol {
                                 
                 // Append the audio to the end of the current audio timeline
                 try compositionAudioTrack?.insertTimeRange(timeRange, of: sourceAudioTrack, at: currentTime)
+                appended = true
             }
             
-            if let duration {
-                currentTime = CMTimeAdd(currentTime, duration)
+            // The composition timeline grows by the range we just appended — not by the source
+            // track's own duration. Advancing by the track duration sent every chunk after the
+            // first to a wild offset (a 3s slice of a 212s source moved the cursor to 212s).
+            if appended {
+                currentTime = CMTimeAdd(currentTime, timeRange.duration)
             }
         }
 
