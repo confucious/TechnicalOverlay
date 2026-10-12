@@ -70,6 +70,33 @@ private func renderTransitionChunk(
     return url
 }
 
+/// Runs the stitcher and then performs the export.
+///
+/// `stitch` only *builds* the composition and hands back a `VideoComposer.ExportSession`; the
+/// output file exists only once the export is performed. Returns nil when the stitcher declines
+/// to build a composition (incomplete plan, nothing valid) or writes nothing.
+private func stitchAndExport(
+    with stitcher: DefaultStitcher,
+    chunks: [Chunk],
+    sourceAsset: AVAsset,
+    videoDuration: CMTime,
+    to outputURL: URL
+) async throws -> URL? {
+    // Each test reuses a fixed output name, so drop any file left by a previous run —
+    // otherwise the existence check below would pass on a stale file.
+    try? FileManager.default.removeItem(at: outputURL)
+
+    guard let session = try await stitcher.stitch(
+        chunks: chunks,
+        sourceAsset: sourceAsset,
+        videoDuration: videoDuration,
+        to: outputURL
+    ) else { return nil }
+
+    await session.performExport()
+    return FileManager.default.fileExists(atPath: outputURL.path) ? outputURL : nil
+}
+
 // MARK: - Tests
 
 @Suite
@@ -79,38 +106,43 @@ struct DefaultStitcherTests {
 
     // MARK: - Empty/Stale
 
-    @Test func stitchEmptyChunksReturnsNil() async {
+    @Test func stitchEmptyChunksReturnsNil() async throws {
         guard let asset = makeTestAsset() else {
             return
         }
         let outputURL = URL(fileURLWithPath: NSTemporaryDirectory() + "empty.mov")
-        let result = await stitcher.stitch(
+        let result = try await stitchAndExport(
+            with: stitcher,
             chunks: [],
             sourceAsset: asset,
             videoDuration: CMTime(seconds: 10, preferredTimescale: 1),
             to: outputURL
         )
-        #expect(result != nil)
-        let outputAsset = AVURLAsset(url: result!)
-        let duration = try await outputAsset.load(.duration)
-        #expect(duration.seconds == 0.0)
+        // An empty plan never reaches the end of the video, so the stitcher declines to
+        // build a composition rather than writing an empty file.
+        #expect(result == nil)
     }
 
-    @Test func stitchAllStaleChunksProducesEmptyOutput() async {
+    @Test func stitchAllStaleChunksProducesEmptyOutput() async throws {
         guard let asset = makeTestAsset() else {
             return
         }
-        let chunk = Chunk(
+        var chunk = Chunk(
             timeRange: CMTimeRange(start: .zero, duration: CMTime(seconds: 5, preferredTimescale: 1)),
             type: .noOverlay
         )
-        let result = await stitcher.stitch(
+        // Stale = dropped from the current plan.
+        chunk.stitchingTimeRange = nil
+
+        let result = try await stitchAndExport(
+            with: stitcher,
             chunks: [chunk],
             sourceAsset: asset,
-            videoDuration: CMTime(seconds: 10, preferredTimescale: 1),
+            videoDuration: CMTime(seconds: 5, preferredTimescale: 1),
             to: URL(fileURLWithPath: NSTemporaryDirectory() + "stale.mov")
         )
-        #expect(result != nil)
+        // Nothing valid left to stitch → the stitcher refuses instead of writing an empty file.
+        #expect(result == nil)
     }
 
     // MARK: - noOverlay Chunks
@@ -128,10 +160,13 @@ struct DefaultStitcherTests {
         chunk.stitchingTimeRange = timeRange
 
         let outputURL = URL(fileURLWithPath: NSTemporaryDirectory() + "nooverlay.mov")
-        let result = await stitcher.stitch(
+        // The plan has to reach the end of the video, so the "video duration" here is the
+        // plan's own end (2s + 3s). Same for every test below.
+        let result = try await stitchAndExport(
+            with: stitcher,
             chunks: [chunk],
             sourceAsset: asset,
-            videoDuration: CMTime(seconds: 10, preferredTimescale: 1),
+            videoDuration: CMTime(seconds: 5, preferredTimescale: 1),
             to: outputURL
         )
 
@@ -165,10 +200,11 @@ struct DefaultStitcherTests {
         chunk.stitchingTimeRange = timeRange
 
         let outputURL = URL(fileURLWithPath: NSTemporaryDirectory() + "constant_full.mov")
-        let result = await stitcher.stitch(
+        let result = try await stitchAndExport(
+            with: stitcher,
             chunks: [chunk],
             sourceAsset: asset,
-            videoDuration: CMTime(seconds: 20, preferredTimescale: 1),
+            videoDuration: CMTime(seconds: 15, preferredTimescale: 1),
             to: outputURL
         )
 
@@ -206,7 +242,8 @@ struct DefaultStitcherTests {
         )
 
         let outputURL = URL(fileURLWithPath: NSTemporaryDirectory() + "constant_end.mov")
-        let result = await stitcher.stitch(
+        let result = try await stitchAndExport(
+            with: stitcher,
             chunks: [chunk],
             sourceAsset: asset,
             videoDuration: CMTime(seconds: 20, preferredTimescale: 1),
@@ -247,7 +284,8 @@ struct DefaultStitcherTests {
         )
 
         let outputURL = URL(fileURLWithPath: NSTemporaryDirectory() + "constant_start.mov")
-        let result = await stitcher.stitch(
+        let result = try await stitchAndExport(
+            with: stitcher,
             chunks: [chunk],
             sourceAsset: asset,
             videoDuration: CMTime(seconds: 20, preferredTimescale: 1),
@@ -286,10 +324,11 @@ struct DefaultStitcherTests {
         chunk.stitchingTimeRange = timeRange
 
         let outputURL = URL(fileURLWithPath: NSTemporaryDirectory() + "transition.mov")
-        let result = await stitcher.stitch(
+        let result = try await stitchAndExport(
+            with: stitcher,
             chunks: [chunk],
             sourceAsset: asset,
-            videoDuration: CMTime(seconds: 20, preferredTimescale: 1),
+            videoDuration: CMTime(seconds: 11, preferredTimescale: 1),
             to: outputURL
         )
 
@@ -327,10 +366,11 @@ struct DefaultStitcherTests {
         )
 
         let outputURL = URL(fileURLWithPath: NSTemporaryDirectory() + "transition_partial.mov")
-        let result = await stitcher.stitch(
+        let result = try await stitchAndExport(
+            with: stitcher,
             chunks: [chunk],
             sourceAsset: asset,
-            videoDuration: CMTime(seconds: 20, preferredTimescale: 1),
+            videoDuration: CMTime(seconds: 12, preferredTimescale: 1),
             to: outputURL
         )
 
@@ -391,10 +431,11 @@ struct DefaultStitcherTests {
 
         let chunks = [noOverlayChunk, constChunk, transChunk]
         let outputURL = URL(fileURLWithPath: NSTemporaryDirectory() + "mixed.mov")
-        let result = await stitcher.stitch(
+        let result = try await stitchAndExport(
+            with: stitcher,
             chunks: chunks,
             sourceAsset: asset,
-            videoDuration: CMTime(seconds: 20, preferredTimescale: 1),
+            videoDuration: CMTime(seconds: 8, preferredTimescale: 1),
             to: outputURL
         )
 
@@ -420,10 +461,11 @@ struct DefaultStitcherTests {
         chunk.stitchingTimeRange = timeRange
 
         let outputURL = URL(fileURLWithPath: NSTemporaryDirectory() + "tracks.mov")
-        let result = await stitcher.stitch(
+        let result = try await stitchAndExport(
+            with: stitcher,
             chunks: [chunk],
             sourceAsset: asset,
-            videoDuration: CMTime(seconds: 10, preferredTimescale: 1),
+            videoDuration: CMTime(seconds: 3, preferredTimescale: 1),
             to: outputURL
         )
 
@@ -455,10 +497,11 @@ struct DefaultStitcherTests {
         chunk2.stitchingTimeRange = CMTimeRange(start: CMTime(seconds: 5, preferredTimescale: 1), duration: CMTime(seconds: 3, preferredTimescale: 1))
 
         let outputURL = URL(fileURLWithPath: NSTemporaryDirectory() + "duration.mov")
-        let result = await stitcher.stitch(
+        let result = try await stitchAndExport(
+            with: stitcher,
             chunks: [chunk1, chunk2],
             sourceAsset: asset,
-            videoDuration: CMTime(seconds: 10, preferredTimescale: 1),
+            videoDuration: CMTime(seconds: 8, preferredTimescale: 1),
             to: outputURL
         )
 

@@ -4,7 +4,7 @@
 //
 
 import Testing
-@testable import Technical_Overlay
+@testable import TechnicalOverlay
 
 struct ChunkSegmentTests {
 
