@@ -180,8 +180,11 @@ enqueue(slides:, videoDuration:)
   (`chunk_<uuid>.mov`). `ChunkQueue` is an actor so `render(chunk:)` calls are serialized.
 - **Stitcher**: `DefaultStitcher` (implements `StitcherProtocol`) builds a single
   `AVMutableComposition` with one video + one audio track and appends chunks sequentially,
-  mapping absolute stitching ranges to local chunk times (`localTimeRange`). **Not `Sendable`** —
-  `AVAssetReader`/`AVAssetWriter` are not thread-safe. Final export is **`.mp4`** via
+  mapping absolute stitching ranges to local chunk times (`localTimeRange`) and advancing the
+  composition cursor by each **appended range** (not by the source track's own duration — that
+  was a bug that placed every chunk after the first at a wild offset). It requires the plan to
+  reach `videoDuration` exactly, and returns a `VideoComposer.ExportSession` — the file appears
+  only once the caller performs the export. Final export is **`.mp4`** via
   `AVAssetExportPresetPassthrough`.
 
 `MainView.generateSlides()` pre-enqueues slides into the queue so it is ready when the user taps
@@ -236,3 +239,4 @@ point is `MainView`.
 | 2026-10-10 | Tuist build/test commands re-verified (Tuist 4.205, Xcode 27.0 release). `tuist test <FrameworkTarget>` executes **zero tests** and exits 0; every `tuist test` run leaves a narrowed `.xcodeproj` that must be fixed with `tuist generate`. Documented the working commands; no manifest changes were needed. Known blockers are source bugs only: `MainView.swift` (app) and `DefaultStitcherTests.swift` (VideoProcessor test bundle) do not compile. |
 | 2026-10-10 | Overlay file extension `.tod` → **`.tojson`**, UTI renamed to exported-only `org.cjas.jhsu.overlay-document`. `.tod` was a filename-extension collision (VLC claims `org.videolan.tod` as `public.movie`), so macOS could type our files as a non-conforming type and the file importer greyed them all out; `UTType(exportedAs:)` replaces the dynamic-prone `UTType(filenameExtension:)` lookup, and the contradictory duplicate `UTImportedTypeDeclarations` entry is gone. Mirrors the fix already made on `inline-renderer`; there is no backward-compatibility shim, so existing `.tod` files must be renamed. |
 | 2026-10-10 | App runs on **Apple-silicon Macs as a "Designed for iPad" app**. Added `.macWithiPadDesign` to the shared target `destinations`, which makes Tuist emit `SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = YES` (it defaults to **NO**, and without it "My Mac" is not a run destination). Build with `-destination 'platform=macOS,arch=arm64,variant=Designed for iPad'`. Still no native macOS or Mac Catalyst target — `SUPPORTS_MACCATALYST = NO`, LayoutEngine stays UIKit/iOS. |
+| 2026-10-12 | Chunk-pipeline tracing added (plain `print`, per-chunk, `[ChunkQueue]`/`[ChunkRenderer]`/`[Stitcher]` prefixes). It immediately exposed a **stitcher bug**: `copyFrom` advanced the composition cursor by the source track's duration instead of the range it had appended, so every chunk after the first was written at a wild offset (a 3s slice of the 212s sample composed 212.5s). Fixed. Same pass: `DefaultStitcherTests` updated to the current contract (perform the export) and to pass `videoDuration` = the plan's end, app test bundles import the renamed module (`TechnicalOverlay`, not `Technical_Overlay`). All four test schemes now build and run. |

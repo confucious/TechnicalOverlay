@@ -3,7 +3,8 @@
 //  VideoProcessor
 //
 // Assembles rendered chunk files and source video segments into the final
-// output video using AVAssetReader/AVAssetWriter with sample buffer copying.
+// output video by appending their tracks into a single AVMutableComposition,
+// then hands back an export session for the caller to perform.
 
 import AVFoundation
 import CoreImage
@@ -11,11 +12,11 @@ import Foundation
 
 // MARK: - Stitcher
 
-/// Assembles rendered chunk files and source video segments into the final
-/// output video using `AVAssetReader`/`AVAssetWriter` with sample buffer copying.
+/// Assembles rendered chunk files and source video segments into the final output video.
 ///
-/// Not `Sendable` — `AVAssetReader`/`AVAssetWriter` are not thread-safe, and
-/// the stitcher runs sequentially.
+/// Every chunk is appended in order into one `AVMutableComposition` holding a single video
+/// track and a single audio track, and the resulting export session is returned for the caller
+/// to perform — no file is written here.
 public final class DefaultStitcher {
     
     private let outputFileType: AVFileType

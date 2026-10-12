@@ -60,13 +60,28 @@ xcodebuild test -scheme LayoutEngine -workspace TechnicalOverlay.xcworkspace \
    contain a scheme named <X>`, and Xcode opens a gutted project. **Always re-run
    `tuist generate` after a test run.**
 
-Current test health: `LayoutEngine` and `ProtocolParser` suites compile and pass (both are
-empty stubs — 1 trivial test each). `VideoProcessorTests` does **not compile**
-(`DefaultStitcherTests.swift` still expects `stitch() -> URL` while the protocol returns
-`VideoComposer.ExportSession?`), so that whole 60-odd-test bundle is unrunnable — including the
-chunk-pipeline tests. The app target **builds** (the old `MainView.swift` optional-chaining bug
-is fixed), and `xcodebuild build -scheme TechnicalOverlay … -destination 'platform=macOS,…'`
-produces a runnable Designed-for-iPad build.
+**Test health** — every bundle builds and runs (verified 2026-10-12, iPhone 17 simulator):
+
+| Scheme | Result |
+|--------|--------|
+| `LayoutEngine` | 1 test — boilerplate stub |
+| `ProtocolParser` | 1 test — boilerplate stub |
+| `VideoProcessor` | 63 tests pass (the only real coverage) |
+| `TechnicalOverlay` | 9 unit tests + 2 UI tests pass |
+
+`VideoProcessorTests` integration tests need the untracked 398 MB
+`TechnicalOverlay/TechnicalOverlay/Boston Open 2025.mov`; without it `DefaultStitcherTests`
+early-return and pass trivially. They render real chunks and perform real exports, so they are
+far slower than the pure-logic suites. The stitcher refuses a plan whose last chunk does not end
+exactly at `videoDuration` (defensive; the app always satisfies it by construction), so those
+tests pass the plan's own end as the duration.
+
+Two `xcodebuild` reporting traps to know about when reading output:
+- `-scheme VideoProcessor` prints its Swift Testing summary and then **hangs in teardown** (0% CPU,
+  no `** TEST SUCCEEDED **`). The tests have already passed at that point — kill it or run it
+  under a watchdog.
+- `-scheme TechnicalOverlay` prints the Swift Testing summary (unit tests) **before** the XCTest
+  UI tests run, so that line is not the end of the run.
 
 No lint, no typecheck, no formatter. Swift only, no SPM dependencies. Tests use the **Swift Testing** framework (`@Suite`, `#expect`).
 
