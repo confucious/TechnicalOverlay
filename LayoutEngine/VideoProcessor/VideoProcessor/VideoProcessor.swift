@@ -23,6 +23,14 @@ public enum Metrics {
     public static let transitionTime = 0.75
 }
 
+/// Wraps a composited frame for `AVVideoComposition(applyingFiltersTo:applier:)` — the replacement
+/// for `videoComposition(with:applyingCIFiltersWithHandler:)`, which Apple deprecated in
+/// iOS/macOS 27.0. A nil `ciContext` asks the compositor to use its own context, matching what the
+/// old `finish(with:context: nil)` did.
+private func filteringResult(_ image: CIImage) -> AVCIImageFilteringResult {
+    AVCIImageFilteringResult(resultImage: image, ciContext: nil)
+}
+
 public class VideoComposer {
     
     var asset: AVAsset
@@ -36,8 +44,7 @@ public class VideoComposer {
     }
     
     public func setupComposition() async throws -> AVVideoComposition? {
-        return try await AVVideoComposition.videoComposition(
-            with: asset) { [slides] request in
+        return try await AVVideoComposition(applyingFiltersTo: asset) { [slides] request in
                 // find slide appropriate for the compositionTime
                 let indexedSlide = slides.enumerated().last { (_, slide) in
                     return request.compositionTime >= slide.startTime
@@ -61,27 +68,20 @@ public class VideoComposer {
                         dissolve.time = Float(
                             diff.seconds / Metrics.transitionTime
                         )
-                        request.finish(
-                            with: dissolve.outputImage?
+                        return filteringResult(
+                            dissolve.outputImage?
                                 .composited(over: request.sourceImage)
-                                ?? request.sourceImage,
-                            context: nil
+                                ?? request.sourceImage
+                        )
+                    } else if let slideImage = slide.image {
+                        return filteringResult(
+                            slideImage.composited(over: request.sourceImage)
                         )
                     } else {
-                        if let slideImage = slide.image {
-                            request.finish(
-                                with: slideImage.composited(over: request.sourceImage),
-                                context: nil
-                            )
-                        } else {
-                            request.finish(
-                                with: request.sourceImage,
-                                context: nil
-                            )
-                        }
+                        return filteringResult(request.sourceImage)
                     }
                 } else {
-                    request.finish(with: request.sourceImage, context: nil)
+                    return filteringResult(request.sourceImage)
                 }
             }
     }
@@ -150,15 +150,11 @@ public class VideoComposer {
     /// over the source video for every frame. Mirrors the constant-overlay
     /// path of `setupComposition()` but operates directly on `CIImage`.
     public func setupComposition(overlay image: CIImage?) async throws -> AVVideoComposition {
-        return try await AVVideoComposition.videoComposition(with: asset) { request in
+        return try await AVVideoComposition(applyingFiltersTo: asset) { request in
             guard let image else {
-                request.finish(with: request.sourceImage, context: nil)
-                return
+                return filteringResult(request.sourceImage)
             }
-            request.finish(
-                with: image.composited(over: request.sourceImage),
-                context: nil
-            )
+            return filteringResult(image.composited(over: request.sourceImage))
         }
     }
 
@@ -177,11 +173,10 @@ public class VideoComposer {
         transitionStart: CMTime
     ) async throws -> AVVideoComposition {
         let transitionTime = CMTime(seconds: Metrics.transitionTime, preferredTimescale: 1000)
-        return try await AVVideoComposition.videoComposition(with: asset) { request in
+        return try await AVVideoComposition(applyingFiltersTo: asset) { request in
             guard from != nil || to != nil else {
                 // Neither side carries an overlay — nothing to dissolve.
-                request.finish(with: request.sourceImage, context: nil)
-                return
+                return filteringResult(request.sourceImage)
             }
 
             let diff = request.compositionTime - transitionStart
@@ -193,18 +188,14 @@ public class VideoComposer {
                 dissolve.targetImage = to ?? CIImage.clear
                 let progress = max(0.0, min(diff.seconds, transitionTime.seconds)) / transitionTime.seconds
                 dissolve.time = Float(progress)
-                request.finish(
-                    with: dissolve.outputImage?.composited(over: request.sourceImage)
-                        ?? request.sourceImage,
-                    context: nil
+                return filteringResult(
+                    dissolve.outputImage?.composited(over: request.sourceImage)
+                        ?? request.sourceImage
                 )
             } else if let to {
-                request.finish(
-                    with: to.composited(over: request.sourceImage),
-                    context: nil
-                )
+                return filteringResult(to.composited(over: request.sourceImage))
             } else {
-                request.finish(with: request.sourceImage, context: nil)
+                return filteringResult(request.sourceImage)
             }
         }
     }
