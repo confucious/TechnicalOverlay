@@ -124,7 +124,7 @@ Renders individual chunks by exporting time-limited segments of the source video
 
 1. Sorts slides by `startTime`.
 2. For each pixel request, finds the **last** slide whose `startTime <= compositionTime`.
-3. If within `transitionTime` (0.75s) of the slide's start, performs a Core Image `CIFilter.dissolveTransition` from the previous slide to the current one, with `time` parameter interpolating from 0→1.
+3. If within `transitionTime` (0.75s) of the slide's start, performs a Core Image `CIFilter.dissolveTransition` from the previous slide to the current one, with `time` parameter interpolating from 0→1. A nil image on either side is treated as **no overlay** and dissolves as a clear image, so a slide fades in from (and out to) the plain source frame.
 4. Otherwise, composites the current slide's image over the source frame.
 5. If no slide matches (before first slide or all nil), passes through the source unchanged.
 
@@ -155,7 +155,7 @@ Each chunk is rendered as a time-limited `AVAssetExportSession` export with `AVV
 | Chunk Type | Composition Method | Behavior |
 |------------|-------------------|----------|
 | `.constant(CIImage)` | `setupComposition(overlay:)` | Single overlay image composited over source for every frame in the chunk's time range |
-| `.transition(from, to)` | `setupComposition(from:to:transitionStart:)` | `CIFilter.dissolveTransition` interpolating from `from` to `to`, then `to` composited over source for remaining frames |
+| `.transition(from, to)` | `setupComposition(from:to:transitionStart:)` | `CIFilter.dissolveTransition` interpolating from `from` to `to`, then `to` composited over source for remaining frames. A **nil side means "no overlay"** and dissolves as a clear image — that's the noOverlay ↔ slide fade (rendering the bare source frame instead made slides pop in). Both sides nil → source frame only. |
 | `.noOverlay` | — | Returns `nil` immediately (filtered by `ChunkQueue` before reaching renderer) |
 
 The CIImage-based composition methods operate directly on `CIImage` objects (unlike the slide-based path which works with `Slide[]` and finds slides by time lookup per frame). This is simpler and more direct for the chunk rendering use case where each chunk has a known, fixed overlay set.
