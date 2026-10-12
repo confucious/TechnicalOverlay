@@ -603,6 +603,10 @@ public func diffRegionsIntoChunks(
 public struct ChunkQueueProgress: Sendable {
     public let completed: Int
     public let total: Int
+
+    /// True while any chunk is queued or being rendered — i.e. the background pipeline still has
+    /// work to do. Drives a status indicator in the app (green when false, yellow when true).
+    public let isRendering: Bool
 }
 
 public actor ChunkQueue {
@@ -649,6 +653,9 @@ public actor ChunkQueue {
             Trace.log(.queue, "  \(chunk.traceLabel) stitch=\(chunk.stitchingTimeRange?.traceDescription ?? "none") \(disposition)")
         }
 
+        // Tell observers immediately: the queue now has work, even before the first render starts.
+        reportProgress()
+
         if drainTask == nil {
             Trace.log(.queue, "enqueue: queue idle, starting drain")
             drainTask = Task { [weak self] in
@@ -673,6 +680,7 @@ public actor ChunkQueue {
             }
         }
         Trace.log(.queue, "markStale: \(newlyStale) newly stale of \(chunks.count) chunks (\(chunks.count(where: { $0.isStale })) stale total)")
+        reportProgress()
     }
 
     public func startRendering() async {
@@ -728,7 +736,17 @@ public actor ChunkQueue {
         let completed = chunks.count(where: {
             $0.type != .noOverlay && $0.isRendered
         })
-        progressCallback?(ChunkQueueProgress(completed: completed, total: total))
+        // Stale chunks are excluded: they have no stitching range, so the queue will never touch
+        // them again (a failed render leaves one behind in the .rendering state).
+        let isRendering = chunks.contains { chunk in
+            chunk.type != .noOverlay && !chunk.isStale
+                && (chunk.renderState == .pending || chunk.renderState == .rendering)
+        }
+        progressCallback?(ChunkQueueProgress(
+            completed: completed,
+            total: total,
+            isRendering: isRendering
+        ))
     }
 
     private func drain() async {
@@ -740,6 +758,7 @@ public actor ChunkQueue {
         var failed = 0
         if pendingAtStart > 0 {
             Trace.log(.queue, "drain: start, \(pendingAtStart) pending")
+            reportProgress()
         }
 
         while !Task.isCancelled {
@@ -767,6 +786,7 @@ public actor ChunkQueue {
                 $0.renderState == .pending && $0.type != .noOverlay
             })
             Trace.log(.queue, "drain: done, \(rendered) rendered, \(failed) failed, \(stillPending) still pending in \(drainTimer.elapsedDescription)")
+            reportProgress()
         }
     }
 

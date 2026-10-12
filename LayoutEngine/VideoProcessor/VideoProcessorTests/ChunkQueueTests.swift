@@ -243,4 +243,45 @@ final class SlowRenderer: ChunkRendererProtocol, @unchecked Sendable {
         // No additional renders since chunks were reused
         #expect(renderer.rendered.count == firstRenderCount)
     }
+
+    // MARK: - Status reporting (drives the app's queue indicator)
+
+    /// The app shows a yellow dot while the queue has work and green once everything is rendered.
+    /// `ChunkQueueProgress.isRendering` is what it reads, so it has to be true from the moment
+    /// work is queued — including while a render is in flight — and false once the queue is idle.
+    @Test func progressReportsWhetherWorkIsStillInFlight() async {
+        let slowRenderer = SlowRenderer()
+        let slowQueue = ChunkQueue(renderer: slowRenderer, transitionTime: transitionTime)
+        let recorder = ProgressRecorder()
+        await slowQueue.setProgressCallback { recorder.record($0) }
+
+        await slowQueue.enqueue(slides: [slide], videoDuration: videoDuration)
+        // Reported on enqueue, before the first render even starts.
+        #expect(recorder.latest?.isRendering == true)
+
+        try? await Task.sleep(for: .milliseconds(20))
+        // The first render takes 300ms, so work is still in flight here.
+        #expect(recorder.latest?.isRendering == true)
+
+        await slowQueue.waitForCompletion()
+
+        let last = recorder.latest
+        #expect(last?.isRendering == false, "queue should report idle once nothing is left to render")
+        #expect(last?.completed == last?.total)
+        #expect((last?.total ?? 0) > 0, "there should be something to render")
+    }
+}
+
+/// Collects the queue's progress reports (they arrive on the queue's actor).
+final class ProgressRecorder: @unchecked Sendable {
+
+    private var reports: [ChunkQueueProgress] = []
+
+    func record(_ progress: ChunkQueueProgress) {
+        reports.append(progress)
+    }
+
+    var latest: ChunkQueueProgress? {
+        reports.last
+    }
 }
