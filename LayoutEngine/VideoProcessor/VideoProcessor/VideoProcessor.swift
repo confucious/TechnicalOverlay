@@ -133,12 +133,10 @@ public class VideoComposer {
             self.exportState = exportSession.states(updateInterval: 0.1)
         }
         
-        public func performExport() async {
-            do {
-                try await exportSession.export(to: outputUrl, as: outputFileType)
-            } catch {
-                print("export failed \(error)")
-            }
+        /// Writes the composition to `outputUrl`. Throwing on purpose: swallowing the error here
+        /// is what made "the export did nothing" invisible (the caller has somewhere to show it).
+        public func performExport() async throws {
+            try await exportSession.export(to: outputUrl, as: outputFileType)
         }
     }
 

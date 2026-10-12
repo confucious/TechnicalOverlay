@@ -93,7 +93,7 @@ private func stitchAndExport(
         to: outputURL
     ) else { return nil }
 
-    await session.performExport()
+    try await session.performExport()
     return FileManager.default.fileExists(atPath: outputURL.path) ? outputURL : nil
 }
 
