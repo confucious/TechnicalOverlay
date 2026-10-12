@@ -239,6 +239,11 @@ Tests live in separate Xcode test targets alongside each framework. The most com
 
 ## Gotchas
 
+- The three composition builders in `VideoComposer` use `AVVideoComposition(applyingFiltersTo:applier:)`,
+  whose handler returns `AVCIImageFilteringResult(resultImage:ciContext: nil)`. The older
+  `videoComposition(with:applyingCIFiltersWithHandler:)` factory is deprecated as of iOS/macOS 27.0.
+  A nil image on either side of `setupComposition(from:to:transitionStart:)` means "no overlay on
+  that side" (dissolve against `CIImage.clear`) — that is the noOverlay ↔ slide fade.
 - `ContentView.swift` is a **legacy prototype** with hardcoded test data. Main entry point is `MainView`.
 - `ElementBuilderView.swift` is a **placeholder** — not wired into the app.
 - `Metrics.transitionTime = 0.75` in `VideoProcessor` — the dissolve duration, used everywhere in video composition.

@@ -47,6 +47,8 @@ public class VideoComposer {
 
 **Slide-based path:** Creates `AVVideoComposition` with dissolve transitions between slides composited over source video. Used for both real-time preview and full-video export.
 
+**Composition API:** all three builders use `AVVideoComposition(applyingFiltersTo:applier:)`; the frame handler returns an `AVCIImageFilteringResult(resultImage:ciContext: nil)`. (The older `AVVideoComposition.videoComposition(with:applyingCIFiltersWithHandler:)` factory was deprecated in iOS/macOS 27.0 — the migration was verified to be pixel-identical.)
+
 **CIImage-based path (chunk rendering):** Direct `CIImage` → `AVVideoComposition` methods that bypass the `Slide[]` abstraction. Used by `DefaultChunkRenderer` to render individual time-limited chunks. Each frame handler composites the overlay image(s) over the source using `CIImage.composited(over:)`.
 
 ### VideoComposer.ExportSession
