@@ -53,7 +53,7 @@ MainView (root)
        │              │              │             │            └── ScoringListView (NavigationStack destination)
        │              │              │             └── OverlayDataDocument export (.tojson)
        │              │              └── OverlayDataDocument import (.tojson) → update + save
-       │              └── VideoComposer.setupExport → ExportSession.performExport → fileExporter (.mov)
+       │              └── save panel picks the destination → ExportSession.performExport → writes .mp4 there
        └── fileImporter (.movie) → ViewModel.assetUrl → generateSlides() → new VideoComposer → replace player item
 ```
 
@@ -63,7 +63,7 @@ MainView (root)
 |--------|-----------|---------|
 | UserDefaults (JSON) | `OverlayData.save()` / `load()` | Auto-save under key `"state"`. |
 | `.tojson` files | `OverlayDataDocument` (SwiftUI `FileDocument`) | Versioned JSON (`VersionedOverlayData.version == 1`). Import via `fileImporter`, export via `fileExporter`. |
-| Video files | `MainView` | `.movie` import via `fileImporter`. Exported `.mov` via `fileExporter` using `MovieDocument` wrapper (copies from temp URL). |
+| Video files | `MainView` | `.movie` import via `fileImporter`. Export: `fileExporter` with a zero-byte `SaveDestinationPlaceholder` picks the destination first, then the passthrough export writes `.mp4` straight to it (the placeholder file is deleted first — `AVAssetExportSession` won't overwrite). |
 
 ## Dependencies
 

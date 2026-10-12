@@ -182,10 +182,15 @@ Two rendering paths:
 
 2. **ChunkQueue → DefaultChunkRenderer → DefaultStitcher** — export pipeline. `ChunkQueue.enqueue(slides:)` generates regions, diffs against existing chunks, renders pending ones sequentially. `DefaultStitcher` assembles rendered chunks + source video segments into final output via `AVMutableComposition` track appending.
 
-Export flow in `MainView`:
+Export flow in `MainView` — **the destination is chosen before any work happens** (the save panel
+is handed a zero-byte `SaveDestinationPlaceholder` and returns the chosen URL), so the passthrough
+export writes straight there:
 ```
-enqueue(slides:) → waitForCompletion() → stitch(chunks:sourceAsset:videoDuration:to:) → ExportSession.performExport()
+fileExporter (pick destination) → waitForCompletion() → stitch(chunks:sourceAsset:videoDuration:to: destination) → ExportSession.performExport()
 ```
+The placeholder file the panel writes at the destination must be deleted before exporting:
+`AVAssetExportSession` refuses to write over an existing file. Failures surface as
+`ExportPhase.failed(message)` in the progress sheet and clean up the destination file.
 
 Chunk types: `.noOverlay` (source-only, never reused), `.constant` (single CIImage overlay), `.transition` (cross-dissolve between two CIImages).
 
@@ -215,11 +220,11 @@ User edits timing (TimeSettingsView)
     │  → queue.enqueue(slides:) (re-enqueues for export)
 
 User exports (MainView "Save Video" button)
+    │  save panel picks the destination FIRST (zero-byte placeholder document)
     │  queue.waitForCompletion()
-    │  DefaultStitcher.stitch(chunks:queue.validChunks(), …)
+    │  DefaultStitcher.stitch(chunks:queue.validChunks(), …, to: destinationURL)
     │  → AVMutableComposition with sequential track inserts
-    │  → ExportSession.performExport() → temp .mov
-    │  → fileExporter dialog to save
+    │  → ExportSession.performExport() writes .mp4 straight to the destination
 ```
 
 ## Testing

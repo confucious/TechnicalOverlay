@@ -189,8 +189,8 @@ enqueue(slides:, videoDuration:)
   `AVAssetExportPresetPassthrough`.
 
 `MainView.generateSlides()` pre-enqueues slides into the queue so it is ready when the user taps
-"Save Video"; the export flow sets `exportPhase` (idle → rendering → stitching → done) and
-drives a progress sheet.
+"Save Video"; the export flow sets `exportPhase` (idle → rendering → stitching → done, or
+`failed(message)`) and drives a progress sheet.
 
 Full detail (types, per-chunk composition methods, region/diff algorithms) is in
 `docs/architecture/video-processor.md`.
@@ -209,8 +209,9 @@ Edit timing (TimeSettingsView "Start Now" → setIntro/setElementTime, cascading
 
 Edit data (ScoringListView → onDisappear save() + clearCache())
 
-Save Video → queue.waitForCompletion() → DefaultStitcher.stitch()
-  → ExportSession.performExport() → temp .mov → fileExporter
+Save Video → save panel picks the destination → queue.waitForCompletion()
+  → DefaultStitcher.stitch(to: destination)
+  → ExportSession.performExport() writes .mp4 straight to the chosen file
 ```
 
 UI surface (`MainView`): `VideoPlayer`, `TimeSettingsView`, and a button row
@@ -243,3 +244,4 @@ point is `MainView`.
 | 2026-10-12 | Chunk-pipeline tracing added (plain `print`, per-chunk, `[ChunkQueue]`/`[ChunkRenderer]`/`[Stitcher]` prefixes). It immediately exposed a **stitcher bug**: `copyFrom` advanced the composition cursor by the source track's duration instead of the range it had appended, so every chunk after the first was written at a wild offset (a 3s slice of the 212s sample composed 212.5s). Fixed. Same pass: `DefaultStitcherTests` updated to the current contract (perform the export) and to pass `videoDuration` = the plan's end, app test bundles import the renamed module (`TechnicalOverlay`, not `Technical_Overlay`). All four test schemes now build and run. |
 | 2026-10-12 | Restored `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor` and `SWIFT_APPROACHABLE_CONCURRENCY = YES` on all targets. The Tuist conversion dropped them — they lived in the *project-level* settings of the old pbxproj — silently changing the concurrency model: `generateSlides()`'s `Task` left the main actor and `VideoOverlay.render` mutated `UILabel` layers off the main thread, which UIKit flags as illegal. The code was always written for default MainActor isolation (see the `nonisolated Codable` on `VersionedOverlayData`). |
 | 2026-10-12 | **`waitForCompletion()` fixed** — it returned while a chunk was still rendering (the drain started by `enqueue()` had dequeued it, so it was neither pending nor finished). `validChunks()` then omitted it, and the stitcher refused the plan, returning nil. That nil was the entire symptom of "Save Video does nothing": `MainView` resets to `.idle` and only writes to the console. The queue now keeps its drain task and awaits it. Regression test uses a renderer whose first render is 30× slower (the instant `FakeRenderer` could never see this race). |
+| 2026-10-12 | **Save flow: destination first.** "Save Video" asks for the destination *before* rendering — the save panel is given a zero-byte `SaveDestinationPlaceholder` and returns the chosen URL — then the passthrough export writes `.mp4` straight to it. That removes the old temp file plus `MovieDocument`'s `Data(contentsOf:)` copy of the finished video, and avoids requesting a second presentation while the progress sheet is up. The panel's placeholder file is deleted before exporting (`AVAssetExportSession` refuses to overwrite: -11823 "already in use"). `performExport()` now throws and `ExportPhase` gained `.failed(message)`, so a failure shows up in the sheet and cleans up the destination instead of silently resetting to `.idle`. |
