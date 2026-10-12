@@ -152,6 +152,14 @@ ProtocolParser/                            # Empty stub — not linked
 
 **Zero external dependencies.** Only Apple frameworks: SwiftUI, AVFoundation, CoreImage, UIKit, CoreMedia, Observation, UniformTypeIdentifiers.
 
+**Swift concurrency model — every target is main-actor by default.** `Project.swift`'s
+`baseSettings` carries `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor` and
+`SWIFT_APPROACHABLE_CONCURRENCY = YES`, as the pre-Tuist projects did. Code is therefore
+main-actor isolated unless marked `nonisolated` (e.g. `VersionedOverlayData`). **Do not drop these
+settings**: without them `generateSlides()`'s `Task` leaves the main actor, `VideoOverlay.render`
+then mutates `UILabel` layers from a background thread, and UIKit logs *"Modifying properties of a
+view's layer off the main thread is not allowed"*.
+
 **`docs/ARCHITECTURE.md`** is the consolidated spec (module map + data flow + design decisions); per-module detail lives in `docs/architecture/`. **Read `docs/ARCHITECTURE.md` before making changes.**
 
 ## Data Model — Critical Details
