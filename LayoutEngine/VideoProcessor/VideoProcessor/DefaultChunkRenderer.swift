@@ -68,11 +68,17 @@ public final class DefaultChunkRenderer: ChunkRendererProtocol {
 
     public func render(_ chunk: Chunk) async -> URL? {
         // 1. Staleness check
-        guard let stitchingRange = chunk.stitchingTimeRange else { return nil }
+        guard let stitchingRange = chunk.stitchingTimeRange else {
+            Trace.log(.renderer, "skip \(chunk.traceID) \(chunk.type.traceName): not in the current plan (stale)")
+            return nil
+        }
 
         // 2. noOverlay check — dequeueNextRenderable() already filters these out,
         //    but the guard is defensive for callers that bypass the queue
-        guard chunk.type != .noOverlay else { return nil }
+        guard chunk.type != .noOverlay else {
+            Trace.log(.renderer, "skip \(chunk.traceID): noOverlay has nothing to render")
+            return nil
+        }
 
         // 3. Build output URL
         let outputURL = outputDirectory.appendingPathComponent(
@@ -80,6 +86,7 @@ public final class DefaultChunkRenderer: ChunkRendererProtocol {
         )
 
         // 4. Render on current actor context ( ChunkQueue serializes calls )
+        Trace.log(.renderer, "\(chunk.traceLabel) stitch=\(stitchingRange.traceDescription) → \(outputURL.lastPathComponent)")
         return await renderChunk(chunk, stitchingRange: stitchingRange, to: outputURL)
     }
 
@@ -94,7 +101,7 @@ public final class DefaultChunkRenderer: ChunkRendererProtocol {
             with: sourceAsset,
             outputFileType: settings.outputFileType
         ) else {
-            print("Chunk render: asset compatibility check failed")
+            Trace.log(.renderer, "\(chunk.traceID) preset \(settings.presetName) is not compatible with the source asset")
             return nil
         }
 
@@ -103,7 +110,7 @@ public final class DefaultChunkRenderer: ChunkRendererProtocol {
             asset: sourceAsset,
             presetName: settings.presetName
         ) else {
-            print("Chunk render: cannot create export session")
+            Trace.log(.renderer, "\(chunk.traceID) could not create an export session")
             return nil
         }
 
@@ -115,20 +122,22 @@ public final class DefaultChunkRenderer: ChunkRendererProtocol {
                     asset: sourceAsset,
                     slides: []
                 ).setupComposition(overlay: ciImage)
+                Trace.log(.renderer, "\(chunk.traceID) composition: constant overlay \(Optional(ciImage).traceName)")
 
             case .transition(let from, let to):
                 exportSession.videoComposition = try await VideoComposer(
                     asset: sourceAsset,
                     slides: []
                 ).setupComposition(from: from, to: to, transitionStart: stitchingRange.start)
+                Trace.log(.renderer, "\(chunk.traceID) composition: transition \(from.traceName) → \(to.traceName) starting \(stitchingRange.start.traceDescription)")
 
             case .noOverlay:
                 // Should not reach here due to guard in render()
-                print("Chunk render: unexpected noOverlay chunk")
+                Trace.log(.renderer, "\(chunk.traceID) unexpected noOverlay chunk, skipping")
                 return nil
             }
         } catch {
-            print("Chunk render: composition failed: \(error)")
+            Trace.log(.renderer, "\(chunk.traceID) composition failed: \(error)")
             return nil
         }
 
@@ -136,13 +145,15 @@ public final class DefaultChunkRenderer: ChunkRendererProtocol {
         exportSession.timeRange = stitchingRange
 
         // 5. Export to file
+        let exportTimer = TraceTimer()
         do {
             try await exportSession.export(to: outputURL, as: settings.outputFileType)
         } catch {
-            print("Chunk render: export failed: \(error)")
+            Trace.log(.renderer, "\(chunk.traceID) export failed after \(exportTimer.elapsedDescription): \(error)")
             return nil
         }
 
+        Trace.log(.renderer, "\(chunk.traceID) exported in \(exportTimer.elapsedDescription)\(traceFileSize(at: outputURL))")
         return outputURL
     }
 }

@@ -614,18 +614,45 @@ public actor ChunkQueue {
             videoDuration: videoDuration,
             transitionTime: transitionTime
         )
+        Trace.log(.queue, "enqueue: \(slides.count) slides, video \(videoDuration.traceDescription) → \(newRegions.count) regions (\(newRegions.traceBreakdown))")
+
+        let previousCount = chunks.count
         chunks = diffRegionsIntoChunks(newRegions: newRegions, existingChunks: chunks)
+
+        let toRender = chunks.count(where: { $0.renderState == .pending && $0.type != .noOverlay })
+        let reused = chunks.count(where: { $0.type != .noOverlay && !$0.isStale && $0.renderState != .pending })
+        let stale = chunks.count(where: { $0.type != .noOverlay && $0.isStale })
+        Trace.log(.queue, "enqueue: \(chunks.count) chunks (was \(previousCount)) → \(toRender) to render, \(reused) reused, \(stale) stale")
+
+        for chunk in chunks where chunk.type != .noOverlay {
+            let disposition: String
+            if chunk.isStale {
+                disposition = "stale (not reused)"
+            } else if chunk.renderState == .pending {
+                disposition = "new → pending"
+            } else {
+                disposition = "reused → \(chunk.renderState.traceName)"
+            }
+            Trace.log(.queue, "  \(chunk.traceLabel) stitch=\(chunk.stitchingTimeRange?.traceDescription ?? "none") \(disposition)")
+        }
+
         if !isDraining {
+            Trace.log(.queue, "enqueue: queue idle, starting drain")
             Task { await self.startRendering() }
+        } else {
+            Trace.log(.queue, "enqueue: drain already running, it will pick these up")
         }
     }
 
     public func markStale(where predicate: (Chunk) -> Bool) {
+        var newlyStale = 0
         for i in chunks.indices {
             if predicate(chunks[i]) {
+                if !chunks[i].isStale { newlyStale += 1 }
                 chunks[i].stitchingTimeRange = nil
             }
         }
+        Trace.log(.queue, "markStale: \(newlyStale) newly stale of \(chunks.count) chunks (\(chunks.count(where: { $0.isStale })) stale total)")
     }
 
     public func startRendering() async {
@@ -633,6 +660,14 @@ public actor ChunkQueue {
     }
 
     public func waitForCompletion() async {
+        let pendingAtStart = chunks.count(where: {
+            $0.renderState == .pending && $0.type != .noOverlay
+        })
+        let timer = TraceTimer()
+        if pendingAtStart > 0 {
+            Trace.log(.queue, "waitForCompletion: waiting on \(pendingAtStart) pending chunks")
+        }
+
         while !Task.isCancelled {
             let hasPending = chunks.contains { chunk in
                 chunk.renderState == .pending && chunk.type != .noOverlay
@@ -640,10 +675,15 @@ public actor ChunkQueue {
             guard hasPending else { break }
             await drain()
         }
+
+        if pendingAtStart > 0 {
+            let renderable = chunks.count(where: { $0.type != .noOverlay && $0.isRendered && !$0.isStale })
+            Trace.log(.queue, "waitForCompletion: done in \(timer.elapsedDescription), \(renderable) rendered and non-stale")
+        }
     }
 
     public func validChunks() -> [Chunk] {
-        chunks.filter { chunk in
+        let valid = chunks.filter { chunk in
             switch chunk.type {
             case .noOverlay:
                 return !chunk.isStale
@@ -651,6 +691,8 @@ public actor ChunkQueue {
                 return chunk.isRendered && !chunk.isStale
             }
         }
+        Trace.log(.queue, "validChunks: \(valid.count) of \(chunks.count) chunks valid — dropping \(chunks.count(where: { $0.type != .noOverlay && $0.isStale })) stale, \(chunks.count(where: { $0.type != .noOverlay && $0.renderState == .pending })) pending")
+        return valid
     }
 
     // MARK: - Internal
@@ -665,18 +707,42 @@ public actor ChunkQueue {
 
     private func drain() async {
         isDraining = true
+        let pendingAtStart = chunks.count(where: {
+            $0.renderState == .pending && $0.type != .noOverlay
+        })
+        let drainTimer = TraceTimer()
+        var rendered = 0
+        var failed = 0
+        if pendingAtStart > 0 {
+            Trace.log(.queue, "drain: start, \(pendingAtStart) pending")
+        }
+
         while !Task.isCancelled {
             guard let next = dequeueNextRenderable() else {
                 isDraining = false
                 break
             }
+            Trace.log(.queue, "drain: dequeue \(next.traceLabel) stitch=\(next.stitchingTimeRange?.traceDescription ?? "none")")
             markChunkRenderState(next.id, state: .rendering)
+
+            let chunkTimer = TraceTimer()
             if let outputURL = await renderer.render(next) {
                 markChunkRendered(next.id, outputURL: outputURL)
+                rendered += 1
+                Trace.log(.queue, "drain: rendered \(next.traceID) in \(chunkTimer.elapsedDescription) → \(outputURL.lastPathComponent)")
             } else {
                 markChunkStale(next.id)
+                failed += 1
+                Trace.log(.queue, "drain: render failed for \(next.traceID) after \(chunkTimer.elapsedDescription), marked stale")
             }
             reportProgress()
+        }
+
+        if pendingAtStart > 0 || rendered > 0 || failed > 0 {
+            let stillPending = chunks.count(where: {
+                $0.renderState == .pending && $0.type != .noOverlay
+            })
+            Trace.log(.queue, "drain: done, \(rendered) rendered, \(failed) failed, \(stillPending) still pending in \(drainTimer.elapsedDescription)")
         }
     }
 

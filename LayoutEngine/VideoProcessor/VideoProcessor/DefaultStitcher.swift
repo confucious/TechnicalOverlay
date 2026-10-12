@@ -46,12 +46,15 @@ extension DefaultStitcher: StitcherProtocol {
                 return chunk.isRendered && !chunk.isStale
             }
         }
+        let staleCount = chunks.count(where: { $0.type != .noOverlay && $0.isStale })
+        let unrenderedCount = chunks.count(where: { $0.type != .noOverlay && !$0.isStale && !$0.isRendered })
+        Trace.log(.stitcher, "stitch: \(chunks.count) chunks in → \(valid.count) valid (\(staleCount) stale, \(unrenderedCount) unrendered dropped), target duration \(videoDuration.traceDescription)")
 
         // 2. Sort by timeRange.start (should already be sorted, but be safe)
         let sorted = valid.sorted { $0.timeRange.start < $1.timeRange.start }
         
         guard sorted.last?.timeRange.end == videoDuration else {
-            print("Stitcher: last chunk did not reach the end of the video")
+            Trace.log(.stitcher, "abort: chunks end at \(sorted.last?.timeRange.end.traceDescription ?? "nothing"), video is \(videoDuration.traceDescription)")
             return nil
         }
 
@@ -106,18 +109,29 @@ extension DefaultStitcher: StitcherProtocol {
 
         // 4. Process each chunk in order
         for chunk in sorted {
+            let chunkTimer = TraceTimer()
             do {
                 switch chunk.type {
                 case .noOverlay:
-                    guard let stitchingRange = chunk.stitchingTimeRange else { return nil }
+                    guard let stitchingRange = chunk.stitchingTimeRange else {
+                        Trace.log(.stitcher, "abort: \(chunk.traceID) noOverlay chunk has no stitching range")
+                        return nil
+                    }
+                    Trace.log(.stitcher, "\(chunk.traceID) noOverlay → source \(stitchingRange.traceDescription)")
                     try await copyFrom(
                         asset: sourceAsset,
                         timeRange: stitchingRange
                     )
 
-                case .transition:
-                    guard let chunkOutputURL = chunk.outputURL else { return nil }
-                    guard let stitchingRange = chunk.stitchingTimeRange else { return nil }
+                case .transition, .constant:
+                    guard let chunkOutputURL = chunk.outputURL else {
+                        Trace.log(.stitcher, "abort: \(chunk.traceID) \(chunk.type.traceName) chunk has no rendered output")
+                        return nil
+                    }
+                    guard let stitchingRange = chunk.stitchingTimeRange else {
+                        Trace.log(.stitcher, "abort: \(chunk.traceID) \(chunk.type.traceName) chunk has no stitching range")
+                        return nil
+                    }
                     let renderedAsset = AVURLAsset(url: chunkOutputURL)
 
                     let localRange = localTimeRange(
@@ -125,39 +139,35 @@ extension DefaultStitcher: StitcherProtocol {
                         inChunk: chunk,
                         inAsset: renderedAsset
                     )
-                    try await copyFrom(asset: renderedAsset, timeRange: localRange)
-
-                case .constant:
-                    guard let chunkOutputURL = chunk.outputURL else { return nil }
-                    guard let stitchingRange = chunk.stitchingTimeRange else { return nil }
-                    let renderedAsset = AVURLAsset(url: chunkOutputURL)
-
-                    let localRange = localTimeRange(
-                        for: stitchingRange,
-                        inChunk: chunk,
-                        inAsset: renderedAsset
-                    )
+                    Trace.log(.stitcher, "\(chunk.traceID) \(chunk.type.traceName) → \(chunkOutputURL.lastPathComponent), absolute \(stitchingRange.traceDescription) read as local \(localRange.traceDescription)")
                     try await copyFrom(asset: renderedAsset, timeRange: localRange)
                 }
+                Trace.log(.stitcher, "  \(chunk.traceID) appended in \(chunkTimer.elapsedDescription), composition at \(currentTime.traceDescription)")
             } catch {
-                print("Stitcher: copy failed for chunk \(chunk.id): \(error)")
+                Trace.log(.stitcher, "copy failed for \(chunk.traceID) after \(chunkTimer.elapsedDescription): \(error)")
                 return nil
             }
         }
 
         // 3. Check if we actually have anything to export
         guard compositionVideoTrack != nil || compositionAudioTrack != nil else {
+            Trace.log(.stitcher, "abort: composition has no video or audio tracks")
             throw NSError(domain: "CompositorError", code: -3, userInfo: [NSLocalizedDescriptionKey: "No valid video or audio tracks found in provided assets."])
         }
-        
+
+        Trace.log(.stitcher, "composition assembled: \(currentTime.traceDescription) of media, video track \(compositionVideoTrack == nil ? "none" : "1"), audio track \(compositionAudioTrack == nil ? "none" : "1")")
+
         // 4. Create an Export Session to write the composition to a file
         guard let exportSession = AVAssetExportSession(
             asset: composition,
             presetName: AVAssetExportPresetPassthrough
         ) else {
+            Trace.log(.stitcher, "abort: could not create the passthrough export session")
             throw NSError(domain: "CompositorError", code: -4, userInfo: [NSLocalizedDescriptionKey: "Failed to create export session."])
         }
-        
+
+        Trace.log(.stitcher, "ready: passthrough export of \(currentTime.traceDescription) → \(outputURL.lastPathComponent) (.mp4)")
+
         return VideoComposer.ExportSession(
             exportSession: exportSession,
             outputUrl: outputURL,
