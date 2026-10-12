@@ -25,6 +25,25 @@ final class FakeRenderer: ChunkRendererProtocol, @unchecked Sendable {
     }
 }
 
+// MARK: - Slow Renderer
+
+/// Renderer that takes real time, so a chunk can still be in flight while another caller waits.
+/// The first render is deliberately much slower than the rest: with a prompt renderer the race
+/// this guards against is invisible (every chunk finishes before anyone looks).
+final class SlowRenderer: ChunkRendererProtocol, @unchecked Sendable {
+
+    private(set) var rendered: [Chunk] = []
+    private var isFirstRender = true
+
+    func render(_ chunk: Chunk) async -> URL? {
+        let delay: Duration = isFirstRender ? .milliseconds(300) : .milliseconds(10)
+        isFirstRender = false
+        try? await Task.sleep(for: delay)
+        rendered.append(chunk)
+        return URL(fileURLWithPath: "/fake/output/\(chunk.id.uuidString).mov")
+    }
+}
+
 // MARK: - Tests
 
 @Suite struct ChunkQueueTests {
@@ -52,6 +71,25 @@ final class FakeRenderer: ChunkRendererProtocol, @unchecked Sendable {
         let renderable = await queue.chunks.filter { $0.type != .noOverlay }
         #expect(renderable.allSatisfy { $0.isRendered })
         #expect(renderer.rendered.count == renderable.count)
+    }
+
+    /// Regression: enqueue() starts its own drain, so a chunk can be in flight when
+    /// waitForCompletion() is called. It used to return as soon as nothing was *pending*,
+    /// leaving that chunk unrendered — the caller then stitched a plan with a hole in it and
+    /// the stitcher refused it (the app's "Save Video" produced nothing at all).
+    @Test func waitForCompletionWaitsForAnInFlightRender() async {
+        let slowRenderer = SlowRenderer()
+        let slowQueue = ChunkQueue(renderer: slowRenderer, transitionTime: transitionTime)
+
+        await slowQueue.enqueue(slides: [slide], videoDuration: videoDuration)
+        // Let the enqueue drain pick up the first chunk and start its slow render.
+        try? await Task.sleep(for: .milliseconds(20))
+
+        await slowQueue.waitForCompletion()
+
+        let renderable = await slowQueue.chunks.filter { $0.type != .noOverlay }
+        #expect(renderable.allSatisfy { $0.isRendered })
+        #expect(renderable.count == slowRenderer.rendered.count)
     }
 
     @Test func emptyEnqueueDoesNothing() async {

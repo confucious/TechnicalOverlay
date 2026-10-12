@@ -596,7 +596,7 @@ public actor ChunkQueue {
     public var chunks: [Chunk] = []
     private let renderer: any ChunkRendererProtocol
     private let transitionTime: CMTime
-    private var isDraining = false
+    private var drainTask: Task<Void, Never>?
     private var progressCallback: (@Sendable (ChunkQueueProgress) -> Void)?
 
     public init(renderer: any ChunkRendererProtocol, transitionTime: CMTime) {
@@ -636,12 +636,19 @@ public actor ChunkQueue {
             Trace.log(.queue, "  \(chunk.traceLabel) stitch=\(chunk.stitchingTimeRange?.traceDescription ?? "none") \(disposition)")
         }
 
-        if !isDraining {
+        if drainTask == nil {
             Trace.log(.queue, "enqueue: queue idle, starting drain")
-            Task { await self.startRendering() }
+            drainTask = Task { [weak self] in
+                await self?.drain()
+                await self?.finishDrain()
+            }
         } else {
             Trace.log(.queue, "enqueue: drain already running, it will pick these up")
         }
+    }
+
+    private func finishDrain() {
+        drainTask = nil
     }
 
     public func markStale(where predicate: (Chunk) -> Bool) {
@@ -669,10 +676,16 @@ public actor ChunkQueue {
         }
 
         while !Task.isCancelled {
-            let hasPending = chunks.contains { chunk in
-                chunk.renderState == .pending && chunk.type != .noOverlay
+            // A drain started by enqueue() may still be rendering a chunk it has already
+            // dequeued. Awaiting that render is the whole point of this call: the caller
+            // stitches as soon as we return, and a chunk still in flight is a hole in the
+            // plan (the stitcher then refuses it outright).
+            if let drainTask {
+                Trace.log(.queue, "waitForCompletion: awaiting the in-flight drain")
+                await drainTask.value
+                continue
             }
-            guard hasPending else { break }
+            guard dequeueNextRenderable() != nil else { break }
             await drain()
         }
 
@@ -706,7 +719,6 @@ public actor ChunkQueue {
     }
 
     private func drain() async {
-        isDraining = true
         let pendingAtStart = chunks.count(where: {
             $0.renderState == .pending && $0.type != .noOverlay
         })
@@ -719,7 +731,6 @@ public actor ChunkQueue {
 
         while !Task.isCancelled {
             guard let next = dequeueNextRenderable() else {
-                isDraining = false
                 break
             }
             Trace.log(.queue, "drain: dequeue \(next.traceLabel) stitch=\(next.stitchingTimeRange?.traceDescription ?? "none")")
