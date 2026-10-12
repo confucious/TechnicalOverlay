@@ -63,11 +63,34 @@ xcodebuild test -scheme LayoutEngine -workspace TechnicalOverlay.xcworkspace \
 Current test health: `LayoutEngine` and `ProtocolParser` suites compile and pass (both are
 empty stubs — 1 trivial test each). `VideoProcessorTests` does **not compile**
 (`DefaultStitcherTests.swift` still expects `stitch() -> URL` while the protocol returns
-`VideoComposer.ExportSession?`), and the app target does **not compile**
-(`MainView.swift` optional-chains non-optional `self`), so no full-suite run is green.
-Both are pre-existing source bugs, not Tuist issues.
+`VideoComposer.ExportSession?`), so that whole 60-odd-test bundle is unrunnable — including the
+chunk-pipeline tests. The app target **builds** (the old `MainView.swift` optional-chaining bug
+is fixed), and `xcodebuild build -scheme TechnicalOverlay … -destination 'platform=macOS,…'`
+produces a runnable Designed-for-iPad build.
 
 No lint, no typecheck, no formatter. Swift only, no SPM dependencies. Tests use the **Swift Testing** framework (`@Suite`, `#expect`).
+
+## Tracing the chunk pipeline
+
+`VideoProcessor` traces the chunk pipeline with plain `print` (like the rest of the module),
+prefixed by stage, so one export can be followed end to end in Xcode's console:
+
+| Prefix | Reports |
+|--------|---------|
+| `[ChunkQueue]` | `enqueue` — slides → regions → chunks, how many are new to render vs reused vs newly stale, and a line per non-`noOverlay` chunk with its disposition; drains (start, dequeue, per-chunk outcome with timing, done); `waitForCompletion`; `markStale`; `validChunks` |
+| `[ChunkRenderer]` | one chunk being exported: preset compatibility, composition (`constant` overlay / `transition` endpoints + start time), export duration and output size, every failure path |
+| `[Stitcher]` | per-chunk assembly (`noOverlay` copies a source range; `constant`/`transition` copy the rendered file, absolute range → local range mapping), composition totals, the passthrough export session |
+
+Chunk ids print as their first 8 UUID characters and ranges as `start–end` seconds
+(`12.500–24.000`), so grepping an id (`[ChunkQueue] 51CF6DFC`) correlates a chunk across all
+three stages. `ChunkPipelineTrace.swift` holds the shared helpers (`Trace.log`, `TraceTimer`,
+`traceDescription`, `traceFileSize`). `print` output only shows when the app runs from Xcode or
+a terminal — it does not reach Console.app.
+
+Known artifact in that output: `enqueue` starts a detached drain task and `waitForCompletion`
+also calls `drain()`, and `drain()` suspends on each render, so two drains can interleave and
+you may see two `drain: done` summaries for one pass. Renders are still serialized (the chunk is
+marked `.rendering` before the await), so nothing renders twice.
 
 ## Architecture
 
