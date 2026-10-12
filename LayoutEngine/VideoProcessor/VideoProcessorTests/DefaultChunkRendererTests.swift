@@ -186,4 +186,89 @@ struct DefaultChunkRendererTests {
         let audioTracks = tracks.filter { $0.mediaType == .audio }
         #expect(audioTracks.count > 0, "Output should have an audio track (passthrough from source)")
     }
+
+    // MARK: - noOverlay ↔ overlay transition
+
+    /// Regression: a `.transition(from: nil, to: image)` chunk — the chunk that carries a slide
+    /// fading in from noOverlay — used to render as bare source, so the slide popped into view at
+    /// the next constant chunk instead of fading in. The chunk returns a bare source frame when
+    /// either side of the transition is nil; both sides must be treated as "no overlay", with the
+    /// dissolve running into/out of the plain source frame.
+    @Test func transitionFromNoOverlayFadesTheOverlayIn() async throws {
+        guard let asset = makeTestAsset() else {
+            return
+        }
+
+        // 1s chunk with the standard 0.75s dissolve, so its final frame holds the overlay.
+        let timeRange = CMTimeRange(
+            start: CMTime(seconds: 2, preferredTimescale: 600),
+            duration: CMTime(seconds: 1, preferredTimescale: 600)
+        )
+        var chunk = Chunk(timeRange: timeRange, type: .transition(from: nil, to: solidRed))
+        chunk.stitchingTimeRange = timeRange
+
+        let renderer = DefaultChunkRenderer(
+            sourceAsset: asset,
+            outputDirectory: URL(fileURLWithPath: NSTemporaryDirectory())
+        )
+        let renderedURL = try #require(await renderer.render(chunk))
+
+        let generator = AVAssetImageGenerator(asset: AVURLAsset(url: renderedURL))
+        generator.requestedTimeToleranceBefore = .zero
+        generator.requestedTimeToleranceAfter = .zero
+
+        let first = try await generator.image(
+            at: CMTime(seconds: 0.05, preferredTimescale: 600)
+        ).image
+        let last = try await generator.image(
+            at: CMTime(seconds: 0.9, preferredTimescale: 600)
+        ).image
+
+        let firstPixel = try centrePixel(of: first)
+        let lastPixel = try centrePixel(of: last)
+
+        // End of the chunk: past the dissolve, the opaque overlay is held.
+        #expect(lastPixel.isOpaqueRed, "overlay should be held at the end of the chunk, got \(lastPixel)")
+        // Start of the chunk: still the plain source frame — i.e. it faded rather than appeared.
+        #expect(!firstPixel.isOpaqueRed, "chunk should start on the source frame, got \(firstPixel)")
+    }
+}
+
+// MARK: - Frame sampling helpers
+
+private let solidRed = CIImage(color: CIColor(red: 1, green: 0, blue: 0))
+    .cropped(to: CGRect(x: 0, y: 0, width: 1280, height: 720))
+
+private struct Pixel: CustomStringConvertible {
+    let red: Int
+    let green: Int
+    let blue: Int
+
+    /// The overlay colour above, fully applied.
+    var isOpaqueRed: Bool { red > 200 && green < 60 && blue < 60 }
+
+    var description: String { "rgb(\(red),\(green),\(blue))" }
+}
+
+/// Reads the centre pixel of a frame — the overlay covers the middle of the frame, and sampling
+/// one pixel avoids averaging the overlay with the surrounding source.
+private func centrePixel(of image: CGImage) throws -> Pixel {
+    let centre = CGRect(x: image.width / 2, y: image.height / 2, width: 1, height: 1)
+    let cropped = try #require(image.cropping(to: centre))
+
+    var bytes = [UInt8](repeating: 0, count: 4)
+    let context = try #require(
+        CGContext(
+            data: &bytes,
+            width: 1,
+            height: 1,
+            bitsPerComponent: 8,
+            bytesPerRow: 4,
+            space: CGColorSpaceCreateDeviceRGB(),
+            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+        )
+    )
+    context.draw(cropped, in: CGRect(x: 0, y: 0, width: 1, height: 1))
+
+    return Pixel(red: Int(bytes[0]), green: Int(bytes[1]), blue: Int(bytes[2]))
 }
