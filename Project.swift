@@ -10,8 +10,14 @@ let deploymentTarget = DeploymentTargets.iOS("26.0")
 let destinations: Destinations = [.iPhone, .iPad, .macWithiPadDesign]
 
 // Shared base settings for all targets (matches the previous hand-maintained projects).
+// SWIFT_DEFAULT_ACTOR_ISOLATION/SWIFT_APPROACHABLE_CONCURRENCY are what every pre-Tuist target
+// declared: without default MainActor isolation, code written for it (the `nonisolated`
+// annotations on the model types, and the UIKit overlay rendering) runs off the main actor —
+// which produced "Modifying properties of a view's layer off the main thread" at runtime.
 let baseSettings: SettingsDictionary = [
     "SWIFT_VERSION": "5.0",
+    "SWIFT_APPROACHABLE_CONCURRENCY": "YES",
+    "SWIFT_DEFAULT_ACTOR_ISOLATION": "MainActor",
     "CODE_SIGN_STYLE": "Automatic",
     "DEVELOPMENT_TEAM": "9MY93JMP2W",
 ]
