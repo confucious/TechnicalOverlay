@@ -16,11 +16,14 @@ import VideoProcessor
 //}
 
 struct MainView: View {
-    enum ExportPhase: Sendable {
+    enum ExportPhase: Sendable, Equatable {
         case idle
         case rendering
         case stitching
         case done
+        /// Export stopped short, with something to show the user (kept separate from `idle` so a
+        /// failure can't be mistaken for "nothing happened").
+        case failed(String)
     }
 
     @Observable
@@ -166,7 +169,93 @@ struct MainView: View {
                         .enqueue(slides: slides, videoDuration: videoDuration)
                 }
             }
-        }    }
+        }
+
+        /// Renders/stitches the scored video and writes it straight to `destinationURL`.
+        ///
+        /// The destination is chosen *before* any work happens (see the save panel in `body`), so
+        /// nothing has to be copied out of a temp file afterwards — the passthrough export writes
+        /// where the user asked for it.
+        func exportScoredVideo(to destinationURL: URL) async {
+            guard let queue = chunkQueue, let assetUrl else {
+                // The button is only enabled with a video loaded, so this is usually the window
+                // while generateSlides() is still building the queue.
+                failExport("The video is still being prepared — try again in a moment.", at: destinationURL)
+                return
+            }
+
+            let isScoped = destinationURL.startAccessingSecurityScopedResource()
+            defer {
+                if isScoped { destinationURL.stopAccessingSecurityScopedResource() }
+            }
+
+            // The save panel has already written our zero-byte placeholder at the destination, and
+            // AVAssetExportSession refuses to write over an existing file ("Cannot Save — the
+            // requested file name is already in use"), so clear it first.
+            try? FileManager.default.removeItem(at: destinationURL)
+
+            exportPhase = .rendering
+            renderingProgress = nil
+            stitchingProgress = nil
+
+            let asset = AVURLAsset(url: assetUrl)
+            guard let videoDuration = try? await asset.load(.duration) else {
+                failExport("Couldn't read the video's duration.", at: destinationURL)
+                return
+            }
+
+            // Wait for every chunk — including one a drain already has in flight.
+            await queue.waitForCompletion()
+
+            exportPhase = .stitching
+            let exportSession: VideoComposer.ExportSession
+            do {
+                guard let session = try await DefaultStitcher().stitch(
+                    chunks: queue.validChunks(),
+                    sourceAsset: asset,
+                    videoDuration: videoDuration,
+                    to: destinationURL
+                ) else {
+                    failExport("The rendered chunks don't cover the whole video, so there was nothing to save.", at: destinationURL)
+                    return
+                }
+                exportSession = session
+            } catch {
+                failExport("Stitching failed: \(error.localizedDescription)", at: destinationURL)
+                return
+            }
+
+            // Monitor stitching progress
+            Task {
+                for await stitchState in exportSession.exportState {
+                    switch stitchState {
+                    case .pending: print("pending stitch export")
+                    case .waiting: print("waiting stitch export")
+                    case let .exporting(progress: progress):
+                        print("stitch exporting \(progress)")
+                        stitchingProgress = progress
+                    @unknown default:
+                        print("unknown stitch state")
+                    }
+                }
+            }
+
+            do {
+                try await exportSession.performExport()
+                exportPhase = .done
+            } catch {
+                failExport("Export failed: \(error.localizedDescription)", at: destinationURL)
+            }
+        }
+
+        /// Leaves nothing half-written at the destination, and says what went wrong instead of
+        /// resetting to `.idle` (which used to make every failure look like a no-op).
+        private func failExport(_ message: String, at destinationURL: URL) {
+            try? FileManager.default.removeItem(at: destinationURL)
+            print("Export failed: \(message)")
+            exportPhase = .failed(message)
+        }
+    }
 
     enum Destination {
         case editSlides
@@ -174,7 +263,6 @@ struct MainView: View {
 
     @State private var state = ViewModel()
     @State private var fileSelectShowing = false
-    @State private var shareUrl: URL? = nil
     @State private var saveFileShowing = false
     @State private var loadOverlayDataShowing = false
     @State private var saveOverlayDataShowing = false
@@ -213,99 +301,64 @@ struct MainView: View {
                             }
                         }
                     Button("Save Video") {
-                        Task {
-                            guard let queue = state.chunkQueue,
-                                  let videoComposer = state.videoComposer,
-                                  let assetUrl = state.assetUrl else {
-                                print("queue, videoComposer or assetUrl not set")
-                                return
-                            }
-
-                            state.exportPhase = .rendering
-                            state.renderingProgress = nil
-                            state.stitchingProgress = nil
-
-                            let asset = AVURLAsset(url: assetUrl)
-                            guard let videoDuration = try? await asset.load(.duration) else {
-                                print("Failed to load video duration")
-                                state.exportPhase = .idle
-                                return
-                            }
-
-//                            // Enqueue slides for incremental rendering
-//                            queue.enqueue(slides: videoComposer.slides, videoDuration: videoDuration)
-//
-                            // Wait for all chunks to finish rendering
-                            await queue.waitForCompletion()
-
-                            // All chunks rendered — now stitch
-                            state.exportPhase = .stitching
-                            let filename = UUID().uuidString + ".mov"
-                            let tempFileURL = FileManager.default.temporaryDirectory.appendingPathComponent(filename)
-
-                            let stitcher = DefaultStitcher()
-                            guard let exportSession = try await stitcher.stitch(
-                                chunks: queue.validChunks(),
-                                sourceAsset: asset,
-                                videoDuration: videoDuration,
-                                to: tempFileURL
-                            ) else {
-                                print("Stitching failed — last chunk didn't reach end of video")
-                                state.exportPhase = .idle
-                                return
-                            }
-
-                            // Monitor stitching progress
-                            Task {
-                                for await stitchState in exportSession.exportState {
-                                    switch stitchState {
-                                    case .pending: print("pending stitch export")
-                                    case .waiting: print("waiting stitch export")
-                                    case let .exporting(progress: progress):
-                                        print("stitch exporting \(progress)")
-                                        state.stitchingProgress = progress
-                                    @unknown default:
-                                        print("unknown stitch state")
-                                    }
-                                }
-                            }
-                            await exportSession.performExport()
-
-                            shareUrl = tempFileURL
-                            saveFileShowing = true
-                            state.exportPhase = .done
-                        }
+                        // Ask for the destination FIRST: nothing else is presented yet, so the save
+                        // panel can't collide with the progress sheet, and the export can write
+                        // straight to the chosen URL — no temp file, and no copying a multi-GB
+                        // video through memory in a FileWrapper afterwards.
+                        saveFileShowing = true
                     }
                     .buttonStyle(.bordered)
                     .disabled(state.saveVideoDisabled)
                     .fileExporter(
                         isPresented: $saveFileShowing,
-                        document: MovieDocument(tempUrl: self.shareUrl),
+                        document: SaveDestinationPlaceholder(),
                         contentType: .quickTimeMovie,
                         defaultFilename: state.outputFilename
                     ) { result in
-                        print("Save: \(result)")
+                        switch result {
+                        case let .success(destinationURL):
+                            Task { await state.exportScoredVideo(to: destinationURL) }
+                        case let .failure(error):
+                            print("Save panel dismissed without a destination: \(error)")
+                        }
                     }
                     .sheet(isPresented: showProgressModal, content: {
                         VStack {
-                            if let progress = state.renderingProgress, state.exportPhase == .rendering {
-                                ProgressView(
-                                    "Rendering overlay chunks (\(progress.completed)/\(progress.total))",
-                                    value: Double(progress.completed),
-                                    total: Double(max(progress.total, 1))
-                                ).padding(20.0)
-                            } else if let stitchProgress = state.stitchingProgress, state.exportPhase == .stitching {
-                                ProgressView(
-                                    "Stitching final video...",
-                                    value: stitchProgress.fractionCompleted
-                                ).padding(20.0)
-                            } else if state.exportPhase == .done {
+                            switch state.exportPhase {
+                            case .idle:
+                                // The sheet is only up when the phase isn't idle.
+                                EmptyView()
+
+                            case .rendering:
+                                if let progress = state.renderingProgress {
+                                    ProgressView(
+                                        "Rendering overlay chunks (\(progress.completed)/\(progress.total))",
+                                        value: Double(progress.completed),
+                                        total: Double(max(progress.total, 1))
+                                    ).padding(20.0)
+                                } else {
+                                    ProgressView("Rendering overlay chunks…").padding(20.0)
+                                }
+
+                            case .stitching:
+                                if let stitchProgress = state.stitchingProgress {
+                                    ProgressView(
+                                        "Stitching final video...",
+                                        value: stitchProgress.fractionCompleted
+                                    ).padding(20.0)
+                                } else {
+                                    // No progress tick yet — don't call that an error.
+                                    ProgressView("Stitching final video...").padding(20.0)
+                                }
+
+                            case .done:
                                 Text("Export complete")
                                 Button("Close") {
                                     state.exportPhase = .idle
                                 }
-                            } else {
-                                Text("Export error")
+
+                            case let .failed(message):
+                                Text(message)
                                 Button("Close") {
                                     state.exportPhase = .idle
                                 }
@@ -384,30 +437,29 @@ struct MainView: View {
     }
 }
 
-struct MovieDocument: FileDocument {
-    enum DocError: Error {
-        case tempUrlNotSet
-    }
+/// A zero-byte stand-in used only to obtain a destination URL from the save panel.
+///
+/// SwiftUI's `fileExporter` is document-based: it writes the document you hand it to wherever the
+/// user chooses and reports that URL back. Handing it an empty document lets the app ask for the
+/// destination *before* rendering, then write the real exported video over it — no temp file, and
+/// no reading a multi-GB video into memory just to copy it.
+///
+/// The export must delete that placeholder first: `AVAssetExportSession` refuses to write over an
+/// existing file ("Cannot Save — the requested file name is already in use").
+struct SaveDestinationPlaceholder: FileDocument {
+
     static var readableContentTypes: [UTType] = [.movie]
     static var writableContentTypes: [UTType] = [.movie, .quickTimeMovie]
 
-    var tempUrl: URL?
-    
-    init(tempUrl: URL?) {
-        self.tempUrl = tempUrl
-    }
-    
+    init() {}
+
     init(configuration: ReadConfiguration) throws {
-        // Implement reading if needed
-        fatalError("Reading not implemented for this example")
+        // Never opened for reading — this document exists to name a destination.
+        throw CocoaError(.fileReadUnsupportedScheme)
     }
 
     func fileWrapper(configuration: WriteConfiguration) throws -> FileWrapper {
-        guard let tempUrl else {
-            throw DocError.tempUrlNotSet
-        }
-        let data = try Data(contentsOf: tempUrl)
-        return FileWrapper(regularFileWithContents: data)
+        FileWrapper(regularFileWithContents: Data())
     }
 }
 
