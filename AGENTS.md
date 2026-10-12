@@ -102,6 +102,12 @@ three stages. `ChunkPipelineTrace.swift` holds the shared helpers (`Trace.log`, 
 `traceDescription`, `traceFileSize`). `print` output only shows when the app runs from Xcode or
 a terminal — it does not reach Console.app.
 
+The main interface also shows the queue's state as a dot in the video button row, driven by
+`ChunkQueueProgress.isRendering` (reported on enqueue, drain start, after each chunk, and drain
+end): **yellow** while any renderable chunk is queued or rendering, **green** once everything is
+rendered and the queue is idle, grey when no video is loaded. Chunks left stale by a failed
+render don't count as work, so the dot settles instead of sitting yellow forever.
+
 Known artifact in that output: `enqueue` starts a detached drain task and `waitForCompletion`
 also calls `drain()`, and `drain()` suspends on each render, so two drains can interleave and
 you may see two `drain: done` summaries for one pass. Renders are still serialized (the chunk is

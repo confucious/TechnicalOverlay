@@ -216,9 +216,12 @@ Save Video → save panel picks the destination → queue.waitForCompletion()
 
 UI surface (`MainView`): `VideoPlayer`, `TimeSettingsView`, and a button row
 **Load Video | Save Video | Load Slides | Save Slides | Edit Slides** (→ `ScoringListView`
-NavigationStack destination). `ContentView.swift` is a **legacy prototype** (hardcoded Scotty HSU
-test data) and `ElementBuilderView.swift` is a **placeholder (not wired in)** — the real entry
-point is `MainView`.
+NavigationStack destination), with a **background render indicator** at the end of the video
+button row: a dot that is grey with no video loaded, **yellow while the chunk queue has work
+queued or rendering**, and **green once every renderable chunk is rendered and the queue is
+idle** (fed by `ChunkQueueProgress.isRendering`). `ContentView.swift` is a **legacy prototype**
+(hardcoded Scotty HSU test data) and `ElementBuilderView.swift` is a **placeholder (not wired
+in)** — the real entry point is `MainView`.
 
 ## 7. Future Development (Backlog)
 
@@ -245,4 +248,5 @@ point is `MainView`.
 | 2026-10-12 | Restored `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor` and `SWIFT_APPROACHABLE_CONCURRENCY = YES` on all targets. The Tuist conversion dropped them — they lived in the *project-level* settings of the old pbxproj — silently changing the concurrency model: `generateSlides()`'s `Task` left the main actor and `VideoOverlay.render` mutated `UILabel` layers off the main thread, which UIKit flags as illegal. The code was always written for default MainActor isolation (see the `nonisolated Codable` on `VersionedOverlayData`). |
 | 2026-10-12 | **`waitForCompletion()` fixed** — it returned while a chunk was still rendering (the drain started by `enqueue()` had dequeued it, so it was neither pending nor finished). `validChunks()` then omitted it, and the stitcher refused the plan, returning nil. That nil was the entire symptom of "Save Video does nothing": `MainView` resets to `.idle` and only writes to the console. The queue now keeps its drain task and awaits it. Regression test uses a renderer whose first render is 30× slower (the instant `FakeRenderer` could never see this race). |
 | 2026-10-12 | **Save flow: destination first.** "Save Video" asks for the destination *before* rendering — the save panel is given a zero-byte `SaveDestinationPlaceholder` and returns the chosen URL — then the passthrough export writes `.mp4` straight to it. That removes the old temp file plus `MovieDocument`'s `Data(contentsOf:)` copy of the finished video, and avoids requesting a second presentation while the progress sheet is up. The panel's placeholder file is deleted before exporting (`AVAssetExportSession` refuses to overwrite: -11823 "already in use"). `performExport()` now throws and `ExportPhase` gained `.failed(message)`, so a failure shows up in the sheet and cleans up the destination instead of silently resetting to `.idle`. |
+| 2026-10-12 | **Background render indicator.** `ChunkQueueProgress` gained `isRendering`, reported on enqueue, at drain start, after each chunk and at drain end; `MainView` shows a dot at the end of the video button row — **yellow** while the queue has work queued or in flight, **green** once every renderable chunk is rendered and the queue is idle, grey when no video is loaded. Chunks left stale by a failed render don't count as work, so the dot settles instead of sitting yellow forever. |
 | 2026-10-12 | **Slides fade in from (and out to) noOverlay again.** `setupComposition(from:to:transitionStart:)` rendered the bare source frame whenever either side of a transition was nil, so the whole noOverlay ↔ slide chunk contained no overlay and the slide popped in at the next constant chunk; slide→slide dissolves were unaffected, which is why only the first transition looked wrong. A nil side now means "no overlay on that side" and dissolves against `CIImage.clear`, matching what the slide-based preview always did. The preview got the same treatment — it fed nil into the dissolve inputs and force-unwrapped `dissolve.outputImage`, which is nil once a `.none` slide (the app creates them) enters its transition window. |

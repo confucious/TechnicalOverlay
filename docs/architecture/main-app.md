@@ -49,7 +49,7 @@ All display times are `TimeInterval` (seconds as `Double`). When a user timestam
 MainView (root)
 ├── VideoPlayer (if video loaded)
 ├── TimeSettingsView (if scoring data + video loaded)
-└── Button row: Load Video | Save Video | Load Slides | Save Slides | Edit Slides
+└── Button row: Load Video | Save Video | Load Slides | Save Slides | Edit Slides   (+ render status dot)
        │              │              │             │            └── ScoringListView (NavigationStack destination)
        │              │              │             └── OverlayDataDocument export (.tojson)
        │              │              └── OverlayDataDocument import (.tojson) → update + save
