@@ -15,7 +15,7 @@ or adding/removing source files:
 tuist generate
 ```
 
-Build the app (and the LayoutEngine/VideoProcessor/ProtocolParser frameworks it links) for the
+Build the app (and the LayoutEngine/VideoProcessor frameworks it links) for the
 iOS simulator:
 
 ```bash
@@ -83,7 +83,8 @@ Two `xcodebuild` reporting traps to know about when reading output:
 - `-scheme TechnicalOverlay` prints the Swift Testing summary (unit tests) **before** the XCTest
   UI tests run, so that line is not the end of the run.
 
-No lint, no typecheck, no formatter. Swift only, no SPM dependencies. Tests use the **Swift Testing** framework (`@Suite`, `#expect`).
+No lint, no typecheck, no formatter. Swift only; **no external packages are linked today** — one may
+be added when it clearly earns its place (policy: `docs/ARCHITECTURE.md` §2.2). Tests use the **Swift Testing** framework (`@Suite`, `#expect`).
 
 ## Tracing the chunk pipeline
 
@@ -153,10 +154,10 @@ LayoutEngine/                           # Shared library sources (one Tuist proj
     ├── OverlayDataChangeTests.swift
     └── VideoProcessorTests.swift
 
-ProtocolParser/                            # Empty stub — not linked
+ProtocolParser/                            # Empty stub — not linked (design: docs/architecture/protocol-parser.md)
 ```
 
-**Zero external dependencies.** Only Apple frameworks: SwiftUI, AVFoundation, CoreImage, UIKit, CoreMedia, Observation, UniformTypeIdentifiers.
+**No external dependencies are linked today** — only Apple frameworks: SwiftUI, AVFoundation, CoreImage, UIKit, CoreMedia, Observation, UniformTypeIdentifiers. That is the current state, **not a rule**: take a package when it gives an obvious, well-fitted benefit over self-written code (policy: `docs/ARCHITECTURE.md` §2.2). One is decided but **not yet wired in**: **SwiftSoup 2.14.2** for `ProtocolParser`'s HTML parsing (spec and measurements: `docs/architecture/protocol-parser.md` §4.1).
 
 **Swift concurrency model — every target is main-actor by default.** `Project.swift`'s
 `baseSettings` carries `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor` and

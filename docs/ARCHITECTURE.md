@@ -23,7 +23,8 @@ the app composites the overlays onto the video and exports a new file.
 - No live broadcast output — an author-and-burn pipeline producing a finished file.
 - No audio manipulation — source audio passes through unchanged.
 - No automatic element recognition; elements and timing are entered by hand
-  (protocol import is a planned `ProtocolParser` future, §7).
+  (protocol import is a **designed but unimplemented** `ProtocolParser` module — see §2 module
+  table and §7).
 
 ## 2. Module Docs
 
@@ -49,7 +50,7 @@ TechnicalOverlay/                          # Main app target (SwiftUI)
 LayoutEngine/
 ├── LayoutEngine/                          # UIKit overlay-view framework
 ├── VideoProcessor/                        # AVFoundation composition + chunk pipeline
-└── ProtocolParser/                        # empty stub (not yet implemented)
+└── ProtocolParser/                        # protocol-page importer (spec'd, not implemented)
 docs/
 └── architecture/                          # per-module docs (this file links here)
 ```
@@ -68,12 +69,33 @@ tested target's subgraph, which breaks later `tuist build` / Xcode opens until i
 TechnicalOverlay (app)
 ├── LayoutEngine (UIKit overlay views → CIImage)
 ├── VideoProcessor (AVFoundation composition; works with CIImage directly, does NOT import LayoutEngine)
-└── ProtocolParser (placeholder, not linked)
+└── ProtocolParser (competition-protocol HTML import; spec'd in docs/architecture/protocol-parser.md, not linked into the app yet)
 ```
 
-**Zero external dependencies** — only Apple frameworks: SwiftUI, AVFoundation, CoreImage,
-UIKit, CoreMedia, Observation, UniformTypeIdentifiers. No SPM/CocoaPods/Carthage. Managed by
-Tuist, which generates a standard Xcode project/workspace.
+### 2.2 Dependencies — current state, and the policy
+
+**State:** the project links **no third-party packages** today (no SPM/CocoaPods/Carthage
+dependency; only Apple frameworks: SwiftUI, AVFoundation, CoreImage, UIKit, CoreMedia, Observation,
+UniformTypeIdentifiers). This is a *description of the current state*, **not a rule** — nothing in
+the project forbids adding one, and a sentence elsewhere in the docs that reads as a ban is
+describing today, not setting policy.
+
+**Policy:** use external dependencies **minimally**, and only when one provides an **obvious and
+well-fitted benefit over self-written code**. In practice, a candidate has to clear all of:
+
+- it removes real work — less code and fewer failure modes than writing it ourselves, not merely
+  less typing;
+- it is well-fitted — does the job we need (or very nearly) rather than a broader framework we
+  would have to work around;
+- it is maintained and testable — recent releases, clear licence, and it builds for our actual
+  targets (iOS 26 / the simulator / "Designed for iPad");
+- its costs are measured, not assumed — build time, linked binary size, transitive footprint
+  (a dependency with its own dependency tree is a different decision), and any behaviour it
+  imposes on us.
+
+Record the decision, with those measurements, in the module doc that needs it and in the §8
+decision log. The worked example (and the template for how to argue this) is the HTML-parser
+question in `docs/architecture/protocol-parser.md` §4.1.
 
 ## 3. Data Model
 
@@ -225,8 +247,10 @@ in)** — the real entry point is `MainView`.
 
 ## 7. Future Development (Backlog)
 
-- **Data Entry Aid** (`TODO.md`): reduce manual element entry — intended via a future
-  `ProtocolParser` that parses ISU/competition protocol data into `OverlayData`.
+- **Data Entry Aid** (`TODO.md`): reduce manual element entry via the `ProtocolParser` module,
+  which imports a skater's executed elements from a published ijsLive protocol page into
+  `OverlayData.elementScores`. Spec: [`docs/architecture/protocol-parser.md`](docs/architecture/protocol-parser.md)
+  (design complete, code not started).
 - **Polish / "Make it look nicer"** (`TODO.md`): visual refinements to overlays + editing UI;
   decide whether to delete legacy `ContentView` / stub `ElementBuilderView`.
 - **Incremental-export gains** are already designed into the chunk pipeline (reuse unchanged
@@ -251,3 +275,6 @@ in)** — the real entry point is `MainView`.
 | 2026-10-12 | **Migrated the three composition builders off the deprecated Core Image filter API.** `videoComposition(with:applyingCIFiltersWithHandler:)` is deprecated as of iOS/macOS 27.0; the replacement is *not* a rename — it is `async throws`, the applier receives `AVCIImageFilteringParameters`, and it **returns** `AVCIImageFilteringResult(resultImage:ciContext: nil)` instead of calling `finish(with:context:)`, so the old statement-style branches became returning branches. Verified behaviour-preserving: identical composition pixels at five sample times across a dissolve, and a rendered chunk with identical duration / nominalFrameRate / naturalSize and identical decoded centre pixels (only ~8 bytes of bitstream differ). It does **not** change the simulator's CoreMedia `signalled err` notices — those come from the simulator media stack, not from this API choice. |
 | 2026-10-12 | **Background render indicator.** `ChunkQueueProgress` gained `isRendering`, reported on enqueue, at drain start, after each chunk and at drain end; `MainView` shows a dot at the end of the video button row — **yellow** while the queue has work queued or in flight, **green** once every renderable chunk is rendered and the queue is idle, grey when no video is loaded. Chunks left stale by a failed render don't count as work, so the dot settles instead of sitting yellow forever. |
 | 2026-10-12 | **Slides fade in from (and out to) noOverlay again.** `setupComposition(from:to:transitionStart:)` rendered the bare source frame whenever either side of a transition was nil, so the whole noOverlay ↔ slide chunk contained no overlay and the slide popped in at the next constant chunk; slide→slide dissolves were unaffected, which is why only the first transition looked wrong. A nil side now means "no overlay on that side" and dissolves against `CIImage.clear`, matching what the slide-based preview always did. The preview got the same treatment — it fed nil into the dissolve inputs and force-unwrapped `dissolve.outputImage`, which is nil once a `.none` slide (the app creates them) enters its transition window. |
+| 2026-10-14 | **Dependency policy stated explicitly** (`docs/ARCHITECTURE.md` §2.2). The "zero external dependencies" line was a description of the project's *state*, not a rule; it is now written as such, with the actual policy: dependencies are used minimally and only when one gives an obvious, well-fitted benefit over self-written code (less code and fewer failure modes, well-fitted to the job, maintained, verified to build for our targets, with measured costs and no transitive footprint). Decisions are recorded with their measurements. |
+| 2026-10-14 | **`ProtocolParser` designed** (no code yet). The module imports a skater's executed elements from the published protocol: a leaderboard page (`CATnnnSEGnnn.html`) is followed through its `<LI class="judgeDetailRef">` anchor to the static segment detail page (`SEGMnnn.html`), which is parsed. A missing anchor is an error (`.detailLinkMissing`), not a fallback — the leaderboard page's inline `detailScoreElm` table has no bonus column. Full spec, column mapping, API and verification (10 segment pages — singles and pairs — 85 skaters / 672 element rows, `bv + goe + bonus == psv` on all of them) in `docs/architecture/protocol-parser.md`; the import **merge is index-keyed and timing-preserving** (§8.1) so a re-import never discards the user's `displayTime` values. **All seven design questions are resolved** (§10, 2026-10-14): the `info` column is never used; no leaderboard-page data is ever imported (a missing judge-detail link is an error, not a fallback); zero-value elements are always imported; `panelScore` is kept for sanity checking only; sibling segments are never navigated; SwiftSoup is adopted for parsing. |
+| 2026-10-14 | **First external dependency adopted: SwiftSoup 2.14.2** for `ProtocolParser`'s HTML parsing — decided by the user (§10g); **not yet wired in** (MIT, pure Swift, no transitive dependencies; module doc §4.1). A spike implemented both a hand-rolled scanner and the SwiftSoup version over 16 fixture pages: identical output on 825 element rows, SwiftSoup 3× faster (139 ms vs 430 ms), 58 vs 162 lines — and the hand-rolled variant produced two *silent* wrong-value bugs (entity-decode ordering; `Int("-0") == 0` losing signs below 1.00, which broke 268 rows) that only the `bv + goe + bonus == psv` invariant exposed. Verified to compile for `arm64-apple-ios15.0-simulator` inside this project; costs measured at ~5 s added to a clean Debug build, ~46 s to a clean Release build, and ~4 MB per architecture. The spike's manifest edit was reverted. |
