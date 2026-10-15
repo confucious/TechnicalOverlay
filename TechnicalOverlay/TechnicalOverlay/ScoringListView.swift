@@ -13,6 +13,16 @@ struct ScoringListView: View {
     }
 
     @State var state: OverlayData
+    @State private var importModel = ProtocolImportModel()
+    @State private var isAskingForProtocolURL = false
+
+    /// The failure message is the alert's presentation: clearing it dismisses the alert.
+    private var importErrorIsPresented: Binding<Bool> {
+        Binding(
+            get: { importModel.errorMessage != nil },
+            set: { if !$0 { importModel.errorMessage = nil } }
+        )
+    }
     
     var body: some View {
         ScrollView {
@@ -56,9 +66,6 @@ struct ScoringListView: View {
                     .tint(.red)
                 }
                 Divider()
-                //            Button("Import Scores") {
-                //
-                //            }
                 Grid {
                     GridRow {
                         Text("#")
@@ -72,6 +79,12 @@ struct ScoringListView: View {
                     }
                 }
                 HStack {
+                    Button("Import Protocol") {
+                        importModel.errorMessage = nil
+                        isAskingForProtocolURL = true
+                    }
+                    .buttonStyle(.bordered)
+                    .disabled(importModel.isImporting)
                     Button("Add Element") {
                         state.elementScores
                             .append(
@@ -89,6 +102,9 @@ struct ScoringListView: View {
                     }
                     .buttonStyle(.bordered)
                     .tint(.red)
+                    if importModel.isImporting {
+                        ProgressView()
+                    }
                 }
             }
             .padding(
@@ -99,10 +115,27 @@ struct ScoringListView: View {
                     trailing: Metrics.horizontalPadding
                 )
             )
+            .alert("Import Failed", isPresented: importErrorIsPresented, presenting: importModel.errorMessage) { _ in
+                Button("OK", role: .cancel) {}
+            } message: { message in
+                Text(message)
+            }
         }
         .onDisappear {
             state.save()
             state.clearCache()
+        }
+        .alert("Import Protocol", isPresented: $isAskingForProtocolURL) {
+            TextField("Protocol page address", text: $importModel.urlString)
+                .textInputAutocapitalization(.never)
+                .autocorrectionDisabled()
+                .keyboardType(.URL)
+            Button("Import") {
+                Task { await importModel.importElements(into: state) }
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("Paste this segment's results page address, or its judge detail scores page. The elements are merged into the list below, keeping the timings you have already set.")
         }
     }
 }

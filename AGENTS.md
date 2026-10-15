@@ -68,7 +68,7 @@ unit tests re-verified 2026-10-14, the rest 2026-10-12):
 | `LayoutEngine` | 1 test — boilerplate stub |
 | `ProtocolParser` | 39 tests pass — parser, importer and link extraction over the committed fixtures |
 | `VideoProcessor` | 63 tests pass |
-| `TechnicalOverlay` | 14 unit tests pass (5 of them the protocol merge), 2 UI tests |
+| `TechnicalOverlay` | 22 unit tests pass (5 the protocol merge, 8 the import flow) + 2 UI tests for the Import Protocol button |
 
 `VideoProcessorTests` integration tests need the untracked 398 MB
 `TechnicalOverlay/TechnicalOverlay/Boston Open 2025.mov`; without it `DefaultStitcherTests`

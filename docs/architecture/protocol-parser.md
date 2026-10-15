@@ -2,9 +2,9 @@
 
 **Source:** `LayoutEngine/ProtocolParser/ProtocolParser/`
 
-Status: **Implemented.** The module, its 39 tests, the committed fixtures, and the SwiftSoup
-dependency are in place; the app-side merge (§8.1) is implemented and tested. Not yet done: the
-import UI (nothing calls `ProtocolImporter` from the app yet). This document is the authoritative
+Status: **Implemented.** The module, its 39 tests, the committed fixtures and the SwiftSoup
+dependency are in place; the app-side merge (§8.1) is implemented and tested, and the import flow
+that drives it from `ScoringListView` (§8.2) is wired. This document is the authoritative
 specification for the module.
 
 ## 1. Purpose
@@ -624,6 +624,28 @@ Consequences worth knowing:
   `packages:` list, the app test target depends on `ProtocolParser` (its merge test builds
   `ProtocolSkater` values directly), and `Package.resolved` is committed.
 
+### 8.2 The import flow in the app
+
+`ScoringListView` carries an **Import Protocol** button — the first control in the element button
+row, to the left of **Add Element**. It:
+
+1. asks for the protocol page address (`TextField` in an alert; **either page kind is accepted**, and
+   a leaderboard page is followed to its judge-detail page when that has been published);
+2. takes the skater to find from `OverlayData.skaterFullName`, and refuses with an explanation if it
+   is empty;
+3. shows a `ProgressView` while the import runs, with the button disabled;
+4. on success calls `OverlayData.merge(_:)` (§8.1) and clears any message;
+5. on failure shows the thrown error's `errorDescription` in an alert — `ProtocolParserError`'s
+   descriptions are written to be shown to the user (`.detailLinkMissing` reads "The judge detail
+   scores have not been published for this segment yet.").
+
+`ProtocolImportModel` holds that state (`urlString`, `isImporting`, `errorMessage`) and does the
+validation, which keeps the flow unit-testable with a fake `ProtocolFetching` and no UI: eight tests
+cover both guards, the successful merge (including that an existing `displayTime` survives),
+`.detailLinkMissing`, the not-found message and the in-progress flag. The UI itself is covered by two
+UI tests — that the button exists **to the left of Add Element** (compared by frame), and that tapping
+it presents the address prompt.
+
 ## 9. Abbreviation → display name (deferred)
 
 Until the translation is designed, `ElementData.name` receives the raw abbreviation. The future
@@ -750,13 +772,15 @@ would otherwise have shipped plausible-looking wrong scores. Keep it regardless 
 - **Implemented 2026-10-14.** `ProtocolModel.swift` (page kind, element/skater/segment),
   `ProtocolHTMLParser.swift` (classification, link, segment parse, skater selection),
   `ProtocolFetching.swift`, `ProtocolImporter.swift`, `ProtocolParser.swift` (errors); app side
-  `TechnicalOverlay/ProtocolImport.swift` (`ElementData(_:)` + `OverlayData.merge(_:)`). Test
-  results: **ProtocolParser 39/39** (six suites) and **TechnicalOverlayTests 14/14**, five of them
-  the merge; the invariant sweep covers all **825** rows of the committed fixtures. Writing it
-  corrected two things in this spec: the classifier needs non-`judgeDetailRef` leaderboard signals
-  (a page whose link is not published was being reported as "not a protocol page" instead of
-  `.detailLinkMissing`), and `skater(named:inHTML:baseURL:)` must be `async` because following a
-  supplied page's link is a fetch. Both are reflected above.
+  `TechnicalOverlay/ProtocolImport.swift` (`ElementData(_:)` + `OverlayData.merge(_:)`) and
+  `ProtocolImportModel.swift` + the **Import Protocol** button on `ScoringListView` (§8.2). Test
+  results: **ProtocolParser 39/39** (six suites), **TechnicalOverlayTests 22/22** (five of them the
+  merge, eight the import flow) and **two UI tests** for the button; the invariant sweep covers all
+  **825** rows of the committed fixtures. Writing it corrected two things in this spec: the
+  classifier needs non-`judgeDetailRef` leaderboard signals (a page whose link is not published was
+  being reported as "not a protocol page" instead of `.detailLinkMissing`), and
+  `skater(named:inHTML:baseURL:)` must be `async` because following a supplied page's link is a
+  fetch. Both are reflected above.
 - Not verified: **ice dance** (no dance segment exists at this competition — the user confirmed),
   a page with a withdrawn skater (no `elm` table; no `Withdrawn`/`WD`/`DNS` marker appears in any
   fixture), other events/eras of ijsLive, and non-U.S. events. The design is structure-based and
