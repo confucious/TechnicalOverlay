@@ -15,7 +15,7 @@ or adding/removing source files:
 tuist generate
 ```
 
-Build the app (and the LayoutEngine/VideoProcessor frameworks it links) for the
+Build the app (and the LayoutEngine/VideoProcessor/ProtocolParser frameworks it links) for the
 iOS simulator:
 
 ```bash
@@ -60,14 +60,15 @@ xcodebuild test -scheme LayoutEngine -workspace TechnicalOverlay.xcworkspace \
    contain a scheme named <X>`, and Xcode opens a gutted project. **Always re-run
    `tuist generate` after a test run.**
 
-**Test health** — every bundle builds and runs (verified 2026-10-12, iPhone 17 simulator):
+**Test health** — every bundle builds and runs (iPhone 17 simulator; `ProtocolParser` and the app's
+unit tests re-verified 2026-10-14, the rest 2026-10-12):
 
 | Scheme | Result |
 |--------|--------|
 | `LayoutEngine` | 1 test — boilerplate stub |
-| `ProtocolParser` | 1 test — boilerplate stub |
-| `VideoProcessor` | 63 tests pass (the only real coverage) |
-| `TechnicalOverlay` | 9 unit tests + 2 UI tests pass |
+| `ProtocolParser` | 39 tests pass — parser, importer and link extraction over the committed fixtures |
+| `VideoProcessor` | 63 tests pass |
+| `TechnicalOverlay` | 14 unit tests pass (5 of them the protocol merge), 2 UI tests |
 
 `VideoProcessorTests` integration tests need the untracked 398 MB
 `TechnicalOverlay/TechnicalOverlay/Boston Open 2025.mov`; without it `DefaultStitcherTests`
@@ -154,10 +155,10 @@ LayoutEngine/                           # Shared library sources (one Tuist proj
     ├── OverlayDataChangeTests.swift
     └── VideoProcessorTests.swift
 
-ProtocolParser/                            # Empty stub — not linked (design: docs/architecture/protocol-parser.md)
+ProtocolParser/                            # Protocol importer (implemented; not yet called from the app)
 ```
 
-**No external dependencies are linked today** — only Apple frameworks: SwiftUI, AVFoundation, CoreImage, UIKit, CoreMedia, Observation, UniformTypeIdentifiers. That is the current state, **not a rule**: take a package when it gives an obvious, well-fitted benefit over self-written code (policy: `docs/ARCHITECTURE.md` §2.2). One is decided but **not yet wired in**: **SwiftSoup 2.14.2** for `ProtocolParser`'s HTML parsing (spec and measurements: `docs/architecture/protocol-parser.md` §4.1).
+**Dependencies:** one third-party package is linked — **SwiftSoup 2.14.2**, used by `ProtocolParser` only (pinned exactly in `Project.swift`; `Package.resolved` committed). Everything else is Apple frameworks: SwiftUI, AVFoundation, CoreImage, UIKit, CoreMedia, Observation, UniformTypeIdentifiers. That is the current state, **not a rule**: take a package when it gives an obvious, well-fitted benefit over self-written code (policy and the worked example: `docs/ARCHITECTURE.md` §2.2, `docs/architecture/protocol-parser.md` §4.1).
 
 **Swift concurrency model — every target is main-actor by default.** `Project.swift`'s
 `baseSettings` carries `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor` and

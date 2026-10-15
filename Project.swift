@@ -77,6 +77,7 @@ private let appTarget = Target.target(
     dependencies: [
         .target(name: "LayoutEngine"),
         .target(name: "VideoProcessor"),
+        .target(name: "ProtocolParser"),
     ],
     settings: appSettings
 )
@@ -88,7 +89,11 @@ private let appTestsTarget = Target.target(
     bundleId: "org.cjas.jhsu.TechnicalOverlayTests",
     deploymentTargets: deploymentTarget,
     sources: ["TechnicalOverlay/TechnicalOverlayTests/**/*.swift"],
-    dependencies: [.target(name: "TechnicalOverlay")],
+    dependencies: [
+        .target(name: "TechnicalOverlay"),
+        // The merge test builds `ProtocolSkater` values directly (docs/architecture/protocol-parser.md §11).
+        .target(name: "ProtocolParser"),
+    ],
     settings: .settings(base: baseSettings)
 )
 
@@ -152,6 +157,9 @@ private let protocolParserTarget = Target.target(
     bundleId: "org.cjas.jhsu.ProtocolParser",
     deploymentTargets: deploymentTarget,
     sources: ["LayoutEngine/ProtocolParser/ProtocolParser/**/*.swift"],
+    // SwiftSoup: the tolerant HTML parser (docs/architecture/protocol-parser.md §4.1).
+    // Decided per docs/ARCHITECTURE.md §2.2; pinned exactly, and it has no dependencies of its own.
+    dependencies: [.package(product: "SwiftSoup")],
     settings: .settings(base: baseSettings)
 )
 
@@ -171,6 +179,11 @@ private let protocolParserTestsTarget = Target.target(
 let project = Project(
     name: "TechnicalOverlay",
     organizationName: "cjas",
+    packages: [
+        // SwiftSoup — the only external dependency; see docs/ARCHITECTURE.md §2.2 and
+        // docs/architecture/protocol-parser.md §4.1 for the measured case for it.
+        .remote(url: "https://github.com/scinfu/SwiftSoup.git", requirement: .exact("2.14.2")),
+    ],
     targets: [
         appTarget,
         appTestsTarget,
