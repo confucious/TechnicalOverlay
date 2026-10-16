@@ -2,10 +2,10 @@
 
 **Source:** `LayoutEngine/ProtocolParser/ProtocolParser/`
 
-Status: **Implemented.** The module, its 39 tests, the committed fixtures and the SwiftSoup
-dependency are in place; the app-side merge (§8.1) is implemented and tested, and the import flow
-that drives it from `ScoringListView` (§8.2) is wired. This document is the authoritative
-specification for the module.
+Status: **Implemented.** The module, the committed fixtures and the SwiftSoup dependency are in
+place; the app-side merge (§8.1) is implemented and tested, and the import flow that drives it from
+`ScoringListView` (§8.2) is wired. This document is the authoritative specification for the module;
+current test counts live in [`docs/testing.md`](../testing.md).
 
 ## 1. Purpose
 
@@ -18,8 +18,9 @@ the units `ElementData` uses — with a thin app-side mapper into `OverlayData.e
 convert it to values.
 
 **Out of scope (explicitly):**
-- Translating an abbreviation (`3Tb1+2T`) into a displayed name (`Triple Toeloop (bonus 1) + Double
-  Toeloop`). Deferred — see §9. Until then the abbreviation is used verbatim.
+- Translating an abbreviation (`3Tb1+2T`) into a displayed name (`3 Toeloop + 2 Toeloop`) — that is
+  `ElementNameExpander` (§9), specified for singles in
+  [`docs/architecture/abbreviation-expansion.md`](abbreviation-expansion.md).
 - Program components, deductions, place, start number, segment/total scores beyond the per-element
   panel score (§5.2).
 - Downloading/caching whole events, browsing categories, following sibling segments (§7.3).
@@ -93,8 +94,8 @@ Segment pages are listed by the **event index** (`…/results/2026/36683/index.a
 the only way to discover them — the site blocks directory listing, and the detail page's name is not
 derivable from the leaderboard name.
 
-All ten detail pages below were fetched 2026-10-14 and parsed by a throwaway prototype of the
-algorithm in this document; see §12 for what that verification established.
+The ten detail pages below are the reference set the model is checked against; §12 has the fixture
+inventory and what is not covered.
 
 | Segment | Leaderboard page | Detail page | Skaters | Element rows |
 |---------|------------------|-------------|--------:|-------------:|
@@ -114,11 +115,10 @@ Base URLs: `https://ijs.usfigureskating.org/leaderboard/results/2026/36683/`. Th
 
 ## 4. Parsing model
 
-### 4.1 Approach: HTML parser, not a hand-rolled scanner
+### 4.1 Approach: tolerant HTML parsing with SwiftSoup
 
-`XMLParser` is out, for a reason independent of dependencies: the pages are **not well-formed XML**
-even though they declare an XHTML doctype. Both page kinds fail a strict parser on the same
-construct, plus three more:
+`XMLParser` — or any strict parser — is **out**: the pages are **not well-formed XML** despite
+declaring an XHTML doctype. Both page kinds fail Expat on the same construct, plus three more:
 
 ```
 <H2 class=title>2026 Boston Open</H1>          <!-- mismatched end tag -->
@@ -127,87 +127,29 @@ construct, plus three more:
 <TABLE class=sum> … border=0 cellSpacing=0     <!-- unquoted attribute values -->
 ```
 
-Verified: Expat (the same well-formedness rules `XMLParser` enforces) rejects both pages —
-`not well-formed (invalid token): line 14, column 12`. Pre-cleaning the page to make it XML
-(normalize every tag pair, declare `nbsp`) is more code than either alternative below.
+Verified: Expat rejects both pages — `not well-formed (invalid token): line 14, column 12`.
 
-That leaves a tolerant HTML parse: **write a scanner, or take a package.** Per
-`docs/ARCHITECTURE.md` §2.2 external dependencies are allowed when one gives an obvious
-well-fitted benefit; this section is the measurement that decided it (§12 records the raw run).
+Parsing therefore goes through **SwiftSoup 2.14.2** — a tolerant WHATWG HTML5 parser, pure Swift, MIT,
+no transitive dependencies — pinned exactly in `Project.swift`. The candidate survey, the comparison
+against a hand-rolled scanner, the measured build/binary costs and the two silent bugs that scanner
+produced are in `docs/HISTORY.md` → *SwiftSoup adoption*; the dependency policy this decision
+exercised is `docs/ARCHITECTURE.md` §2.2.
 
-#### Candidate survey (2026-10-14)
+**Behaviour the parser imposes on us** — our code's job, not the parser's:
 
-| Package | Fit | Maintenance | Verdict |
-|---|---|---|---|
-| **SwiftSoup** (`scinfu/SwiftSoup`) | Pure Swift WHATWG HTML5 parser; DOM + CSS selectors (`table.sum`, `li.judgeDetailRef a`); `text()` strips markup and decodes entities; **no package dependencies** (Foundation/Darwin only) | MIT; 5.1k ★; release 2.14.2 **two days old**; `swift-tools-version:6.0`, declares iOS 13+; compiles warning-free on Swift 6.4 | **chosen candidate** |
-| Kanna (`tid-kijyun/Kanna`) | libxml2 wrapper (C library + module map) — tolerant HTML, but a system-library build dependency and a smaller API surface for our use | MIT; 2.5k ★; last release 2026-02 | runner-up, rejected on fit |
-| Fuzi (`cezheng/Fuzi`) | libxml2 wrapper, XPath/CSS | MIT; 1.1k ★; last release **2020**, last push 2024-07 | effectively abandoned |
-| HTMLKit (`vapor-community/HTMLKit`) | HTML *templating/dsl* engine, not a scraper | 3.0.0 **alpha** | wrong tool |
+- It parses to an **HTML5 tree**, not to our markup: implicit `<tbody>` wrappers, malformed tags
+  repaired per spec. Write selectors against the parsed tree (`table.sum`,
+  `table.sum tbody td.name`), and keep section pairing as "the next `table.elm` in document order
+  after the matched `table.sum`" rather than a positional sibling assumption (§4.4).
+- Its `.text()` **normalizes whitespace and drops `&nbsp;`**, so the "is this cell empty" test works on
+  it directly — but keep a `\u{00A0}` guard for pages that encode padding differently.
+- It is a class-based API and **not `Sendable`**: parsing stays on the actor that calls it, or inside a
+  `nonisolated` function that keeps the `Document` local and returns only `Sendable` value types
+  (§7.2).
+- It is an **implementation detail**: no SwiftSoup type (`Document`, `Element`, `Selector`) may appear
+  in a public signature (§7), so the dependency stays replaceable.
 
-#### The spike (16 fixture pages, 825 element rows, release build)
-
-Both approaches were implemented and run over every fixture — the ten reference detail pages plus
-the leaderboard pages, the event index and a 404 body:
-
-| | hand-rolled scanner | SwiftSoup |
-|---|---|---|
-| Output vs. the other implementation | **identical** on all 16 files / 825 rows (0 diffs) | **identical** |
-| `bv + goe + bonus == psv` invariant | 0 violations | 0 violations |
-| Reference skater (`Milo Yeon`, 9 elements) | matches the §5.2 table | matches the §5.2 table |
-| Implementation size | 162 lines + the trap-specific tests below | **58 lines** |
-| Parse time, 16 files, release | 430 ms | **139 ms** (3.1× faster) |
-| Parse time, 154 KB page (largest) | 70 ms | 21 ms |
-| Traps it must handle itself | 1–8 in the list below | 0 — the parser handles them; only 9–11 remain |
-| New code on our side to maintain | scanner + attribute parser + entity table + tag stripper + depth counting | selectors + value conversion |
-| Added build time (clean) | 0 | ~5 s Debug; **~46 s Release**, iOS simulator |
-| Linked binary size (arm64, iOS sim) | 0 | **+4.15 MB Debug**; +4.2 MB per arch Release (fat release framework: 67 KB → 8.80 MB unstripped, 8.80 MB → 7.96 MB after `strip -S`) |
-| Transitive footprint | none | **none** (single target, Foundation only) |
-| Builds for our targets | — | **verified**: compiles for `arm64-apple-ios15.0-simulator` (platform 7, SDK 27.0), links into `ProtocolParser.framework`, 7002 SwiftSoup symbols |
-
-The hand-rolled route is not merely more code, it is more *failure modes*, and the spike hit two of
-them in the same afternoon — both silently, on real data, with the row still parsing:
-
-1. **Entity decode before tag strip.** Decoding `&lt;` first turns it into `<`, which the tag
-   stripper then swallows: `2Lz&lt;&lt;` parsed as `2Lz` (and `2Lo<+1Lo` as `2Lo`) on 6 of the 16
-   files. The element abbreviation column loses its rotation markers. Correct order is
-   strip-then-decode (§4.2).
-2. **Sign lost below 1.00.** `Int("-0") == 0`, so a parser that reads the sign off the whole-number
-   component turns `-0.90` into `+90`: 268 rows violated the `bv + goe + bonus == psv` invariant
-   (invariant failures are the only reason this was caught at all). See §5.1.
-
-Neither is exotic — they are the shapes of bug that a bespoke scanner invites, and each needs its
-own permanent regression test. SwiftSoup cannot have them: it is a port of jsoup, a parser with two
-decades of real-world tag soup behind it, and its `.text()` gives canonical, entity-decoded,
-whitespace-normalized text (it even normalizes `&nbsp;` away for us).
-
-**Decision (adopted 2026-10-14, §10g): SwiftSoup is the parsing implementation.** It clears the
-§2.2 bar on every count — it removes
-real work (58 lines against 162 plus ~10 trap tests), it is well-fitted (CSS selectors over exactly
-the tables we key on), it is maintained and proven, it has no transitive footprint, it is 3× faster
-than the scanner we would write, and it is *verified* to build for this project's targets. The
-costs are real and bounded: ~5 s on a clean Debug build, ~46 s on a clean Release build, and
-~4 MB per architecture of linked code (the largest single cost; accepted because the import path is
-one-shot user-initiated work with no server-side size pressure, and the app already links
-AVFoundation/CoreImage).
-
-**Behaviour it imposes on us** (must be handled in the implementation, not assumed away):
-
-- It parses to an **HTML5 tree**, not our markup: implicit `<tbody>` wrappers, and malformed tags
-  repaired per spec. Selectors must be written against the parsed tree (`table.sum`,
-  `table.sum tbody td.name`), and section pairing must stay "the next `table.elm` in document
-  order after the matched `table.sum`" rather than a positional sibling assumption.
-- Its `.text()` **normalizes whitespace and drops `&nbsp;`**, so the "is this cell empty" test
-  works on it directly — but a `\u{00A0}` guard is still worth keeping for pages that encode
-  padding differently.
-- It is a class-based API and not `Sendable`: parsing stays on the actor that calls it, or runs
-  inside a `nonisolated` function that keeps the `Document` local and returns only `Sendable` value
-  types (§7.2 already specifies that shape).
-
-If the dependency is ever dropped, §4.2–§4.6 remain a correct specification for a hand-rolled
-scanner — that implementation exists, passes the same 825 rows, and its two bugs are documented
-above so the next attempt does not repeat them. Everything below is expressed in terms of *which*
-cells and *which* pairing are correct; with SwiftSoup the implementation reaches them through CSS
-selectors over the parsed DOM.
+Traps 1–8 of the §4.7 checklist are the parser's job under this approach; 9–11 remain ours.
 
 ### 4.2 Decoding and text extraction
 
@@ -219,8 +161,8 @@ selectors over the parsed DOM.
   abbreviations (`2Lz&lt;&lt;` → `2Lz<<`).
 - **Strip markup first, decode entities second.** The reverse order destroys data: `&lt;` becomes a
   literal `<`, which a tag stripper then treats as the start of a tag and swallows — `2Lz&lt;&lt;`
-  parses as `2Lz` and `2Lo&lt;+1Lo` as `2Lo`, silently, on 6 of the 16 fixtures (the spike hit
-  exactly this; see §4.1). Decoding entities is always the *last* text step.
+  parses as `2Lz` and `2Lo&lt;+1Lo` as `2Lo`, silently, on 6 of the 16 fixtures.
+  Decoding entities is always the *last* text step.
 - **A cell's inner text is not necessarily tag-free.** `<TD class=name>Falls<B>:</B></TD>` occurs
   in the `ded` table. Strip markup from cell text rather than assuming `<TD …>text</TD>`; treat
   `<BR>` as a space.
@@ -326,9 +268,8 @@ Conversion rules (module-local `String → Int` helper; the app's `String.toHund
 - Trim, decode entities, then parse an optional sign, digits, optional `.` + 1–2 digits. Scale by
   100 — `0.5` → `50`. Do not silently accept a 3rd decimal.
 - **Track the sign separately from the integer part.** `Int("-0") == 0`, so a reader that infers the
-  sign from the whole-number component turns `-0.90` into `+90`. This is not hypothetical: it broke
-  **268 of the 825 rows** in the spike (every GOE below −1.00 magnitude), and it is invisible except
-  for the §5.2 invariant — the numbers still look like plausible scores. Test it directly:
+  sign from the whole-number component turns `-0.90` into `+90`. The failure is invisible except for
+  the §5.2 invariant — the numbers still look like plausible scores. Test it directly:
   `"-0.90" → -90`, `"-1.19" → -119`, `"0.42" → 42`.
 - Empty, `&nbsp;` → `0` for the **bonus** column (696 of 717 rows are empty).
 - Empty / `-` / non-numeric for `bv`, `goe` → `.malformedElementRow` (§6). `-` appears only in
@@ -557,7 +498,7 @@ extension ElementData {
 }
 ```
 
-### 8.1 Merge policy — iCndex-keyed, and it never discards timing
+### 8.1 Merge policy — index-keyed, and it never discards timing
 
 Import is **not** a wholesale replacement of `elementScores`: it rewrites values **in place, keyed by
 element index**, so a user who has already placed elements on the timeline does not lose that work to
@@ -647,7 +588,7 @@ cover both guards, the successful merge (including that an existing `displayTime
 UI tests — that the button exists **to the left of Add Element** (compared by frame), and that tapping
 it presents the address prompt.
 
-## 9. Abbreviation → display name (deferred)
+## 9. Abbreviation → display name
 
 `ElementData.name` receives the abbreviation's **display name**, because the app's import calls the
 translator (§8). The translator is a single component with an **identity default**, so its absence is
@@ -678,31 +619,32 @@ fixtures (187 singles + 66 pairs, largely disjoint vocabularies):
 | pairs: lifts / death spirals | `1Li3`, `5ALi4`, `4LiB`, `BoDs2`, `FiDs3` | `Li` lift + level, `B` = base value; `Ds` death spiral |
 | pairs: choreographic / pattern | `ChPLi1`, `ChPSp1`, `PSp3`, `PiF1` | choreographic lifts/spins, pattern elements |
 
-Recommended shape: tokenize on `+`, map each token through the table, keep unknown tokens verbatim,
-and reassemble — so an unrecognized token degrades to the abbreviation instead of failing the
-import.
+Implemented shape (`ElementNameExpander`): tokenize on `+`, map each token through the table, keep
+unknown tokens verbatim, and reassemble — so an unrecognized token degrades to the abbreviation
+instead of failing the import. **Pairs and ice-dance codes are not expanded yet**; they pass through
+verbatim by this rule.
 
-## 10. Decisions (all resolved 2026-10-14)
+## 10. Decisions (all resolved)
 
-Letters are kept stable because other sections and `docs/ARCHITECTURE.md` reference them.
-**Nothing in this document is still open.**
+Letters are stable — other sections and `docs/ARCHITECTURE.md` reference them. **Nothing in this
+document is still open.** Each decision is a rule, and the section in parentheses owns it.
 
-| # | Question | Decision |
-|---|---|---|
-| a | The `info` column (third column: `F`, `<<`, `!`, `e`, `q`, `nC`, `nS`, `*`) — keep it on the model for a future translator? | **The information in that column is never used.** It is not parsed, not carried on `ProtocolElement`, and no later component may depend on it. The abbreviation is the sole element identity (§9). |
-| b | The leaderboard page embeds an approximate element table — use it as a fallback when the judge-detail link is absent? | **Never. No leaderboard-page data is used for anything except locating the link.** With the link absent the import ends in `.detailLinkMissing`: the user waits for the organizer to publish judge details and retries. |
-| c | Zero-value rows (`0.00` base, all-`-` judge marks — uncredited `CoSp`/`FSSp`) | **Always real elements, always imported.** No filtering and no "skip empty elements" option: the protocol lists the element, so the import produces the record (it renders neutral grey by the existing rule). |
-| d | Merge policy: replace `elementScores`, append, or match by index? | **Index-keyed and timing-preserving** — §8.1: replace values at the same index keeping `displayTime`, append surplus protocol elements untimed, leave surplus existing entries untouched. |
-| e | Keep the total column (`psv`)? | **Kept for sanity checking only** — never displayed, never summed into anything. It exists to verify `bv + goe + bonus == panelScore` (§5.2) and to let a disagreement surface in the UI. |
-| f | One URL = one segment; may the module follow sibling-segment links? | **No navigation to sibling segments, ever.** Only the `judgeDetailRef` anchor is followed; the app passes the per-segment page. |
-| g | Adopt the SwiftSoup dependency (§4.1)? | **Adopted** — SwiftSoup `2.14.2` is the parsing implementation (§4.1, §13). Identical output to the hand-rolled scanner on 825 rows, 3.1× faster, 58 vs 162 lines, verified to build for this project's iOS targets; costs ≈ 5 s Debug / ≈ 46 s Release clean-build time and ≈ 4 MB per architecture. |
+| # | Decision |
+|---|---|
+| a | The `info` column is **never used** — not parsed, not carried on `ProtocolElement`, no later component may depend on it. The abbreviation is the sole element identity (§4.6, §9). |
+| b | **No leaderboard-page data is used for anything except locating the judge-detail link.** With the link absent the import ends in `.detailLinkMissing`: the user waits for the organizer to publish judge details and retries (§7.3). |
+| c | Zero-value rows (`0.00` base, all-`-` judge marks — uncredited `CoSp`/`FSSp`) are **always real elements, always imported**. No filtering and no "skip empty elements" option; they render neutral grey by the existing rule (§6). |
+| d | Import **replaces values in place, keyed by element index, and never discards timing** — `displayTime` survives a re-import, surplus protocol elements are appended untimed, surplus existing entries are left untouched (§8.1). |
+| e | The total column (`psv`) is **kept for sanity checking only** — never displayed, never summed into anything. It exists to verify `bv + goe + bonus == panelScore` and to let a disagreement surface in the UI (§5.2). |
+| f | **No navigation to sibling segments, ever.** Only the `judgeDetailRef` anchor is followed; the app passes the per-segment page (§7.3). |
+| g | **SwiftSoup `2.14.2` is the parsing implementation** (§4.1, §13). |
 
 ## 11. Testing
 
 Fixtures are HTML files committed under
-`LayoutEngine/ProtocolParser/ProtocolParserTests/Fixtures/` — the twelve pages of §3’s table plus
-`SEGM033.html` (the sibling segment, which the link test needs), i.e. **eleven detail pages and two
-leaderboard pages, ~900 KB**, and two synthetic pages (a leaderboard page with the judge-detail
+`LayoutEngine/ProtocolParser/ProtocolParserTests/Fixtures/` — **eleven detail pages and two
+leaderboard pages, ~900 KB** (the ten of §3's table plus `SEGM033.html`, the sibling segment the link
+test needs), and two synthetic pages (a leaderboard page with the judge-detail
 block removed; a detail page with one Base Value cell removed). Text, so no untracked-large-file
 caveat like the 398 MB sample video. The sweep asserts over the committed set: **825 element rows**.
 **Tests never hit the network** — `ProtocolFetching` is the seam; use a fake that returns fixture
@@ -728,82 +670,38 @@ text (the pattern `VideoProcessorTests` uses with `FakeRenderer`).
 
 Indices are 1-based in test expectation tables so they read like the protocol.
 
-**What the SwiftSoup dependency changes here.** Tests 1, 3, 7b and 12 (tag soup, entities, unquoted
-attributes, case) stop being our tests — they are the library's, exercised by its own suite. The
-tests that stay ours are the ones the library cannot know about: classification and link selection
-(1–3), the extraction contract (4–5, 7–9), the matcher (10), and the error paths (11). The
-highest-value test remains **6**, the invariant sweep: across every fixture it asserts the source's
-own arithmetic against the values we extracted, and it is what caught the sign bug (§5.1) that
-would otherwise have shipped plausible-looking wrong scores. Keep it regardless of approach.
+Tests 1, 3, 7b and 12 (tag soup, entities, unquoted attributes, case) exercise SwiftSoup as much as
+us. What stays ours is classification and link selection (1–3), the extraction contract (4–5, 7–9),
+the matcher (10) and the error paths (11). **Test 6 is the highest-value one and must be kept
+regardless of parser:** it asserts the page's own arithmetic against the values we extracted, and it
+is what caught the sign bug (§5.1) that would otherwise have shipped plausible-looking wrong
+scores.
 
-## 12. Verification performed (2026-10-14)
+## 12. Fixture inventory and known gaps
 
-- Fetched the two reference pages in the requirements, the event index (`index.asp`), and **ten**
-  segment detail pages (five singles, five pairs) from the same event (`2026 Boston Open`, id
-  `36683`), and inspected the raw markup — every structural claim in §2, §4 and §5 is taken from
-  that markup, not from a rendered export.
-- A throwaway prototype of §4.3–§4.6 (Python, scratch dir) parsed all ten detail pages: **85
-  skaters, 672 element rows, 0 unparsed rows, 0 violations of `bv + goe + bonus == psv`**.
-- **The pairs template is the singles template.** All ten pages have exactly the same table classes
-  (`sum`/`elm`/`ded`/`maj`, one each per skater, no others) and the same element-row cell-class
-  sequence (`num, elem, info, bv, two, goe, ded, jud×10, ref, psv, spc`); only the element
-  vocabulary differs (66 pairs abbreviations, mostly disjoint from the 166 singles ones). The
-  design needs no pairs-specific branch.
-- Confirmed the strict-parser rejection in §4.1 against both page kinds, with Expat.
-- Confirmed table nesting on the leaderboard page (`#catSegTable` → `detailScoreElm`), the
-  `detailScoreSum`/`detailScoreElm` substring trap, `<B>` markup inside `ded` cells, the
-  `&nbsp;`/`&lt;`-only entity set, and the all-ASCII body.
-- Version drift observed within one event: `index.asp` reports ijsLive 2.6.3 while every segment
-  page reports 2.6.4 — so field presence must be handled per page, not per site version.
-- **Dependency spike (§4.1).** A hand-rolled Swift scanner and a SwiftSoup implementation were both
-  written and run over all 16 fixture files (825 element rows, release build): **identical output**,
-  0 invariant violations, `Milo Yeon`'s 9 elements matching §5.2 in both. SwiftSoup parsed in
-  **139 ms** against the scanner's 430 ms (16 files); 21 ms vs 70 ms on the 154 KB page. Code size
-  58 lines vs 162. Two silent bugs surfaced in the hand-rolled variant only (entity-decode ordering,
-  sign-below-1.00) — both fixed, both documented above, and both caught only because of the §5.2
-  invariant.
-- **SwiftSoup verified for this project's targets**: added to `Project.swift`, `tuist generate`
-  resolved it, and `xcodebuild -scheme ProtocolParser -destination 'platform=iOS Simulator,name=iPhone 17'`
-  built it for `arm64-apple-ios15.0-simulator` (Mach-O platform 7, SDK 27.0) with 7002 SwiftSoup
-  symbols linked into `ProtocolParser.framework`. Measured costs: clean Debug build ≈ 5 s added,
-  clean Release build ≈ 46 s added, framework binary +4.15 MB (Debug arm64) / +8.33 MB unstripped
-  and +7.53 MB after `strip -S` for the two-architecture release framework (≈ +4 MB per
-  architecture). **The manifest edit was reverted** — nothing is wired in; the spike's `.package.resolved`
-  was deleted.
-- Not verified in the spike: **device (arm64-only, stripped, archived) binary growth** — the numbers
-  above are simulator artifacts; and the dependency's behaviour on ijsLive versions other than 2.6.x.
-- All seven design questions were resolved by the user on 2026-10-14 and are recorded in §10; the
-  SwiftSoup dependency in §4.1/§13 is adopted and **wired in**.
-- **Implemented 2026-10-14.** `ProtocolModel.swift` (page kind, element/skater/segment),
-  `ProtocolHTMLParser.swift` (classification, link, segment parse, skater selection),
-  `ProtocolFetching.swift`, `ProtocolImporter.swift`, `ProtocolParser.swift` (errors); app side
-  `TechnicalOverlay/ProtocolImport.swift` (`ElementData(_:)` + `OverlayData.merge(_:)`) and
-  `ProtocolImportModel.swift` + the **Import Protocol** button on `ScoringListView` (§8.2). Test
-  results: **ProtocolParser 39/39** (six suites), **TechnicalOverlayTests 22/22** (five of them the
-  merge, eight the import flow) and **two UI tests** for the button; the invariant sweep covers all
-  **825** rows of the committed fixtures. Writing it corrected two things in this spec: the
-  classifier needs non-`judgeDetailRef` leaderboard signals (a page whose link is not published was
-  being reported as "not a protocol page" instead of `.detailLinkMissing`), and
-  `skater(named:inHTML:baseURL:)` must be `async` because following a supplied page's link is a
-  fetch. Both are reflected above.
-- **Counts re-measured 2026-10-15** (while specifying the abbreviation expansion,
-  `docs/architecture/abbreviation-expansion.md`): the ten detail pages hold **717** element rows
-  (535 singles + 182 pairs — the sum of §3's own per-page column), the invariant holds on all 717,
-  **696** of those rows have an empty bonus cell, and the distinct abbreviations are **241**
-  (187 singles + 66 pairs). The 672 / 654 / 221 figures this document previously carried were stale.
-  The 825-row figure for the committed eleven-detail-page set was already correct
-  (717 + `SEGM033`'s 108).
-- Not verified: **ice dance** (no dance segment exists at this competition — the user confirmed),
-  a page with a withdrawn skater (no `elm` table; no `Withdrawn`/`WD`/`DNS` marker appears in any
-  fixture), other events/eras of ijsLive, and non-U.S. events. The design is structure-based and
-  class-keyed, so it should carry over; §11's invariant sweep is the cheapest way to extend
-  coverage when a fixture becomes available.
+**Provenance:** the live event *2026 Boston Open*, id `36683` — its leaderboard pages, the event index
+and the ten segment detail pages of §3 (five singles, five pairs) — with every structural claim taken
+from the raw markup. **Not covered:** ice dance, a withdrawn-skater page (no `elm` table; no
+`Withdrawn`/`WD`/`DNS` marker appears in any fixture), and other events or eras of ijsLive.
+`docs/HISTORY.md` → *Protocol parser* has the verification runs, the counts that moved and the two
+spec corrections the implementation forced.
+
+Fixtures live in `LayoutEngine/ProtocolParser/ProtocolParserTests/Fixtures/` — eleven detail pages,
+two leaderboard pages, two synthetic pages, ~900 KB of text:
+
+| Measure | Count |
+|---|---|
+| Element rows across the eleven detail pages (the §11 sweep's scope) | **825** |
+| Element rows across the ten reference pages of §3 | **717** (535 singles + 182 pairs) |
+| Rows with an empty bonus cell | **696** |
+| Distinct abbreviations | **241** (187 singles + 66 pairs) |
+| `bv + goe + bonus == psv` violations | **0** |
 
 ## 13. Dependencies
 
 - **SwiftSoup** (SPM, `https://github.com/scinfu/SwiftSoup.git`, pinned exact `2.14.2`, MIT) — the
-  tolerant HTML5 parser. Chosen and justified in §4.1; integration is a `packages:` entry in
-  `Project.swift` plus `.package(product: "SwiftSoup")` on the `ProtocolParser` target
-  (`docs/ARCHITECTURE.md` §2.2 covers the policy this decision exercised).
+  tolerant HTML5 parser (§4.1). Integration is a `packages:` entry in `Project.swift` plus
+  `.package(product: "SwiftSoup")` on the `ProtocolParser` target. Candidate survey and measurements:
+  `docs/HISTORY.md` → *SwiftSoup adoption*; policy: `docs/ARCHITECTURE.md` §2.2.
 - `Foundation` — `URL`, `URLSession`, `Data`, `String`, `LocalizedError`.
 - No other package, and no import of the app, `LayoutEngine` or `VideoProcessor`.

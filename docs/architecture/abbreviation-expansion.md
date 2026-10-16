@@ -3,14 +3,14 @@
 **Source:** `LayoutEngine/ProtocolParser/ProtocolParser/ElementNameExpander.swift`, tests in
 `LayoutEngine/ProtocolParser/ProtocolParserTests/ElementNameExpanderTests.swift`
 
-Status: **Implemented and wired into the app.** `ElementNameTranslating` / `ElementNameExpander` and
-their 17 tests are in the module and pass, and the import now writes display names into
-`ElementData.name` (§7). This document is the authoritative specification for the
-component, and is the deferred translator of `docs/architecture/protocol-parser.md` §9 (an
-abbreviation → display-name component with an identity default). It covers **singles only**: the jump,
-spin, step-sequence and choreographic vocabulary of the singles protocol. Pairs and ice-dance codes
-are deliberately out of scope (§8) and currently pass through unchanged. **Every rule is settled**: §4
-is the specification and §5 the worked examples.
+Status: **Implemented and wired into the app.** `ElementNameTranslating` / `ElementNameExpander` are
+in the module, and the import writes display names into `ElementData.name` (§7); test counts are in
+[`docs/testing.md`](../testing.md). This document is the authoritative specification for the
+component, and is the translator `docs/architecture/protocol-parser.md` §9 specifies (an abbreviation
+→ display-name component with an identity default). It covers **singles only**: the jump, spin,
+step-sequence and choreographic vocabulary of the singles protocol. Pairs and ice-dance codes are
+deliberately out of scope (§8) and pass through unchanged. **§4 is the specification and §5 the worked
+examples; earlier drafts are superseded** (`docs/HISTORY.md` → *Element abbreviation expansion*).
 
 ## 1. Purpose
 
@@ -75,7 +75,7 @@ rules operate on. Two consequences visible in the fixtures:
 
 | # | Trap | Evidence |
 |---|---|---|
-| 1 | **`q` is both a marker and a letter of `StSq`/`ChSq`.** Stripping marker characters as a blanket character class turns `StSq2` into `StS2` and `ChSq1` into `ChS1`, and those tokens then fail to classify (the throwaway prototype did exactly this before it was corrected). Markers are a **suffix on a jump token only**. | `StSq2` ×21, `ChSq1` ×16 |
+| 1 | **`q` is both a marker and a letter of `StSq`/`ChSq`.** Stripping marker characters as a blanket character class turns `StSq2` into `StS2` and `ChSq1` into `ChS1`, and those tokens then fail to classify. Markers are a **suffix on a jump token only**. | `StSq2` ×21, `ChSq1` ×16 |
 | 2 | **The bonus marker is not positionally fixed.** `b1` follows the jump (`3Tb1`) but also follows a marker (`3Lz<b1`, `3S<b1`), so stripping "marker then bonus" in a fixed order fails on 4 tokens. | `3Lz<b1` ×2, `3S<b1` ×2 |
 | 3 | **Spin codes are prefixes of each other and end in `Sp`.** `CSp` ⊂ `CCSp`, `SSp` ⊂ `FSSp`/`CSSp`, `CoSp` ⊂ `CCoSp`/`FCoSp`, `CSp` ⊂ `FCSp`. Classification must match the **longest known code first**, whole-token. | 34 distinct spin tokens |
 | 4 | **A jump letter alone is not a jump.** `S` is also the tail of `SSp`/`FSSp`/`CSSp`, `F` of `FSSp`, `T` of `StSq`(no) but `Tw`/`Th` in pairs. Jump matching may only run on a token that did not match the spin/step/choreographic table, and the remainder after the jump code must be **markers only** — otherwise `3STh` (a throw) would expand as a Salchow. | `3STh` in the pairs fixtures |
@@ -262,7 +262,7 @@ table entry rather than a guess.
 
 ## 5. Worked examples
 
-Produced by the throwaway prototype of §4 over the real fixture strings (§10):
+The implemented expander's output over the real fixture strings, pinned by the tests in §9:
 
 | Abbreviation       | Expansion                                            |
 | ------------------ | ---------------------------------------------------- |
@@ -384,59 +384,28 @@ Pure string tests — no fixtures needed for the table itself; the sweep uses th
 | 14 | **Sweep over the five singles fixtures** | 535/535 rows expand with zero verbatim-passthrough tokens once `kp…` is dropped (the number §3 freezes); any row that regresses to passthrough fails the test          |
 | 15 | Identity default | a type conforming without implementing anything returns the abbreviation unchanged (`protocol-parser.md` §9)                                                           |
 
-**Implemented as `ElementNameExpanderTests.swift`** — one `@Suite("Element name expansion")`, 17 tests
-in the order above, all passing. Tests 14 and its neighbour are the two sweeps: 535/535 singles rows
-with zero passthrough, and every row of all eleven detail pages (825) well formed.
+**Implemented as `ElementNameExpanderTests.swift`** — one `@Suite("Element name expansion")`, the
+tests above in order, all passing (counts: [`docs/testing.md`](../testing.md)). Tests 14 and its
+neighbour are the two sweeps: 535/535 singles rows with zero passthrough, and every row of all eleven
+detail pages (825) well formed.
 
-## 10. Verification performed (2026-10-15)
+## 10. Verification and known gaps
 
-- **Wired into the app 2026-10-15.** `ElementData.init(_ element:translator:)` and
-  `OverlayData.merge(_:translator:)` in `TechnicalOverlay/ProtocolImport.swift` now write
-  `displayName(for:)` into `name` on **both** paths — a refresh at an index and an append — so a
-  re-import cannot revert an already-timed element to a raw code; the translator is a parameter
-  defaulted to `ElementNameExpander()`. The app's merge suite follows: its five existing expectations
-  now assert display names (`2 Lutz`, `3 Toeloop`, `3 Toeloop + 2 Toeloop`, `["2 Lutz", "3 Salchow"]`)
-  and a sixth test merges with the identity default to pin the seam. The framework suite is the part
-  of this document's measurements that this session ran (**56/56**); the app's unit suite is the
-  user's to confirm.
-- **Implemented 2026-10-15.** `ElementNameExpander.swift` — the `ElementNameTranslating` protocol
-  with its identity default, the marker/bonus stripping, and the jump / spin / step-sequence /
-  choreographic classifiers — with `ElementNameExpanderTests.swift` beside it. **56 / 56 tests in 7
-  suites pass** (`xcodebuild test -scheme ProtocolParser -destination 'platform=iOS Simulator,name=iPhone 17'`,
-  `** TEST SUCCEEDED **`), 17 of them the new suite; that includes both sweeps: **535 / 535** singles
-  rows classified with zero verbatim passthrough, and all **825** rows of the eleven detail pages
-  expanding to a well-formed name (no empty part, no dangling separator, no `kp…` leaking through).
-  The app-side wiring of §7 is **not** done — nothing calls the expander yet.
-- Extracted all **535** singles element cells from the five committed singles fixtures
-  (`SEGM001`, `SEGM011`, `SEGM015`, `SEGM021`, `SEGM034`) — 187 distinct abbreviations, 119 distinct
-  `+`-separated tokens — and built the token census in §3 from those bytes, not from a rendered view.
-- Wrote a throwaway prototype of §4 (Python, scratch) and ran it over every row: with `kp…` dropped,
-  **535 / 535 rows classify completely, 0 unclassified tokens**; every example in §5 is that
-  prototype's real output.
-- The prototype is what found the `q`-vs-`StSq`/`ChSq` collision (§2.4 trap 1) and the
-  bonus-after-marker order (`3Lz<b1`, trap 2) — both silently mis-expanded `StSq*`/`ChSq*` and
-  `3Lz<b1` in its first version.
-- **Rules revised again 2026-10-15** (user): the spin `V` is now **separated from the level by a
-  space** (`CCoSp1V` → `Change Combo Spin 1 V`, `CCoSpBV` → `Change Combo Spin B V`) — §4.3;
-  `Choreographic` became **`Choreo`**, and the
-  choreographic codes now **show their trailing digit** (`ChSq1` → `Choreo Sequence 1`, `ChSp1` →
-  `Choreo Spin 1`, `pChSq1` → `Choreo Sequence 1`) — superseding the digitless rule in the bullet
-  below. Prototype re-run: still **535 / 535** rows classified with 0 passthrough tokens, mean
-  expansion **14.5** characters.
-- **Rules revised 2026-10-15** (user) — several after the first implementation: `COMBO` and `REP`
-  went from dropped to **shown** like `SEQ` (§4.5); `Combination` became **`Combo`** in the spin names
-  (§4.3, `CCoSp4` → `Change Combo Spin 4`); the choreographic digits are not shown (§4.4); and the
-  spins use the short names of §4.3 (`Change…`, not `Change Foot…`). Prototype re-run with the final
-  rules over every row: still **535 / 535** rows classify with 0 passthrough tokens, and the mean
-  expansion is **14.9** characters — 15.4 with `Combination`, 16.2 with `Change Foot…`, 17.3 before
-  the choreographic digits were dropped — worst case 50 throughout.
-- Checked each spin code in §4.3 against the ISU singles abbreviation list; the ✅ column is which
-  codes actually occur in the fixtures, and the "—" rows are codes from that list that do not.
-- Not verified: **pairs and ice dance** (the pairs codes are enumerated in
-  `protocol-parser.md` §9 but no rules were designed for them); **`q`/`V` semantics** (taken from
-  ISU communications, not measured — they only decide what gets ignored, never the values);
-  **the on-screen fit** of the longest expansions — the numbers in §7 are computed from
-  `Metrics`, not measured on a rendered overlay.
+- The rule model was built against **every** singles row of the committed fixtures, not against a
+  handful of hand-picked examples: **535/535 rows classify completely with `kp…` dropped, 0
+  unclassified tokens**, and §3's inventory is the census that fell out of it. The tests sweep the same
+  set, plus all **825** rows of the eleven detail pages for a well-formed name (no empty part, no
+  dangling separator, no `kp…` leaking through).
+- Each spin code in §4.3 was checked against the ISU singles abbreviation list: the ✅ column is what
+  occurs in these five pages, the "—" rows are codes from that list that do not.
+- **Not verified:** pairs and ice-dance rules (§8 — none designed; those codes pass through verbatim);
+  the `q` and `V` semantics (taken from ISU communications, not measured — they only decide what gets
+  ignored, never a value); and the **on-screen fit** of the longest expansions — §7's figures are
+  computed from `Metrics`, not measured on a rendered overlay, so check on screen before making the
+  overlay's form terser than the scoring list's.
+- Rules that changed while this was being written, with the measurements each revision produced, are in
+  `docs/HISTORY.md` → *Element abbreviation expansion*. §4 is normative; nothing else in this document
+  is.
 
 ## 11. Dependencies
 

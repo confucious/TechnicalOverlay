@@ -79,8 +79,9 @@ Two `xcodebuild` reporting traps to know about when reading output:
 - `-scheme TechnicalOverlay` prints the Swift Testing summary (unit tests) **before** the XCTest
   UI tests run, so that line is not the end of the run.
 
-No lint, no typecheck, no formatter. Swift only; **no external packages are linked today** — one may
-be added when it clearly earns its place (policy: `docs/ARCHITECTURE.md` §2.2). Tests use the **Swift Testing** framework (`@Suite`, `#expect`).
+No lint, no typecheck, no formatter. Swift only; one external package is linked — **SwiftSoup 2.14.2**,
+for `ProtocolParser` — and another may be added when it clearly earns its place (policy:
+`docs/ARCHITECTURE.md` §2.2). Tests use the **Swift Testing** framework (`@Suite`, `#expect`).
 
 ## Tracing the chunk pipeline
 
@@ -150,10 +151,10 @@ LayoutEngine/                           # Shared library sources (one Tuist proj
     ├── OverlayDataChangeTests.swift
     └── VideoProcessorTests.swift
 
-ProtocolParser/                            # Protocol importer + element-name expansion (implemented; the expansion is not wired in yet)
+ProtocolParser/                            # Protocol importer + element-name expansion (implemented and wired into the import)
 ```
 
-**Dependencies:** one third-party package is linked — **SwiftSoup 2.14.2**, used by `ProtocolParser` only (pinned exactly in `Project.swift`; `Package.resolved` committed). Everything else is Apple frameworks: SwiftUI, AVFoundation, CoreImage, UIKit, CoreMedia, Observation, UniformTypeIdentifiers. That is the current state, **not a rule**: take a package when it gives an obvious, well-fitted benefit over self-written code (policy and the worked example: `docs/ARCHITECTURE.md` §2.2, `docs/architecture/protocol-parser.md` §4.1).
+**Dependencies:** one third-party package is linked — **SwiftSoup 2.14.2**, used by `ProtocolParser` only (pinned exactly in `Project.swift`; `Package.resolved` committed). Everything else is Apple frameworks: SwiftUI, AVFoundation, CoreImage, UIKit, CoreMedia, Observation, UniformTypeIdentifiers. That is the current state, **not a rule**: take a package when it gives an obvious, well-fitted benefit over self-written code (policy and the worked example: `docs/ARCHITECTURE.md` §2.2, `docs/HISTORY.md` → *SwiftSoup adoption*).
 
 **Swift concurrency model — every target is main-actor by default.** `Project.swift`'s
 `baseSettings` carries `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor` and
@@ -163,7 +164,25 @@ settings**: without them `generateSlides()`'s `Task` leaves the main actor, `Vid
 then mutates `UILabel` layers from a background thread, and UIKit logs *"Modifying properties of a
 view's layer off the main thread is not allowed"*.
 
-**`docs/ARCHITECTURE.md`** is the consolidated spec (module map + data flow + design decisions); per-module detail lives in `docs/architecture/`. **Read `docs/ARCHITECTURE.md` before making changes.**
+**`docs/ARCHITECTURE.md`** is the consolidated spec (module map + data flow + current rules); per-module detail lives in `docs/architecture/`. **Read `docs/ARCHITECTURE.md` before making changes.**
+
+## Documentation
+
+`docs/ARCHITECTURE.md` and `docs/architecture/*.md` carry **current state only** — what the code does
+and the rules it has to keep obeying. No dates, no rationale, no measured comparisons, no rejected
+alternatives, no bug stories, no "we used to…". All of that lives in **`docs/HISTORY.md`**, which
+opens with a chronological decision ledger and then one section per topic.
+
+- **Writing or editing a design doc:** state the rule. Where the reason protects against a plausible
+  "simplification", add a one-line directive plus a pointer (`docs/HISTORY.md` → *Playhead freeze*) —
+  never the narrative itself. `docs/ARCHITECTURE.md` §2.2 is the worked example for a dependency.
+- **Changing a design:** add a row to the ledger and, if the reasoning needs to survive, a dated
+  subsection in `HISTORY.md` — in the same change as the doc edit, never later.
+- **Test counts, coverage and "verified on <date>"** belong in `docs/testing.md`; never here or in a
+  doc.
+- **Why:** these docs are read into a session before it can work, so every line of history in them is
+  context that gets re-read every time instead of looked up on demand. A stale snapshot in a doc is
+  also re-taught instead of corrected — the same reason `AGENTS.md` has no test-count table.
 
 ## Data Model — Critical Details
 
@@ -246,7 +265,7 @@ Tests live in separate Xcode test targets alongside each framework. The most com
   deliberately *not* one of those: it sets `customVideoCompositorClass` to `PreviewVideoCompositor`,
   our own `AVVideoCompositing`, because the filter API's compositor deadlocks a playhead drag. Do not
   "simplify" it back, and do not share one `AVURLAsset` between the player item and the chunk
-  exporter (see `docs/ARCHITECTURE.md` §8, 2026-10-15/16).
+  exporter (`docs/HISTORY.md` → *Playhead freeze*).
 - `ContentView.swift` is a **legacy prototype** with hardcoded test data. Main entry point is `MainView`.
 - `ElementBuilderView.swift` is a **placeholder** — not wired into the app.
 - `Metrics.transitionTime = 0.75` in `VideoProcessor` — the dissolve duration, used everywhere in video composition.

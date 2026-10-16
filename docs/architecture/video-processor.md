@@ -10,6 +10,7 @@ Handles video composition with overlay slides and chunk-based rendering. Uses `A
 |------|------|
 | `VideoProcessor.swift` | Everything: `Slide`, `VideoComposer` (including CIImage-based composition/export methods), `ExportSession`, `ContentIdentity`, `ChunkType`, `ChunkState`, `Chunk`, protocols (`ChunkRendererProtocol`, `StitcherProtocol`), `ChunkRegion`, `generateRegions()`, `diffRegionsIntoChunks()`, `ChunkQueue` actor. |
 | `DefaultChunkRenderer.swift` | Concrete `ChunkRendererProtocol` implementation. `VideoSettings` config, `ChunkRendererError` enum. Renders chunks via `VideoComposer` CIImage-based composition + `AVAssetExportSession`. |
+| `DefaultStitcher.swift` | Concrete `StitcherProtocol` implementation. Assembles rendered chunks plus source-video ranges into one `AVMutableComposition` and hands back an `ExportSession` for the caller to perform. |
 
 ## Core Types
 
@@ -47,9 +48,9 @@ public class VideoComposer {
 
 **Slide-based path:** Creates `AVVideoComposition` with dissolve transitions between slides composited over source video. Used for both real-time preview and full-video export.
 
-**Composition API:** the three chunk-renderer builders use `AVVideoComposition(applyingFiltersTo:applier:)`; the frame handler returns an `AVCIImageFilteringResult(resultImage:ciContext: nil)`. (`setupComposition()` — the preview — is the exception; see below.) (The older `AVVideoComposition.videoComposition(with:applyingCIFiltersWithHandler:)` factory was deprecated in iOS/macOS 27.0 — the migration was verified to be pixel-identical.)
+**Composition API:** the three chunk-renderer builders use `AVVideoComposition(applyingFiltersTo:applier:)`; the frame handler returns an `AVCIImageFilteringResult(resultImage:ciContext: nil)`. (`setupComposition()` — the preview — is the exception; see below.) It replaces `videoComposition(with:applyingCIFiltersWithHandler:)`, deprecated in iOS/macOS 27.0, and the replacement is not a rename — the handler's return is the `AVCIImageFilteringResult` (`docs/HISTORY.md` → *Core Image filter API migration*).
 
-**The preview has its own compositor.** `setupComposition()` — the only builder attached to an `AVPlayerItem` — is the one builder that does **not** use `AVVideoComposition(applyingFiltersTo:applier:)`. It builds a `Configuration` with `customVideoCompositorClass = PreviewVideoCompositor.self`: a Core Image `AVVideoCompositing` whose `cancelAllPendingVideoCompositionRequests()` waits for nothing (a cancelled frame is just never finished), so a seek's cancel path can't block on a frame request. AVFoundation's own Core Image compositor does block there — `FigVideoCompositionProcessorSetPlaybackTimeRange` → `AVCoreImageFilterCustomVideoCompositor.cancelAllPendingVideoCompositionRequests` → `dispatch_group_wait` as a barrier on the compositor session's own serial queue — while MediaToolbox holds the lock `AVPlayerItem.currentTime` takes, and AVKit polls `currentTime` on the main thread every scrub tick, so the app freezes on a playhead drag. The compositor bakes in the track's `preferredTransform` (custom compositors receive raw frames) and runs the same slide/dissolve program as the chunk renderer, so preview and export stay in step. The three chunk-renderer builders are never seeked, so they keep using the filter API and their rendered pixels are unchanged. Details, measurements and the repro harness: decision log 2026-10-15/16, `scripts/probe-scrub-deadlock.swift`.
+**The preview has its own compositor.** `setupComposition()` — the only builder attached to an `AVPlayerItem` — is the one builder that does **not** use `AVVideoComposition(applyingFiltersTo:applier:)`. It builds a `Configuration` with `customVideoCompositorClass = PreviewVideoCompositor.self`: a Core Image `AVVideoCompositing` whose `cancelAllPendingVideoCompositionRequests()` deliberately waits for nothing, so a cancelled frame is simply never finished and a seek's cancel path can never block on it. AVFoundation's own Core Image compositor *does* block there, while AVKit polls `AVPlayerItem.currentTime` on the main thread on every scrub tick — that combination freezes the app mid-drag, which is the entire reason this compositor exists. It bakes in the track's `preferredTransform` (custom compositors receive raw frames) and runs the same slide/dissolve program as the chunk renderer, so preview and export stay in step. **Do not simplify it back** to the filter API, and do not share an `AVURLAsset` between the player item and the chunk exporter. Mechanism, repro harness and measurements: `docs/HISTORY.md` → *Playhead freeze*.
 
 **CIImage-based path (chunk rendering):** Direct `CIImage` → `AVVideoComposition` methods that bypass the `Slide[]` abstraction. Used by `DefaultChunkRenderer` to render individual time-limited chunks. Each frame handler composites the overlay image(s) over the source using `CIImage.composited(over:)`.
 
@@ -138,9 +139,11 @@ compositionTime ──┬─ before first slide ──→ source unchanged
                   └─ past last slide ────────→ source unchanged (or nil slide)
 ```
 
-## Chunk-based Rendering Pipeline (implemented, not yet wired into main app)
+## Chunk-based Rendering Pipeline
 
-A sophisticated pipeline designed for incremental/reusable rendering. `DefaultChunkRenderer` implements `ChunkRendererProtocol` so the pipeline can produce output files, but it is not yet wired into the main app export flow.
+The app's export path, wired into `MainView`'s **Save Video**. `ChunkQueue` (actor) renders pending
+chunks through `DefaultChunkRenderer`, and `DefaultStitcher` assembles them into the final file.
+`generateRegions` / `diffRegionsIntoChunks` / `ChunkQueue` live in `VideoProcessor.swift`.
 
 ```
 [Slide[]] ──generateRegions()──→ [ChunkRegion[]] ──diffRegionsIntoChunks()──→ [Chunk[]]
@@ -215,11 +218,14 @@ public actor ChunkQueue {
 Manages the rendering pipeline:
 1. `enqueue()` generates regions from slides, diffs against existing chunks, triggers drain.
 2. `drain()` loops: dequeue next pending chunk → mark rendering → call renderer → mark rendered or stale.
-3. `waitForCompletion()` polls until all pending chunks are done.
+3. `waitForCompletion()` awaits the drain task — including the one `enqueue()` started — so it never
+   returns while a chunk is in the `.rendering` state.
 
-### Key insight
+### Why the diff exists
 
-`diffRegionsIntoChunks()` reuses unchanged constant chunks (for overlapping portions), only re-rendering what changed. This enables incremental updates when timing data changes — you don't need to re-render the entire video when only one element's timestamp shifts.
+`diffRegionsIntoChunks()` reuses unchanged constant chunks (for overlapping portions) so a timing edit
+re-renders the regions that changed rather than the whole video — the reason the chunk path exists
+alongside `VideoComposer.setupExport()`.
 
 ## Protocols
 

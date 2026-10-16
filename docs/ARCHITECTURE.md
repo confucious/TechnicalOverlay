@@ -1,17 +1,21 @@
 # TechnicalOverlay — Architecture & Specification
 
-> **Status**: Living spec · **Last updated**: 2026-10-16
+> **Status**: Living spec — the current state of the app and project.
 > **Source of truth for the project.** Detailed per-module docs live in
 > [`docs/architecture/`](#2-module-docs). For day-to-day build/test/run commands see
-> [`AGENTS.md`](AGENTS.md) at the repo root. This document consolidates that material into a
-> single spec for future development.
+> [`AGENTS.md`](AGENTS.md) at the repo root.
+>
+> **Current state only.** This document and `docs/architecture/*.md` describe the app and project as
+> they are now: no dates, no rationale, no rejected alternatives, no bug stories. That material lives
+> in [`docs/HISTORY.md`](HISTORY.md), and every constraint here that a reader might otherwise
+> "simplify" away points into it. See `AGENTS.md` → Documentation.
 
 ## 1. Purpose
 
-A SwiftUI **iOS/macOS app** that creates video overlays for **figure-skating competitions**. It
-takes a video of a skating performance and overlays technical scoring information (element
-names, base values, GOE scores, running **totals**) and introduction slides, producing a
-**scored video** with dissolve transitions.
+An **iOS app** (iPhone/iPad, plus "Designed for iPad" on Apple-silicon Macs) that creates video
+overlays for **figure-skating competitions**. It takes a video of a skating performance and overlays
+technical scoring information (element names, base values, GOE scores, running **totals**) and
+introduction slides, producing a **scored video** with dissolve transitions.
 
 Authoring model: the user loads a video, enters a skater's **introduction slides** and
 scoring **elements** (with per-item display timestamps set against a live preview player), and
@@ -21,10 +25,10 @@ the app composites the overlays onto the video and exports a new file.
 
 - Not a camera / recorder (that is the separate InstantReplay **"Retake"** project).
 - No live broadcast output — an author-and-burn pipeline producing a finished file.
+- No native macOS target (LayoutEngine is UIKit) and no Mac Catalyst.
 - No audio manipulation — source audio passes through unchanged.
-- No automatic element recognition; elements and timing are entered by hand
-  (protocol import is a **designed but unimplemented** `ProtocolParser` module — see §2 module
-  table and §7).
+- No automatic element recognition from the video: elements come from hand entry in the scoring list
+  or from a published protocol page (`ProtocolParser` — §2, §7).
 
 ## 2. Module Docs
 
@@ -58,7 +62,9 @@ LayoutEngine/
 ├── VideoProcessor/                        # AVFoundation composition + chunk pipeline
 └── ProtocolParser/                        # protocol importer (implemented; imported from ScoringListView)
 docs/
-├── testing.md                            # per-scheme test counts + coverage (living record)
+├── ARCHITECTURE.md                        # this file — consolidated current-state spec
+├── HISTORY.md                             # rationale, dated decisions, record of change
+├── testing.md                             # per-scheme test counts + coverage (living record)
 └── architecture/                          # per-module docs (this file links here)
 ```
 
@@ -66,9 +72,9 @@ docs/
 `tuist generate`** and gitignored — never edit them by hand. Run `tuist generate` again after
 **every** `tuist test` run: the test command regenerates a narrowed project containing only the
 tested target's subgraph, which breaks later `tuist build` / Xcode opens until it's regenerated.
-`tuist test <FrameworkTarget>` is a silent no-op on Tuist 4.205 (zero tests, exit 0) — use
-`tuist test` with no scheme, or xcodebuild against a framework scheme for a single suite. See
-`AGENTS.md` → Build & Run.
+`tuist test <FrameworkTarget>` is a silent no-op (zero tests, exit 0) — use
+`tuist test` with no scheme, or xcodebuild against a framework scheme for a single suite.
+`AGENTS.md` → Build & Run has the exact commands.
 
 **Dependencies between modules:**
 
@@ -84,12 +90,10 @@ TechnicalOverlay (app)
 **State:** the project links **one third-party package** — SwiftSoup 2.14.2 (pinned exactly in
 `Project.swift`'s `packages:`, `Package.resolved` committed), used by `ProtocolParser` alone. The
 rest is Apple frameworks: SwiftUI, AVFoundation, CoreImage, UIKit, CoreMedia, Observation,
-UniformTypeIdentifiers. This is a *description of the current state*, **not a rule** — nothing in
-the project forbids another dependency, and a sentence elsewhere in the docs that reads as a ban is
-describing today, not setting policy.
+UniformTypeIdentifiers.
 
 **Policy:** use external dependencies **minimally**, and only when one provides an **obvious and
-well-fitted benefit over self-written code**. In practice, a candidate has to clear all of:
+well-fitted benefit over self-written code**. A candidate has to clear all of:
 
 - it removes real work — less code and fewer failure modes than writing it ourselves, not merely
   less typing;
@@ -101,9 +105,9 @@ well-fitted benefit over self-written code**. In practice, a candidate has to cl
   (a dependency with its own dependency tree is a different decision), and any behaviour it
   imposes on us.
 
-Record the decision, with those measurements, in the module doc that needs it and in the §8
-decision log. The worked example (and the template for how to argue this) is the HTML-parser
-question in `docs/architecture/protocol-parser.md` §4.1.
+Record the decision, with those measurements, as a row in [`docs/HISTORY.md`](HISTORY.md) and in the
+module doc that needs it. The worked example (and the template for how to argue this) is
+`docs/HISTORY.md` → *SwiftSoup adoption*.
 
 ## 3. Data Model
 
@@ -119,10 +123,8 @@ All data uses Apple's `@Observable` macro (Observation framework). The core mode
 ### 3.1 Scores are integer hundredths
 
 All score quantities are stored as **`Int` hundredths** (3.40 → `340`, −1.19 → `-119`), **not**
-`Double`. This avoids floating-point precision issues in comparisons and hashing, and is a
-deliberate, regression-guarded decision. Do not reintroduce `Double` for these fields.
-
-String↔Int conversion lives in a `String` extension (`numberCharacters()`, `onlyDigits()`,
+`Double`. Do not reintroduce `Double` for these fields: precision in comparisons and hashing is the
+reason. String↔Int conversion lives in a `String` extension (`numberCharacters()`, `onlyDigits()`,
 `toHundredthsInt()`), and `ElementData.formatValue(_:decimalPlaces:)` renders `w.ff` with a fixed
 fractional width.
 
@@ -152,9 +154,10 @@ scores, times) — used for cache-invalidation decisions in the chunk pipeline.
   `org.cjas.jhsu.overlay-document` (declared **exported only**, conforming to `public.json`).
   `fileType` is `UTType(exportedAs:)` — never `UTType(filenameExtension:)`, which silently returns
   a **dynamic** type when the extension is unregistered and can't be matched by the file importer.
-  The extension is `.tojson` rather than `.tod` because `.tod` is also claimed by VLC
-  (`org.videolan.tod`, conforms `public.movie`): when VLC's claim owns that tag, macOS types our
-  files as VLC's non-conforming type and the open panel greys every one of them out.
+  The extension is `.tojson`, never `.tod`: `.tod` is claimed by VLC as `public.movie`
+  (`org.videolan.tod`), and where that claim owns the tag macOS types our files as a non-conforming
+  type and the open panel greys every one of them out (`docs/HISTORY.md` → *Project
+  infrastructure*).
   Adding a persisted-model field must bump the version or stay backward-compatible.
 
 ## 5. Rendering & Composition
@@ -212,11 +215,10 @@ enqueue(slides:, videoDuration:)
 - **Stitcher**: `DefaultStitcher` (implements `StitcherProtocol`) builds a single
   `AVMutableComposition` with one video + one audio track and appends chunks sequentially,
   mapping absolute stitching ranges to local chunk times (`localTimeRange`) and advancing the
-  composition cursor by each **appended range** (not by the source track's own duration — that
-  was a bug that placed every chunk after the first at a wild offset). It requires the plan to
-  reach `videoDuration` exactly, and returns a `VideoComposer.ExportSession` — the file appears
-  only once the caller performs the export. Final export is **`.mp4`** via
-  `AVAssetExportPresetPassthrough`.
+  composition cursor by each **appended range**, never by the source track's own duration. It
+  requires the plan to reach `videoDuration` exactly, and returns a
+  `VideoComposer.ExportSession` — the file appears only once the caller performs the export. Final
+  export is **`.mp4`** via `AVAssetExportPresetPassthrough`.
 
 `MainView.generateSlides()` pre-enqueues slides into the queue so it is ready when the user taps
 "Save Video"; the export flow sets `exportPhase` (idle → rendering → stitching → done, or
@@ -253,6 +255,11 @@ idle** (fed by `ChunkQueueProgress.isRendering`). `ContentView.swift` is a **leg
 (hardcoded Scotty HSU test data) and `ElementBuilderView.swift` is a **placeholder (not wired
 in)** — the real entry point is `MainView`.
 
+**Two `AVURLAsset`s over one file, deliberately.** `generateSlides()` builds the player item from
+one and hands `DefaultChunkRenderer` a second. Sharing a single instance makes the preview and the
+chunk export contend for one asset's decode/compositor state, which freezes the app on a playhead
+drag. Do not re-merge them — `docs/HISTORY.md` → *Playhead freeze*.
+
 ## 7. Future Development (Backlog)
 
 - **Data Entry Aid** (`TODO.md`): reduce manual element entry via the `ProtocolParser` module,
@@ -262,34 +269,15 @@ in)** — the real entry point is `MainView`.
   **Import Protocol** button on `ScoringListView`; the display-name expansion for the imported
   abbreviations is wired into that import (`ElementNameExpander` — spec:
   [`docs/architecture/abbreviation-expansion.md`](docs/architecture/abbreviation-expansion.md)).
+  Remaining work: the **pairs and ice-dance** element vocabulary, and wiring the import into the
+  edit flow beyond `ScoringListView`.
 - **Polish / "Make it look nicer"** (`TODO.md`): visual refinements to overlays + editing UI;
   decide whether to delete legacy `ContentView` / stub `ElementBuilderView`.
 - **Incremental-export gains** are already designed into the chunk pipeline (reuse unchanged
   chunks when only one timestamp shifts) — the pieces exist; tuning/finishing is the work.
 
-## 8. Decision Log
+## 8. History & Rationale
 
-| Date | Decision |
-|------|----------|
-| 2025-10 → 11 | Scores in integer hundredths; cascading timing; `(size, mode)` image cache; UIKit→CIImage overlay rendering. |
-| 2025-11 | Chunk-based incremental rendering pipeline built (`generateRegions`/`diffRegionsIntoChunks`/`ChunkQueue`/`DefaultChunkRenderer`/`DefaultStitcher`), wired into the app's "Save Video" export flow. |
-| 2026-09-01 | `graphify-out/` deleted and Graphify commit/checkout hooks uninstalled — do not regenerate; not part of the project. |
-| 2026-09-01 | **Converted to Tuist.** `Project.swift`/`Config.swift` at repo root generate the project (`tuist generate`); generated `.xcodeproj`/`.xcworkspace` gitignored; the four hand-maintained `.xcodeproj` files removed. Platform is **iOS only (iPhone/iPad)** — LayoutEngine imports UIKit, so no native macOS target. Build/test via `tuist build` / `tuist test`. |
-| 2026-09-01 | Documentation consolidated: root `ARCHITECTURE.md` folded into `docs/ARCHITECTURE.md`; detailed module docs stay in `docs/architecture/`. |
-| 2026-10-10 | Tuist build/test commands re-verified (Tuist 4.205, Xcode 27.0 release). `tuist test <FrameworkTarget>` executes **zero tests** and exits 0; every `tuist test` run leaves a narrowed `.xcodeproj` that must be fixed with `tuist generate`. Documented the working commands; no manifest changes were needed. Known blockers are source bugs only: `MainView.swift` (app) and `DefaultStitcherTests.swift` (VideoProcessor test bundle) do not compile. |
-| 2026-10-10 | Overlay file extension `.tod` → **`.tojson`**, UTI renamed to exported-only `org.cjas.jhsu.overlay-document`. `.tod` was a filename-extension collision (VLC claims `org.videolan.tod` as `public.movie`), so macOS could type our files as a non-conforming type and the file importer greyed them all out; `UTType(exportedAs:)` replaces the dynamic-prone `UTType(filenameExtension:)` lookup, and the contradictory duplicate `UTImportedTypeDeclarations` entry is gone. Mirrors the fix already made on `inline-renderer`; there is no backward-compatibility shim, so existing `.tod` files must be renamed. |
-| 2026-10-10 | App runs on **Apple-silicon Macs as a "Designed for iPad" app**. Added `.macWithiPadDesign` to the shared target `destinations`, which makes Tuist emit `SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = YES` (it defaults to **NO**, and without it "My Mac" is not a run destination). Build with `-destination 'platform=macOS,arch=arm64,variant=Designed for iPad'`. Still no native macOS or Mac Catalyst target — `SUPPORTS_MACCATALYST = NO`, LayoutEngine stays UIKit/iOS. |
-| 2026-10-12 | Chunk-pipeline tracing added (plain `print`, per-chunk, `[ChunkQueue]`/`[ChunkRenderer]`/`[Stitcher]` prefixes). It immediately exposed a **stitcher bug**: `copyFrom` advanced the composition cursor by the source track's duration instead of the range it had appended, so every chunk after the first was written at a wild offset (a 3s slice of the 212s sample composed 212.5s). Fixed. Same pass: `DefaultStitcherTests` updated to the current contract (perform the export) and to pass `videoDuration` = the plan's end, app test bundles import the renamed module (`TechnicalOverlay`, not `Technical_Overlay`). All four test schemes now build and run. |
-| 2026-10-12 | Restored `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor` and `SWIFT_APPROACHABLE_CONCURRENCY = YES` on all targets. The Tuist conversion dropped them — they lived in the *project-level* settings of the old pbxproj — silently changing the concurrency model: `generateSlides()`'s `Task` left the main actor and `VideoOverlay.render` mutated `UILabel` layers off the main thread, which UIKit flags as illegal. The code was always written for default MainActor isolation (see the `nonisolated Codable` on `VersionedOverlayData`). |
-| 2026-10-12 | **`waitForCompletion()` fixed** — it returned while a chunk was still rendering (the drain started by `enqueue()` had dequeued it, so it was neither pending nor finished). `validChunks()` then omitted it, and the stitcher refused the plan, returning nil. That nil was the entire symptom of "Save Video does nothing": `MainView` resets to `.idle` and only writes to the console. The queue now keeps its drain task and awaits it. Regression test uses a renderer whose first render is 30× slower (the instant `FakeRenderer` could never see this race). |
-| 2026-10-12 | **Save flow: destination first.** "Save Video" asks for the destination *before* rendering — the save panel is given a zero-byte `SaveDestinationPlaceholder` and returns the chosen URL — then the passthrough export writes `.mp4` straight to it. That removes the old temp file plus `MovieDocument`'s `Data(contentsOf:)` copy of the finished video, and avoids requesting a second presentation while the progress sheet is up. The panel's placeholder file is deleted before exporting (`AVAssetExportSession` refuses to overwrite: -11823 "already in use"). `performExport()` now throws and `ExportPhase` gained `.failed(message)`, so a failure shows up in the sheet and cleans up the destination instead of silently resetting to `.idle`. |
-| 2026-10-12 | **Migrated the three composition builders off the deprecated Core Image filter API.** `videoComposition(with:applyingCIFiltersWithHandler:)` is deprecated as of iOS/macOS 27.0; the replacement is *not* a rename — it is `async throws`, the applier receives `AVCIImageFilteringParameters`, and it **returns** `AVCIImageFilteringResult(resultImage:ciContext: nil)` instead of calling `finish(with:context:)`, so the old statement-style branches became returning branches. Verified behaviour-preserving: identical composition pixels at five sample times across a dissolve, and a rendered chunk with identical duration / nominalFrameRate / naturalSize and identical decoded centre pixels (only ~8 bytes of bitstream differ). It does **not** change the simulator's CoreMedia `signalled err` notices — those come from the simulator media stack, not from this API choice. |
-| 2026-10-12 | **Background render indicator.** `ChunkQueueProgress` gained `isRendering`, reported on enqueue, at drain start, after each chunk and at drain end; `MainView` shows a dot at the end of the video button row — **yellow** while the queue has work queued or in flight, **green** once every renderable chunk is rendered and the queue is idle, grey when no video is loaded. Chunks left stale by a failed render don't count as work, so the dot settles instead of sitting yellow forever. |
-| 2026-10-12 | **Slides fade in from (and out to) noOverlay again.** `setupComposition(from:to:transitionStart:)` rendered the bare source frame whenever either side of a transition was nil, so the whole noOverlay ↔ slide chunk contained no overlay and the slide popped in at the next constant chunk; slide→slide dissolves were unaffected, which is why only the first transition looked wrong. A nil side now means "no overlay on that side" and dissolves against `CIImage.clear`, matching what the slide-based preview always did. The preview got the same treatment — it fed nil into the dissolve inputs and force-unwrapped `dissolve.outputImage`, which is nil once a `.none` slide (the app creates them) enters its transition window. |
-| 2026-10-14 | **`ProtocolParser` implemented** (`LayoutEngine/ProtocolParser/ProtocolParser/`): page classification, judge-detail link extraction, segment parsing to integer-hundredths element values, normalized skater selection, the `ProtocolFetching` seam and `ProtocolImporter`. App side: `TechnicalOverlay/ProtocolImport.swift` with the index-keyed, timing-preserving `OverlayData.merge(_:)`. Manifest: the app and its test bundle now depend on `ProtocolParser`, which carries the SwiftSoup package. Tests: ProtocolParser 39/39, app unit tests 14/14, the invariant sweep over the 825 committed fixture rows. Two spec corrections fell out of implementing it — the page classifier needs non-link leaderboard signals, and the `inHTML:baseURL:` entry point is `async` — both documented in the module doc §7.2/§12. The import UI followed: an **Import Protocol** button on `ScoringListView`, to the left of **Add Element**, driven by `ProtocolImportModel` (module doc §8.2). |
-| 2026-10-14 | **Dependency policy stated explicitly** (`docs/ARCHITECTURE.md` §2.2). The "zero external dependencies" line was a description of the project's *state*, not a rule; it is now written as such, with the actual policy: dependencies are used minimally and only when one gives an obvious, well-fitted benefit over self-written code (less code and fewer failure modes, well-fitted to the job, maintained, verified to build for our targets, with measured costs and no transitive footprint). Decisions are recorded with their measurements. |
-| 2026-10-14 | **`ProtocolParser` designed** (no code yet). The module imports a skater's executed elements from the published protocol: a leaderboard page (`CATnnnSEGnnn.html`) is followed through its `<LI class="judgeDetailRef">` anchor to the static segment detail page (`SEGMnnn.html`), which is parsed. A missing anchor is an error (`.detailLinkMissing`), not a fallback — the leaderboard page's inline `detailScoreElm` table has no bonus column. Full spec, column mapping, API and verification (10 segment pages — singles and pairs — 85 skaters / 717 element rows, `bv + goe + bonus == psv` on all of them; the row count was re-measured 2026-10-15, see the module doc §12) in `docs/architecture/protocol-parser.md`; the import **merge is index-keyed and timing-preserving** (§8.1) so a re-import never discards the user's `displayTime` values. **All seven design questions are resolved** (§10, 2026-10-14): the `info` column is never used; no leaderboard-page data is ever imported (a missing judge-detail link is an error, not a fallback); zero-value elements are always imported; `panelScore` is kept for sanity checking only; sibling segments are never navigated; SwiftSoup is adopted for parsing. |
-| 2026-10-14 | **First external dependency adopted: SwiftSoup 2.14.2** for `ProtocolParser`'s HTML parsing — decided by the user (§10g) and now wired in (MIT, pure Swift, no transitive dependencies; module doc §4.1). A spike implemented both a hand-rolled scanner and the SwiftSoup version over 16 fixture pages: identical output on 825 element rows, SwiftSoup 3× faster (139 ms vs 430 ms), 58 vs 162 lines — and the hand-rolled variant produced two *silent* wrong-value bugs (entity-decode ordering; `Int("-0") == 0` losing signs below 1.00, which broke 268 rows) that only the `bv + goe + bonus == psv` invariant exposed. Verified to compile for `arm64-apple-ios15.0-simulator` inside this project; costs measured at ~5 s added to a clean Debug build, ~46 s to a clean Release build, and ~4 MB per architecture. |
-| 2026-10-15 | **Singles element-abbreviation expansion implemented** (`LayoutEngine/ProtocolParser/ProtocolParser/ElementNameExpander.swift`, spec and rules in [`docs/architecture/abbreviation-expansion.md`](docs/architecture/abbreviation-expansion.md)). `ElementNameTranslating` (identity default) plus `ElementNameExpander`: jumps as `<revolutions> <name>` (`3S` → `3 Salchow`, `Eu` → `Euler`, never `1 Euler`), spins as `<name> <level>` using the short call names (`CCoSp4` → `Change Combo Spin 4`, not "Change Foot Combination Spin") with `V` after the level and space-separated from it (`CCoSpBV` → `…Spin B V`) and the name alone when the protocol called no level (`CoSp`), `StSqN` → `Step Sequence N`, `ChSq1` / `ChSp1` / `pChSq1` → `Choreo Sequence 1` / `Choreo Spin 1` / `Choreo Sequence 1` (`Choreographic` shortened, digit kept, `p` prefix dropped); parts joined by ` + `, `*` → `(Invalid)` per token, unknown tokens verbatim. `ElementNameExpanderTests.swift` adds 17 tests — **ProtocolParser is now 56/56 over 7 suites** — including a sweep that classifies **535/535** singles fixture rows with zero verbatim passthrough and checks all 825 rows of the eleven committed pages for a well-formed name. **Wired into the app the same day**: `ElementData.init(_ element:translator:)` and `OverlayData.merge(_:translator:)` write the display name on both merge paths, the translator injectable and defaulted to `ElementNameExpander()` (spec §7/§10). |
-| 2026-10-15 | **Dragging the playhead no longer deadlocks the app.** The preview's CIFilter composition made every seek run `FigVideoCompositionProcessorSetPlaybackTimeRange` → `AVCoreImageFilterCustomVideoCompositor.cancelAllPendingVideoCompositionRequests`, whose `dispatch_group_wait` for outstanding frame requests runs as a barrier on the compositor session's own serial `clientcustomcompositorq`, while MediaToolbox holds the lock `AVPlayerItem.currentTime` takes — and AVKit polls `currentTime` on the main thread every scrub tick, so the whole app wedged (beachball; main thread parked in `__psynch_mutexwait` under `-[AVPlayerController updateAtMinMaxTime]`). **Fix:** the preview builder (`setupComposition()`) now pre-renders each frame through a shared `CIContext` and hands AVFoundation a `CGImage`-backed image (`filteringResult(_:over:)`) instead of a recipe it renders later, on the request being cancelled. Reproduced headlessly (seek-drag loop + `AVPlayerItemVideoOutput` frame puller + `sample` on wedge) with a hand-written composition containing no app code: the lazy applier wedges after **2** seeks, `ci-trivial` (returns `request.sourceImage` untouched) wedges just the same, while pre-rendering lands **400/400** and still composites the overlay (checked pixel-for-pixel). Controls: no composition and a plain `AVMutableVideoComposition` never wedge; seeking one-at-a-time and awaited is also safe (that is why *clicking* the scrubber always worked); a Core Animation overlay tool (`AVVideoCompositionCoreAnimationTool`) is not an alternative — it raises on playback. The chunk-renderer builders keep returning recipes, so exported pixels are unchanged. |
-| 2026-10-16 | **The residual playhead freeze: the preview now owns its compositor, and the chunk renderer gets its own asset.** The 2026-10-15 pre-render fix narrowed the cancel-path wedge but did not remove it: a third freeze showed the *same* stack — main thread parked in `AVPlayerItem.currentTime`, `clientcustomcompositorq` parked in `AVCoreImageFilterCustomVideoCompositor.cancelAllPendingVideoCompositionRequests`'s `dispatch_group_wait` — this time with the chunk queue rendering (`mediaprocessor.videocompression` / `remaker.videoprocessor` / `formatwriter.qtmovie` all alive). Two mechanisms were at work, and they are fixed on opposite sides. **(1) The player's own session:** `setupComposition()` no longer builds the preview with `AVVideoComposition(applyingFiltersTo:applier:)`. It builds an `AVVideoComposition.Configuration` with `customVideoCompositorClass = PreviewVideoCompositor.self`, a Core Image `AVVideoCompositing` whose `cancelAllPendingVideoCompositionRequests()` deliberately waits for nothing — a cancelled frame is simply never finished. A seek's cancel path therefore always returns instead of waiting on a frame request that is itself stuck behind it, which is exactly what kept the main thread blocked. The compositor bakes in the video track's `preferredTransform` (custom compositors are handed raw frames) and runs the same slide/dissolve program the chunk renderer runs, so the preview still matches the export. **(2) The shared asset:** `MainView.generateSlides()` now hands `DefaultChunkRenderer` its **own `AVURLAsset`** over the same file instead of the asset the player item uses — the chunk export and the preview otherwise contend for one asset's decode/compositor state. **Measured** (`scripts/probe-scrub-deadlock.swift`: a human-paced drag, ~5 seeks/s for a minute, with 2-second chunk exports draining back to back): with a video composition on the player item and a **shared** asset the drag stalls >20 s in 3 of 9 runs; with a separate asset it did not reproduce in 8/8 (suggestive, p ≈ 0.08 — the stall is a race, so re-run the probe several times before trusting a single result). **Load-bearing measurement:** with **no** composition on the player item the same drag lands 300/300 seeks while 125 chunk exports run, so the composed-frame path is a precondition and the compositor work above is what removes it. **If the freeze ever recurs**, two further mitigations each measured clean: compositing the preview with a CPU context (`CIContext(options: [.useSoftwareRenderer: true])`, costs preview frame rate) and idling ~0.6 s between chunk renders (costs queue throughput). The structural route beyond both — `AVPlayerLayer` + `AVSynchronizedLayer` overlays, no video composition in the preview at all — remains open. |
+Dated decisions, the measurements behind them, rejected alternatives and bug post-mortems live in
+[`docs/HISTORY.md`](HISTORY.md), which opens with a chronological decision ledger going back to
+2025-10. This section is a pointer, not a copy: **rationale goes there, rules stay here.**
