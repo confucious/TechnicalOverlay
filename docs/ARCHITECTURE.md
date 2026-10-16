@@ -1,6 +1,6 @@
 # TechnicalOverlay — Architecture & Specification
 
-> **Status**: Living spec · **Last updated**: 2026-09-01
+> **Status**: Living spec · **Last updated**: 2026-10-16
 > **Source of truth for the project.** Detailed per-module docs live in
 > [`docs/architecture/`](#2-module-docs). For day-to-day build/test/run commands see
 > [`AGENTS.md`](AGENTS.md) at the repo root. This document consolidates that material into a

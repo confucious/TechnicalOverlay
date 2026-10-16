@@ -137,7 +137,7 @@ LayoutEngine/                           # Shared library sources (one Tuist proj
 │   ├── IsuTechnicalPaneView.swift     # Technical scoring overlay
 │   └── TechnicalPaneComponents/       # 5 subviews (ElementBoxView, etc.)
 ├── LayoutEngine/VideoProcessor/VideoProcessor/   # AVFoundation pipeline
-│   ├── VideoProcessor.swift           # Slide, VideoComposer, ExportSession
+│   ├── VideoProcessor.swift           # Slide, VideoComposer, ExportSession, PreviewVideoCompositor
 │   ├── DefaultChunkRenderer.swift     # ChunkRendererProtocol impl
 │   └── DefaultStitcher.swift          # StitcherProtocol impl
 ├── LayoutEngine/LayoutEngineTests/
@@ -232,15 +232,21 @@ User exports (MainView "Save Video" button)
 
 ## Testing
 
-Tests live in separate Xcode test targets alongside each framework. The most comprehensive coverage is in `VideoProcessorTests/DiffAlgorithmTests.swift` (chunk diffing algorithm). Use `tuist test` (see Build & Run above).
+Tests live in separate Xcode test targets alongside each framework. The most comprehensive coverage is in `VideoProcessorTests/DiffAlgorithmTests.swift` (chunk diffing algorithm). Run them with the `xcodebuild` commands in Build & Run above — **not** `tuist test <FrameworkTarget>`, which executes zero tests. Per-scheme counts and coverage: [`docs/testing.md`](docs/testing.md).
 
 ## Gotchas
 
-- The three composition builders in `VideoComposer` use `AVVideoComposition(applyingFiltersTo:applier:)`,
-  whose handler returns `AVCIImageFilteringResult(resultImage:ciContext: nil)`. The older
+- The three **chunk-renderer** builders in `VideoComposer` use
+  `AVVideoComposition(applyingFiltersTo:applier:)`, whose handler returns
+  `AVCIImageFilteringResult(resultImage:ciContext: nil)`. The older
   `videoComposition(with:applyingCIFiltersWithHandler:)` factory is deprecated as of iOS/macOS 27.0.
   A nil image on either side of `setupComposition(from:to:transitionStart:)` means "no overlay on
   that side" (dissolve against `CIImage.clear`) — that is the noOverlay ↔ slide fade.
+- `setupComposition()` — the **preview** composition, the only one attached to an `AVPlayerItem` — is
+  deliberately *not* one of those: it sets `customVideoCompositorClass` to `PreviewVideoCompositor`,
+  our own `AVVideoCompositing`, because the filter API's compositor deadlocks a playhead drag. Do not
+  "simplify" it back, and do not share one `AVURLAsset` between the player item and the chunk
+  exporter (see `docs/ARCHITECTURE.md` §8, 2026-10-15/16).
 - `ContentView.swift` is a **legacy prototype** with hardcoded test data. Main entry point is `MainView`.
 - `ElementBuilderView.swift` is a **placeholder** — not wired into the app.
 - `Metrics.transitionTime = 0.75` in `VideoProcessor` — the dissolve duration, used everywhere in video composition.
