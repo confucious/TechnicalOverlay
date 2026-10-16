@@ -163,7 +163,16 @@ struct MainView: View {
                 // Create chunk queue for incremental rendering pipeline
                 let queue = chunkQueue ?? ChunkQueue(
                     renderer: DefaultChunkRenderer(
-                        sourceAsset: asset,
+                        // A *second* AVURLAsset over the same file, deliberately. The chunk renders
+                        // run while the video is on screen, and sharing one asset instance between
+                        // the player item and the exporter makes the two pipelines contend for its
+                        // decode/compositor state: with a video composition on the player item,
+                        // sustained chunk exports block the player's own `currentTime` for tens of
+                        // seconds at a time — and AVKit reads `currentTime` on the main thread every
+                        // scrub tick, so the app freezes mid-drag. Measured headlessly: 0/3 drags
+                        // survive the shared asset, 4/4 with a separate one (decision log
+                        // 2026-10-16).
+                        sourceAsset: AVURLAsset(url: url),
                         outputDirectory: FileManager.default.temporaryDirectory
                     ),
                     transitionTime: CMTime(seconds: Metrics.transitionTime, preferredTimescale: 1000)

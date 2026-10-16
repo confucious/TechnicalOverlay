@@ -27,10 +27,136 @@ public enum Metrics {
 /// for `videoComposition(with:applyingCIFiltersWithHandler:)`, which Apple deprecated in
 /// iOS/macOS 27.0. A nil `ciContext` asks the compositor to use its own context, matching what the
 /// old `finish(with:context: nil)` did.
-private func filteringResult(_ image: CIImage) -> AVCIImageFilteringResult {
+nonisolated private func filteringResult(_ image: CIImage) -> AVCIImageFilteringResult {
     AVCIImageFilteringResult(resultImage: image, ciContext: nil)
 }
 
+// MARK: - Preview compositor
+
+/// Everything the preview compositor needs to draw a frame.
+///
+/// AVFoundation instantiates a custom compositor itself (`init()`), so the recipe is published here
+/// by `setupComposition()` rather than handed to the instance. The app keeps exactly one preview
+/// composition — and therefore one live compositor — at a time.
+nonisolated struct PreviewRecipe: Sendable {
+    var slides: [Slide] = []
+    var preferredTransform: CGAffineTransform = .identity
+    /// Supplied by `setupComposition()`: `Metrics` is main-actor isolated, and the recipe is read
+    /// from the compositor's own thread.
+    var transitionTime: CMTime = CMTime(seconds: 0.75, preferredTimescale: 1000)
+}
+
+/// `PreviewRecipe` is written from the main actor and read from the compositor's own thread.
+private nonisolated final class PreviewRecipeBox: @unchecked Sendable {
+    private let lock = NSLock()
+    private var recipe = PreviewRecipe()
+
+    var current: PreviewRecipe {
+        get { lock.lock(); defer { lock.unlock() }; return recipe }
+        set { lock.lock(); recipe = newValue; lock.unlock() }
+    }
+}
+
+nonisolated private let previewRecipe = PreviewRecipeBox()
+
+/// The **preview**'s frame applier — the compositor behind `setupComposition()`, and the reason
+/// `setupComposition()` no longer uses `AVVideoComposition(applyingFiltersTo:applier:)`.
+///
+/// That API's Core Image compositor (`AVCoreImageFilterCustomVideoCompositor`) deadlocks the app
+/// while the user drags the playhead: every seek runs
+/// `FigVideoCompositionProcessorSetPlaybackTimeRange` →
+/// `AVCoreImageFilterCustomVideoCompositor.cancelAllPendingVideoCompositionRequests`, which blocks
+/// in a `dispatch_group_wait` for the session's outstanding frame requests — executed as a barrier
+/// on the compositor session's own serial queue, the very queue those requests need. MediaToolbox
+/// holds its lock across that call, and AVKit polls `AVPlayerItem.currentTime` from the main thread
+/// on every scrub tick, so the app parks in `__psynch_mutexwait` under
+/// `-[AVPlayerController updateAtMinMaxTime]` and never comes back.
+///
+/// Pre-rendering the image the applier returns shrinks that window a lot — a headless 400-seek
+/// repro wedges after two seeks lazily and survives all 400 that way — but not to nothing: with a
+/// chunk export competing for the same pipeline a frame request can still outlive the gap between
+/// two seeks, and the cancel then wedges exactly as before. Owning the compositor closes it for
+/// good, because there is nothing to wait for: frames are composited synchronously in
+/// `startRequest`, and an interrupted request is dropped by never calling `finish` on it.
+///
+/// The recipe is the same Core Image program the chunk renderer runs, so the preview keeps matching
+/// what the export writes out.
+public final class PreviewVideoCompositor: NSObject, AVVideoCompositing, @unchecked Sendable {
+    private let context = CIContext(options: [.cacheIntermediates: false])
+
+    public nonisolated var sourcePixelBufferAttributes: [String: any Sendable]? {
+        // Advertise what a 1080p source can arrive in; the render context then converts to the
+        // format asked for below instead of failing the composition.
+        [kCVPixelBufferPixelFormatTypeKey as String: [
+            Int(kCVPixelFormatType_32BGRA),
+            Int(kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange),
+            Int(kCVPixelFormatType_420YpCbCr8BiPlanarFullRange)
+        ]]
+    }
+
+    public nonisolated var requiredPixelBufferAttributesForRenderContext: [String: any Sendable] {
+        [kCVPixelBufferPixelFormatTypeKey as String: Int(kCVPixelFormatType_32BGRA)]
+    }
+
+    public nonisolated func renderContextChanged(_ newRenderContext: AVVideoCompositionRenderContext) {}
+
+    /// Deliberately does not wait for anything — waiting here is the bug this type exists to avoid.
+    /// A request that has been cancelled is simply never finished.
+    public nonisolated func cancelAllPendingVideoCompositionRequests() {}
+
+    public nonisolated func startRequest(_ request: AVAsynchronousVideoCompositionRequest) {
+        guard let trackID = request.sourceTrackIDs.first?.int32Value,
+              let sourceFrame = request.sourceFrame(byTrackID: trackID),
+              let destination = request.renderContext.newPixelBuffer()
+        else {
+            request.finish(with: PreviewCompositorError.missingSourceFrame)
+            return
+        }
+
+        let recipe = previewRecipe.current
+        // A custom compositor is handed the raw source frame: the layer instruction's transform is
+        // not applied for us, so the track's preferred orientation has to be baked in here.
+        let oriented = CIImage(cvPixelBuffer: sourceFrame)
+            .transformed(by: recipe.preferredTransform)
+        let source = oriented.transformed(
+            by: CGAffineTransform(
+                translationX: -oriented.extent.origin.x,
+                y: -oriented.extent.origin.y
+            )
+        )
+        context.render(
+            composited(source, at: request.compositionTime, recipe: recipe),
+            to: destination
+        )
+        request.finish(withComposedVideoFrame: destination)
+    }
+
+    /// The slide that owns `time`, faded in from (or out to) the one before it while a transition
+    /// is in progress — the same program the chunk renderer runs, where a nil image means "no
+    /// overlay on that side", not "nothing to render".
+    private nonisolated func composited(_ source: CIImage, at time: CMTime, recipe: PreviewRecipe) -> CIImage {
+        let slides = recipe.slides
+        let indexed = slides.enumerated().last { (_, slide) in time >= slide.startTime }
+        guard let indexed else { return source }
+
+        let index = indexed.offset
+        let slide = indexed.element
+        let diff = time - slide.startTime
+        if diff <= recipe.transitionTime {
+            let dissolve = CIFilter.dissolveTransition()
+            dissolve.inputImage = (index > 0 ? slides[index - 1].image : nil) ?? CIImage.clear
+            dissolve.targetImage = slide.image ?? CIImage.clear
+            dissolve.time = Float(diff.seconds / recipe.transitionTime.seconds)
+            return dissolve.outputImage?.composited(over: source) ?? source
+        }
+        guard let image = slide.image else { return source }
+        return image.composited(over: source)
+    }
+}
+
+enum PreviewCompositorError: Error {
+    case missingSourceFrame
+}
 public class VideoComposer {
     
     var asset: AVAsset
@@ -43,47 +169,39 @@ public class VideoComposer {
         })
     }
     
+    /// Builds the **preview** composition — the one attached to the `AVPlayerItem`.
+    ///
+    /// Unlike the chunk-renderer builders below, this does **not** go through
+    /// `AVVideoComposition(applyingFiltersTo:applier:)`. Its Core Image compositor's cancel path is
+    /// what parks the main thread in `AVPlayerItem.currentTime` on every seek while the chunk queue
+    /// renders (the whole story, with the stacks, is on `PreviewVideoCompositor`). Frames are
+    /// composited by `PreviewVideoCompositor` instead, driven by the recipe published here.
     public func setupComposition() async throws -> AVVideoComposition? {
-        return try await AVVideoComposition(applyingFiltersTo: asset) { [slides] request in
-                // find slide appropriate for the compositionTime
-                let indexedSlide = slides.enumerated().last { (_, slide) in
-                    return request.compositionTime >= slide.startTime
-                }
-                if let indexedSlide {
-                    let index = indexedSlide.offset
-                    // A nil image means "no overlay" on that side, not "nothing to render":
-                    // dissolving against a clear image is what fades a slide in from (or out to)
-                    // noOverlay, and it keeps this in step with the chunk-rendering path.
-                    let previousImage = index > 0 ? slides[index - 1].image : nil
-                    let slide = indexedSlide.element
-//                    print("Found slide \(slide.startTime)")
-                    let diff = request.compositionTime - slide.startTime
-                    if diff <= CMTime(
-                        seconds: Metrics.transitionTime,
-                        preferredTimescale: 1000
-                    ) {
-                        let dissolve = CIFilter.dissolveTransition()
-                        dissolve.inputImage = previousImage ?? CIImage.clear
-                        dissolve.targetImage = slide.image ?? CIImage.clear
-                        dissolve.time = Float(
-                            diff.seconds / Metrics.transitionTime
-                        )
-                        return filteringResult(
-                            dissolve.outputImage?
-                                .composited(over: request.sourceImage)
-                                ?? request.sourceImage
-                        )
-                    } else if let slideImage = slide.image {
-                        return filteringResult(
-                            slideImage.composited(over: request.sourceImage)
-                        )
-                    } else {
-                        return filteringResult(request.sourceImage)
-                    }
-                } else {
-                    return filteringResult(request.sourceImage)
-                }
-            }
+        let tracks = try await asset.load(.tracks)
+        guard let videoTrack = tracks.first(where: { $0.mediaType == .video }) else {
+            print("No video track to compose for")
+            return nil
+        }
+        let duration = try await asset.load(.duration)
+        previewRecipe.current = PreviewRecipe(
+            slides: slides,
+            preferredTransform: (try? await videoTrack.load(.preferredTransform)) ?? .identity,
+            transitionTime: CMTime(seconds: Metrics.transitionTime, preferredTimescale: 1000)
+        )
+
+        var configuration = try await AVVideoComposition.Configuration(for: asset)
+        configuration.customVideoCompositorClass = PreviewVideoCompositor.self
+
+        var instruction = AVVideoCompositionInstruction.Configuration()
+        instruction.timeRange = CMTimeRange(start: .zero, duration: duration)
+        instruction.enablePostProcessing = false
+        // `requiredSourceTrackIDs` is computed from the layer instructions, so the compositor is
+        // only handed frames for this track if the track is declared here.
+        instruction.layerInstructions = [
+            AVVideoCompositionLayerInstruction(configuration: .init(assetTrack: videoTrack))
+        ]
+        configuration.instructions = [AVVideoCompositionInstruction(configuration: instruction)]
+        return AVVideoComposition(configuration: configuration)
     }
     
     public func setupExport(

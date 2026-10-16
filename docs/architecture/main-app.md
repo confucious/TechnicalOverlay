@@ -57,6 +57,14 @@ MainView (root)
        └── fileImporter (.movie) → ViewModel.assetUrl → generateSlides() → new VideoComposer → replace player item
 ```
 
+**Two assets, on purpose.** `generateSlides()` builds the player item from one `AVURLAsset` and
+hands the chunk renderer a *second* `AVURLAsset` over the same file. The chunk queue renders while
+the video is on screen, and sharing a single asset instance makes the two pipelines contend for its
+decode/compositor state: with a video composition on the player item, chunk exports drained back to
+back block the player's own `AVPlayerItem.currentTime` for tens of seconds, and AVKit reads
+`currentTime` on the main thread on every scrub tick — so the whole app freezes mid-drag. Do not
+re-merge them; see the decision log (2026-10-16) and `scripts/probe-scrub-deadlock.swift`.
+
 ## File I/O
 
 | Format | Mechanism | Details |
