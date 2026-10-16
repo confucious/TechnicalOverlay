@@ -28,8 +28,7 @@ final class FakeRenderer: ChunkRendererProtocol, @unchecked Sendable {
 // MARK: - Slow Renderer
 
 /// Renderer that takes real time, so a chunk can still be in flight while another caller waits.
-/// The first render is deliberately much slower than the rest: with a prompt renderer the race
-/// this guards against is invisible (every chunk finishes before anyone looks).
+/// The first render is much slower than the rest.
 final class SlowRenderer: ChunkRendererProtocol, @unchecked Sendable {
 
     private(set) var rendered: [Chunk] = []
@@ -73,10 +72,8 @@ final class SlowRenderer: ChunkRendererProtocol, @unchecked Sendable {
         #expect(renderer.rendered.count == renderable.count)
     }
 
-    /// Regression: enqueue() starts its own drain, so a chunk can be in flight when
-    /// waitForCompletion() is called. It used to return as soon as nothing was *pending*,
-    /// leaving that chunk unrendered — the caller then stitched a plan with a hole in it and
-    /// the stitcher refused it (the app's "Save Video" produced nothing at all).
+    /// `waitForCompletion()` must wait for a render that is already in flight: `enqueue()` starts its
+    /// own drain, so a chunk can be dequeued but unfinished when it is called.
     @Test func waitForCompletionWaitsForAnInFlightRender() async {
         let slowRenderer = SlowRenderer()
         let slowQueue = ChunkQueue(renderer: slowRenderer, transitionTime: transitionTime)

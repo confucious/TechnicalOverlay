@@ -103,9 +103,8 @@ extension DefaultStitcher: StitcherProtocol {
                 appended = true
             }
             
-            // The composition timeline grows by the range we just appended — not by the source
-            // track's own duration. Advancing by the track duration sent every chunk after the
-            // first to a wild offset (a 3s slice of a 212s source moved the cursor to 212s).
+            // The composition timeline grows by the range we just appended — never by the source
+            // track's own duration.
             if appended {
                 currentTime = CMTimeAdd(currentTime, timeRange.duration)
             }

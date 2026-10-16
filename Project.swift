@@ -3,17 +3,15 @@ import ProjectDescription
 // MARK: - Shared settings
 
 let deploymentTarget = DeploymentTargets.iOS("26.0")
-// `.macWithiPadDesign` is what makes the app runnable on Apple-silicon Macs as a
-// "Designed for iPad" app: Tuist emits SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = YES
-// (it defaults to NO) and "My Mac (Designed for iPad)" becomes a run destination.
-// This is NOT Mac Catalyst — SUPPORTS_MACCATALYST stays NO.
+// `.macWithiPadDesign` makes "My Mac (Designed for iPad)" a run destination on Apple-silicon Macs:
+// Tuist then emits SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = YES (it defaults to NO). Not Mac
+// Catalyst — SUPPORTS_MACCATALYST stays NO.
 let destinations: Destinations = [.iPhone, .iPad, .macWithiPadDesign]
 
-// Shared base settings for all targets (matches the previous hand-maintained projects).
-// SWIFT_DEFAULT_ACTOR_ISOLATION/SWIFT_APPROACHABLE_CONCURRENCY are what every pre-Tuist target
-// declared: without default MainActor isolation, code written for it (the `nonisolated`
-// annotations on the model types, and the UIKit overlay rendering) runs off the main actor —
-// which produced "Modifying properties of a view's layer off the main thread" at runtime.
+// Shared base settings for all targets. SWIFT_DEFAULT_ACTOR_ISOLATION and
+// SWIFT_APPROACHABLE_CONCURRENCY are required: without default MainActor isolation, code written for
+// it (the `nonisolated` annotations on the model types, the UIKit overlay rendering) runs off the
+// main actor (`docs/HISTORY.md` → *Project infrastructure*).
 let baseSettings: SettingsDictionary = [
     "SWIFT_VERSION": "5.0",
     "SWIFT_APPROACHABLE_CONCURRENCY": "YES",

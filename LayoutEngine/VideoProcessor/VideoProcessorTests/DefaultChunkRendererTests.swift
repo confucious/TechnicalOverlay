@@ -189,11 +189,8 @@ struct DefaultChunkRendererTests {
 
     // MARK: - noOverlay ↔ overlay transition
 
-    /// Regression: a `.transition(from: nil, to: image)` chunk — the chunk that carries a slide
-    /// fading in from noOverlay — used to render as bare source, so the slide popped into view at
-    /// the next constant chunk instead of fading in. The chunk returns a bare source frame when
-    /// either side of the transition is nil; both sides must be treated as "no overlay", with the
-    /// dissolve running into/out of the plain source frame.
+    /// A `.transition(from: nil, to: image)` chunk — a slide fading in from noOverlay — dissolves
+    /// against the plain source frame: a nil side means "no overlay", not "nothing to render".
     @Test func transitionFromNoOverlayFadesTheOverlayIn() async throws {
         guard let asset = makeTestAsset() else {
             return

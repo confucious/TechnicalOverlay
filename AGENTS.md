@@ -180,6 +180,10 @@ opens with a chronological decision ledger and then one section per topic.
   subsection in `HISTORY.md` — in the same change as the doc edit, never later.
 - **Test counts, coverage and "verified on <date>"** belong in `docs/testing.md`; never here or in a
   doc.
+- **Source comments follow the same rule:** say what the code does and the rules it has to keep — no
+  rationale, no dates, no "this used to…", no bug stories. Where a comment guards a constraint, keep
+  one line plus a pointer (`// Do not re-merge them — docs/HISTORY.md → *Playhead freeze*`). Test
+  comments state what is asserted, not what once broke.
 - **Why:** these docs are read into a session before it can work, so every line of history in them is
   context that gets re-read every time instead of looked up on demand. A stale snapshot in a doc is
   also re-taught instead of corrected — the same reason `AGENTS.md` has no test-count table.

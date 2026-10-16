@@ -69,8 +69,8 @@ public enum ProtocolHTMLParser {
         var matchedTables = 0
 
         // Walk the tables in document order: a skater's elements come from the *next* element table
-        // after their summary table, so a section that has no element table fails on its own name
-        // instead of borrowing the next skater's (§4.4).
+        // after their summary table, so a section with no element table fails on its own name
+        // (§4.4).
         for table in (try? document.select("table"))?.array() ?? [] {
             let classes = (try? table.className())?.split(separator: " ").map(String.init) ?? []
             if classes.contains("sum") {

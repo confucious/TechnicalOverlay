@@ -23,10 +23,9 @@ public enum Metrics {
     public static let transitionTime = 0.75
 }
 
-/// Wraps a composited frame for `AVVideoComposition(applyingFiltersTo:applier:)` — the replacement
-/// for `videoComposition(with:applyingCIFiltersWithHandler:)`, which Apple deprecated in
-/// iOS/macOS 27.0. A nil `ciContext` asks the compositor to use its own context, matching what the
-/// old `finish(with:context: nil)` did.
+/// Wraps a composited frame for `AVVideoComposition(applyingFiltersTo:applier:)`, which replaces the
+/// deprecated `videoComposition(with:applyingCIFiltersWithHandler:)`. A nil `ciContext` asks the
+/// compositor to use its own context.
 nonisolated private func filteringResult(_ image: CIImage) -> AVCIImageFilteringResult {
     AVCIImageFilteringResult(resultImage: image, ciContext: nil)
 }
@@ -59,25 +58,14 @@ private nonisolated final class PreviewRecipeBox: @unchecked Sendable {
 
 nonisolated private let previewRecipe = PreviewRecipeBox()
 
-/// The **preview**'s frame applier — the compositor behind `setupComposition()`, and the reason
-/// `setupComposition()` no longer uses `AVVideoComposition(applyingFiltersTo:applier:)`.
+/// The **preview**'s frame applier — the compositor behind `setupComposition()`, which therefore
+/// does not use `AVVideoComposition(applyingFiltersTo:applier:)`.
 ///
-/// That API's Core Image compositor (`AVCoreImageFilterCustomVideoCompositor`) deadlocks the app
-/// while the user drags the playhead: every seek runs
-/// `FigVideoCompositionProcessorSetPlaybackTimeRange` →
-/// `AVCoreImageFilterCustomVideoCompositor.cancelAllPendingVideoCompositionRequests`, which blocks
-/// in a `dispatch_group_wait` for the session's outstanding frame requests — executed as a barrier
-/// on the compositor session's own serial queue, the very queue those requests need. MediaToolbox
-/// holds its lock across that call, and AVKit polls `AVPlayerItem.currentTime` from the main thread
-/// on every scrub tick, so the app parks in `__psynch_mutexwait` under
-/// `-[AVPlayerController updateAtMinMaxTime]` and never comes back.
-///
-/// Pre-rendering the image the applier returns shrinks that window a lot — a headless 400-seek
-/// repro wedges after two seeks lazily and survives all 400 that way — but not to nothing: with a
-/// chunk export competing for the same pipeline a frame request can still outlive the gap between
-/// two seeks, and the cancel then wedges exactly as before. Owning the compositor closes it for
-/// good, because there is nothing to wait for: frames are composited synchronously in
-/// `startRequest`, and an interrupted request is dropped by never calling `finish` on it.
+/// It owns the preview's compositing so that a cancelled frame request never blocks: frames are
+/// composited synchronously in `startRequest`, and an interrupted request is dropped by never calling
+/// `finish` on it. AVFoundation's own Core Image compositor waits for outstanding requests in its
+/// cancel path, which stalls the main thread on a playhead drag — **do not** put the preview back on
+/// the filter API (`docs/HISTORY.md` → *Playhead freeze*).
 ///
 /// The recipe is the same Core Image program the chunk renderer runs, so the preview keeps matching
 /// what the export writes out.
@@ -100,8 +88,8 @@ public final class PreviewVideoCompositor: NSObject, AVVideoCompositing, @unchec
 
     public nonisolated func renderContextChanged(_ newRenderContext: AVVideoCompositionRenderContext) {}
 
-    /// Deliberately does not wait for anything — waiting here is the bug this type exists to avoid.
-    /// A request that has been cancelled is simply never finished.
+    /// Returns immediately: a request that has been cancelled is simply never finished. Waiting here
+    /// is what stalls the main thread on a playhead drag (`docs/HISTORY.md` → *Playhead freeze*).
     public nonisolated func cancelAllPendingVideoCompositionRequests() {}
 
     public nonisolated func startRequest(_ request: AVAsynchronousVideoCompositionRequest) {
@@ -172,10 +160,9 @@ public class VideoComposer {
     /// Builds the **preview** composition — the one attached to the `AVPlayerItem`.
     ///
     /// Unlike the chunk-renderer builders below, this does **not** go through
-    /// `AVVideoComposition(applyingFiltersTo:applier:)`. Its Core Image compositor's cancel path is
-    /// what parks the main thread in `AVPlayerItem.currentTime` on every seek while the chunk queue
-    /// renders (the whole story, with the stacks, is on `PreviewVideoCompositor`). Frames are
-    /// composited by `PreviewVideoCompositor` instead, driven by the recipe published here.
+    /// `AVVideoComposition(applyingFiltersTo:applier:)`: frames are composited by
+    /// `PreviewVideoCompositor`, driven by the recipe published here. Do not put it back on the filter
+    /// API (`docs/HISTORY.md` → *Playhead freeze*).
     public func setupComposition() async throws -> AVVideoComposition? {
         let tracks = try await asset.load(.tracks)
         guard let videoTrack = tracks.first(where: { $0.mediaType == .video }) else {
@@ -255,8 +242,7 @@ public class VideoComposer {
             self.exportState = exportSession.states(updateInterval: 0.1)
         }
         
-        /// Writes the composition to `outputUrl`. Throwing on purpose: swallowing the error here
-        /// is what made "the export did nothing" invisible (the caller has somewhere to show it).
+        /// Writes the composition to `outputUrl`, throwing on failure so the caller can surface it.
         public func performExport() async throws {
             try await exportSession.export(to: outputUrl, as: outputFileType)
         }
@@ -281,10 +267,9 @@ public class VideoComposer {
     /// The transition begins at `transitionStart` and lasts `Metrics.transitionTime`.
     /// After the transition, the `to` image is held for remaining frames.
     ///
-    /// A `nil` side means "no overlay for this side", not "give up": the dissolve then runs into
-    /// or out of the plain source frame, which is exactly what makes a slide fade in from (or out
-    /// to) noOverlay — the same way the slide-based preview treats a missing image. Without this,
-    /// the whole noOverlay ↔ slide chunk rendered as bare source and the slide just popped in.
+    /// A `nil` side means "no overlay for this side", not "give up": the dissolve then runs into or
+    /// out of the plain source frame, which is what makes a slide fade in from (or out to) noOverlay —
+    /// the same way the slide-based preview treats a missing image.
     public func setupComposition(
         from: CIImage?,
         to: CIImage?,
@@ -483,8 +468,7 @@ public struct Chunk: Sendable {
 
     public var isRendered: Bool {
         if type == .noOverlay {
-            // noOverlay chunks are always considered rendered regardless
-            // of renderState because there is no work to do for them.
+            // noOverlay chunks have no work to render, so they count as rendered.
             return true
         }
         if case .rendered = renderState {
@@ -673,8 +657,8 @@ public func diffRegionsIntoChunks(
                     result.append(gapChunk)
                 }
 
-                // Reuse the existing chunk trimmed to the overlap
-                // Existing chunk's timeRange should not change. just the region used for stitching.
+                // Reuse the existing chunk trimmed to the overlap. The chunk's own timeRange does not
+                // change; only the region used for stitching does.
                 var updated = chunk
                 updated.stitchingTimeRange = overlap
                 result.append(updated)
@@ -806,10 +790,8 @@ public actor ChunkQueue {
         }
 
         while !Task.isCancelled {
-            // A drain started by enqueue() may still be rendering a chunk it has already
-            // dequeued. Awaiting that render is the whole point of this call: the caller
-            // stitches as soon as we return, and a chunk still in flight is a hole in the
-            // plan (the stitcher then refuses it outright).
+            // A drain started by enqueue() may still be rendering a chunk it has already dequeued, so
+            // wait for it: the caller stitches as soon as we return.
             if let drainTask {
                 Trace.log(.queue, "waitForCompletion: awaiting the in-flight drain")
                 await drainTask.value
@@ -845,8 +827,8 @@ public actor ChunkQueue {
         let completed = chunks.count(where: {
             $0.type != .noOverlay && $0.isRendered
         })
-        // Stale chunks are excluded: they have no stitching range, so the queue will never touch
-        // them again (a failed render leaves one behind in the .rendering state).
+        // Stale chunks are excluded: they have no stitching range, so the queue will never touch them
+        // again.
         let isRendering = chunks.contains { chunk in
             chunk.type != .noOverlay && !chunk.isStale
                 && (chunk.renderState == .pending || chunk.renderState == .rendering)

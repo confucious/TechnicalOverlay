@@ -210,11 +210,10 @@ struct ElementNameExpanderTests {
                     let abbreviation = element.abbreviation
                     let parts = expanded(abbreviation).components(separatedBy: " + ")
 
-                    // A token the rules do not know comes back verbatim (§4.9). No row on these pages
-                    // may, so the surviving parts must line up one-for-one with the tokens that are
-                    // not dropped — the failure this test exists to catch is silent otherwise, because
-                    // the output still looks like a name. The call tokens are the exception to the
-                    // "verbatim means passthrough" test below: a call token's expansion *is* itself.
+                    // A token the rules do not know comes back verbatim (§4.9), and no row on these
+                    // pages may: the surviving parts must line up one-for-one with the tokens that are
+                    // not dropped. Call tokens are the exception — a call token's expansion *is*
+                    // itself.
                     let callTokens: Set<String> = ["SEQ", "COMBO", "REP"]
                     let survivors = abbreviation
                         .components(separatedBy: "+")

@@ -1,55 +1,45 @@
 // probe-scrub-deadlock.swift
 //
-// A headless reproduction of the app's worst failure mode: the video freezes — beachball — while
-// the playhead is dragged, because the main thread blocks inside `AVPlayerItem.currentTime`
-// (AVKitCore's -[AVPlayerController updateAtMinMaxTime] polls it on every scrub tick) on a
-// MediaToolbox lock that the composition pipeline holds.
+// Headless reproduction of the app's worst failure mode: the playhead drag beachballs the app because
+// the main thread blocks inside `AVPlayerItem.currentTime` — AVKitCore's
+// -[AVPlayerController updateAtMinMaxTime] polls it on every scrub tick — on a MediaToolbox lock the
+// composition pipeline holds. Each variant runs a candidate on the composed-frame path, with no UI
+// and no app code.
 //
-// It reproduces the two ways that happens, without any UI and without the app:
-//   1. plain drag        — the CIFilter composition's cancel path
-//                          (`FigVideoCompositionProcessorSetPlaybackTimeRange` →
-//                          `AVCoreImageFilterCustomVideoCompositor
-//                            .cancelAllPendingVideoCompositionRequests` → `dispatch_group_wait`)
-//                          wedges after ~2 seeks.
-//   2. drag + export     — the same drag while `AVAssetExportSession` renders 2 s chunks back to
-//                          back, which is what the app's `ChunkQueue` does while you scrub. Stalls
-//                          the drag for >20 s at a time *only* when the player item carries a video
-//                          composition.
-//
-// What each variant measured (macOS 27, 2026-10-15/16; `swiftc -swift-version 5
-// -default-isolation MainActor`):
-//
-//   ci-drag                  the app's pre-fix preview          wedges after 2 seeks
-//   ci-trivial               applier returns the source frame   wedges the same — it is the
-//                                                                 composition type, not the filters
-//   ci-eager                 preview pre-renders its frames    400/400 (the 2026-10-15 fix; still
-//                                                                 stalls under a draining export)
-//   custom-drag / shipped    preview composited by our own      400/400 on a plain drag; still stalls
-//                            AVVideoCompositing                 under a draining export
-//   none-drag / std-drag     no composition / plain             300/300 with the export running —
-//                            AVMutableVideoComposition          the composed-frame path is the hazard
-//   ci-serial                seeks awaited one at a time        400/400 (why *clicking* always worked)
-//   std-catool               Core Animation overlay tool        raises on playback — not an option
-//   shipped + `sep`          exporter with its own AVURLAsset   6/6 clean (3/4 stalls without it)
-//   shipped + `pace`         ~0.6 s idle between chunk exports  clean 2/2
-//   shipped + `soft`         CPU CIContext for the preview       clean 2/2
-//
-// Build and run (needs the 398 MB "Boston Open 2025.mov" that the app's own integration tests use —
-// it is untracked):
+// Build and run (`swiftc -swift-version 5 -default-isolation MainActor`; needs the untracked 398 MB
+// "Boston Open 2025.mov" the app's integration tests use, resolved relative to this file so the probe
+// works from any checkout):
 //
 //   swiftc -swift-version 5 -default-isolation MainActor \
 //     scripts/probe-scrub-deadlock.swift -o /tmp/probe-scrub
-//   /tmp/probe-scrub ci-drag export human      # wedges
+//   /tmp/probe-scrub ci-drag export human      # stalls
 //   /tmp/probe-scrub shipped export human sep  # clean
 //
-// It exits 0 when every seek lands, or 2 after sampling itself (with `/usr/bin/sample`, written to
-// /tmp/probe_sample_<variant>.txt) when the drag stops making progress for 20 s — that sample is
-// the debugging artefact: the main thread's stack and the compositor queue's stack are the whole
-// story.
+// Argument 1 selects the composition; the remaining arguments are modifiers.
 //
-// The `Slide`/`Metrics` shims and the `PreviewVideoCompositor` copy below are deliberately verbatim
-// from VideoProcessor.swift as it stood during this investigation; that compositor is *not* in the
-// app (the shipped preview pre-renders frames instead — see the decision log, 2026-10-15/16).
+//   ci-drag         preview built with the CIFilter composition
+//   ci-trivial      same, applier returns the source frame untouched
+//   ci-eager        same, applier pre-renders its frames
+//   shipped         the app's arrangement: our `AVVideoCompositing` on the preview, the filter API on
+//                   the chunk composition
+//   custom-drag     our `AVVideoCompositing` on both the preview and the chunk composition
+//   none-drag       no composition on the player item
+//   std-drag        plain `AVMutableVideoComposition` on the player item
+//   ci-serial       seek one at a time, awaited, via the CIFilter composition
+//   std-catool      Core Animation overlay tool
+//
+//   export          render 2 s chunks back to back while the drag runs
+//   human           human-paced drag (~5 seeks/s for a minute) instead of a 60 Hz loop
+//   sep             the exporter gets its own `AVURLAsset` — the shipped configuration
+//   pace            idle between chunk exports instead of draining them back to back
+//   soft            preview frames composited with a software `CIContext`
+//   coarse          preview composition rendered at 15 fps instead of the source rate
+//
+// It exits 0 when every seek lands, or 2 after sampling itself (with `/usr/bin/sample`, written to
+// /tmp/probe_sample_<variant>.txt) when the drag stops making progress for 20 s — that sample is the
+// debugging artefact: the main thread's stack and the compositor queue's stack are the whole story.
+//
+// Per-variant results, and what each one decided: `docs/HISTORY.md` → *Playhead freeze*.
 
 import AVFoundation
 import CoreImage
@@ -61,16 +51,13 @@ let variant = CommandLine.arguments.count > 1 ? CommandLine.arguments[1] : "ci-d
 let alsoExport = CommandLine.arguments.contains("export")
 /// Human-paced drag: ~5 seeks/second for a minute, instead of a 60 Hz hammer.
 let humanPaced = CommandLine.arguments.contains("human")
-/// Probe-only experiment: composite preview frames with a software Core Image context, so the
-/// preview stops sharing GPU/render-task machinery with the chunk export.
+/// Modifier: composite preview frames with a software Core Image context.
 let softwarePreview = CommandLine.arguments.contains("soft")
-/// Probe-only experiment: idle between chunk exports instead of draining them back to back.
+/// Modifier: idle between chunk exports instead of draining them back to back.
 let pacedExport = CommandLine.arguments.contains("pace")
-/// Probe-only experiment: let the exporter use its own AVURLAsset instead of sharing the player's
-/// (the app's chunk renderer is handed the same asset the player item uses).
+/// Modifier: the exporter uses its own `AVURLAsset`.
 let separateExportAsset = CommandLine.arguments.contains("sep")
-/// Probe-only experiment: render the preview composition at 15 fps instead of the source's rate,
-/// so the preview's Core Image work stops competing with the chunk export frame for frame.
+/// Modifier: render the preview composition at 15 fps instead of the source rate.
 let coarsePreview = CommandLine.arguments.contains("coarse")
 /// The 398 MB sample the app's integration tests use, resolved relative to this file so the probe
 /// works from any checkout.
@@ -117,28 +104,10 @@ private nonisolated final class PreviewRecipeBox: @unchecked Sendable {
 
 nonisolated private let previewRecipe = PreviewRecipeBox()
 
-/// The **preview**'s frame applier — the compositor behind `setupComposition()`, and the reason
-/// `setupComposition()` no longer uses `AVVideoComposition(applyingFiltersTo:applier:)`.
-///
-/// That API's Core Image compositor (`AVCoreImageFilterCustomVideoCompositor`) deadlocks the app
-/// while the user drags the playhead: every seek runs
-/// `FigVideoCompositionProcessorSetPlaybackTimeRange` →
-/// `AVCoreImageFilterCustomVideoCompositor.cancelAllPendingVideoCompositionRequests`, which blocks
-/// in a `dispatch_group_wait` for the session's outstanding frame requests — executed as a barrier
-/// on the compositor session's own serial queue, the very queue those requests need. MediaToolbox
-/// holds its lock across that call, and AVKit polls `AVPlayerItem.currentTime` from the main thread
-/// on every scrub tick, so the app parks in `__psynch_mutexwait` under
-/// `-[AVPlayerController updateAtMinMaxTime]` and never comes back.
-///
-/// Pre-rendering the image the applier returns shrinks that window a lot — a headless 400-seek
-/// repro wedges after two seeks lazily and survives all 400 that way — but not to nothing: with a
-/// chunk export competing for the same pipeline a frame request can still outlive the gap between
-/// two seeks, and the cancel then wedges exactly as before. Owning the compositor closes it for
-/// good, because there is nothing to wait for: frames are composited synchronously in
-/// `startRequest`, and an interrupted request is dropped by never calling `finish` on it.
-///
-/// The recipe is the same Core Image program the chunk renderer runs, so the preview keeps matching
-/// what the export writes out.
+/// The probe's copy of the app's preview compositor (`custom-drag` / `shipped`). Frames are composited
+/// synchronously in `startRequest` and an interrupted request is dropped by never calling `finish` on
+/// it, so a cancelled request never blocks. The recipe is the same Core Image program the chunk
+/// renderer runs, so the preview keeps matching what the export writes out.
 public final class PreviewVideoCompositor: NSObject, AVVideoCompositing, @unchecked Sendable {
     private let context = softwarePreview
         ? CIContext(options: [.cacheIntermediates: false, .useSoftwareRenderer: true])
@@ -160,8 +129,7 @@ public final class PreviewVideoCompositor: NSObject, AVVideoCompositing, @unchec
 
     public nonisolated func renderContextChanged(_ newRenderContext: AVVideoCompositionRenderContext) {}
 
-    /// Deliberately does not wait for anything — waiting here is the bug this type exists to avoid.
-    /// A request that has been cancelled is simply never finished.
+    /// Returns immediately: a request that has been cancelled is simply never finished.
     public nonisolated func cancelAllPendingVideoCompositionRequests() {}
 
     public nonisolated func startRequest(_ request: AVAsynchronousVideoCompositionRequest) {
@@ -248,8 +216,7 @@ let done = Beacon()
 let exports = Beacon()
 
 final class Watchdog: Thread {
-    /// Longest stretch the drag loop went without making progress, so a slow stall and a hard
-    /// deadlock can be told apart.
+    /// Longest stretch the drag loop went without making progress.
     private var previousIdle = 0.0
 
     override func main() {
@@ -386,7 +353,7 @@ final class Composer {
     }
 }
 
-// MARK: - our own compositor (candidate fix: Core Image frames, but cancellation is ours)
+// MARK: - our own compositor (variants `custom-drag` / `shipped`)
 
 let probeOverlay = CIImage(color: CIColor(red: 0.0, green: 0.2, blue: 0.8))
     .cropped(to: CGRect(x: 0, y: 0, width: 1280, height: 720))
@@ -422,13 +389,11 @@ final class ProbeVideoCompositor: NSObject, AVVideoCompositing, @unchecked Senda
         request.finish(withComposedVideoFrame: destination)
     }
 
-    /// Nothing to wait for: dropped requests simply never call finish(). This is the whole point —
-    /// AVFoundation's built-in Core Image compositor blocks here instead.
+    /// Returns immediately: dropped requests never call `finish()`.
     nonisolated func cancelAllPendingVideoCompositionRequests() {}
 }
 
-/// Verbatim from VideoProcessor.swift's `filteringResult(_:over:)`, so the probe exercises the
-/// shipped implementation and not a lookalike.
+/// Verbatim from `VideoProcessor.swift`'s `filteringResult(_:over:)`.
 nonisolated private let previewFilterContext = CIContext()
 
 nonisolated private func appFilteringResult(
@@ -516,8 +481,9 @@ func run() async throws {
     ])
     item.add(output)
 
-    // Background chunk export: the app's ChunkQueue renders with an AVAssetExportSession on the
-    // *same* AVURLAsset the player item uses, so reproduce exactly that.
+    // Background chunk export, as the app's `ChunkQueue` does it: a draining AVAssetExportSession
+    // over the same 2 s ranges. Without `sep` the exporter shares the player item's AVURLAsset — the
+    // configuration that stalls — while `sep` reproduces the shipped one.
     if alsoExport {
         let chunkComposition: AVVideoComposition?
         switch variant {

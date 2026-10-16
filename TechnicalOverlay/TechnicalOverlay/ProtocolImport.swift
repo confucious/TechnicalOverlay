@@ -37,12 +37,9 @@ extension OverlayData {
     /// - elements the protocol adds beyond the current data: **appended**, untimed;
     /// - entries beyond the protocol's element count: **left untouched**.
     ///
-    /// Timing is never destroyed, so re-importing after a correction cannot cost the user the
-    /// work of placing elements on the timeline, and a bad parse cannot either.
+    /// Timing survives by construction: no path here destroys a timestamp.
     ///
-    /// Both paths write the abbreviation's **display name**, not the abbreviation — a refresh at an
-    /// index must land the same text as an append, or re-importing would silently revert elements
-    /// the user has already timed to raw codes.
+    /// Both paths write the abbreviation's **display name**, not the abbreviation.
     func merge(_ skater: ProtocolSkater, translator: ElementNameTranslating = ElementNameExpander()) {
         for (index, element) in skater.elements.enumerated() {
             guard index < elementScores.count else {
@@ -54,7 +51,7 @@ extension OverlayData {
             existing.baseValue = element.baseValue
             existing.goeValue = element.goeValue
             existing.bonusValue = element.bonusValue
-            // existing.displayTime deliberately not touched.
+            // displayTime is untouched.
         }
     }
 }

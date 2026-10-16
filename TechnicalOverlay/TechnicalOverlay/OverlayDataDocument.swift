@@ -15,11 +15,9 @@ struct OverlayDataDocument: FileDocument {
         case unableToReadData
         case versionUnsupported
     }
-    // Must be the *static* exported identifier, not `UTType(filenameExtension:)`: `.tod` is also
-    // claimed by VLC as `org.videolan.tod` (public.movie), and when VLC's claim owns the tag macOS
-    // types our files as VLC's type — which doesn't conform to ours, so the file importer greys
-    // every file out. `filenameExtension:` also silently returns a dynamic type when the extension
-    // is unregistered, which the picker can't match either.
+    // Must be the *static* exported identifier, not `UTType(filenameExtension:)`: that lookup
+    // silently returns a dynamic type when the extension is unregistered, which the picker can't
+    // match either. The extension is `.tojson`, never `.tod` (`docs/ARCHITECTURE.md` §4).
     static let fileType = UTType(exportedAs: "org.cjas.jhsu.overlay-document", conformingTo: .json)
     static var readableContentTypes: [UTType] = [fileType]
     static var writableContentTypes: [UTType] = [fileType]

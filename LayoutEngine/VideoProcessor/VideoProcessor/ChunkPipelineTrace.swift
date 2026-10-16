@@ -12,9 +12,8 @@
 //   [ChunkRenderer]  per-chunk render (export of one time-limited segment)
 //   [Stitcher]       per-chunk assembly into the final composition, then the export session
 //
-// Lines are written for a human reading one export end to end, so they're deliberately
-// verbose (per-chunk). Nothing here is redacted or rate-limited: this is diagnostic output,
-// not production telemetry.
+// Lines are per-chunk and verbose: this is diagnostic output for reading one export end to end,
+// not production telemetry. Nothing here is redacted or rate-limited.
 
 import AVFoundation
 import CoreImage

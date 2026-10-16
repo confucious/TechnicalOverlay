@@ -3,9 +3,8 @@
 //  ProtocolParser
 //
 //  Abbreviation → display name for the singles vocabulary
-//  (`docs/architecture/abbreviation-expansion.md` §4). Pure, `nonisolated`, no I/O and no state,
-//  and no failure mode: a token these rules do not know is returned verbatim (§4.9), which is what
-//  keeps the pairs and ice-dance rows behaving exactly as they do today.
+//  (`docs/architecture/abbreviation-expansion.md` §4). Pure, `nonisolated`, no I/O and no state;
+//  a token these rules do not know is returned verbatim (§4.9).
 //
 
 import Foundation
@@ -143,7 +142,7 @@ public struct ElementNameExpander: ElementNameTranslating {
     /// `<spin name> <level>` plus, when the panel marked it, a `V` (a reduced value — a spin
     /// requirement was not fulfilled) separated from the level by a space: `CCoSp1V` →
     /// `Change Combo Spin 1 V`, `CCoSpBV` → `Change Combo Spin B V` (§4.3). A spin the panel called
-    /// with no level gets the name alone, because there is nothing to append.
+    /// with no level gets the name alone.
     nonisolated private static let spins: [(code: String, name: String)] = [
         ("USp", "Upright Spin"),
         ("LSp", "Layback Spin"),
@@ -203,8 +202,8 @@ public struct ElementNameExpander: ElementNameTranslating {
     // MARK: - Jumps
 
     /// `<revolutions> <jump name>`, the number always shown — `Euler` excepted, which never takes
-    /// one (§4.2). The remainder after the code must be empty, because markers were stripped first
-    /// and anything else means the token is not a jump: `3STh` must not become a Salchow (§2.4 trap 4).
+    /// one (§4.2). The remainder after the code must be empty: `3STh` must not become a Salchow
+    /// (§2.4 trap 4).
     nonisolated private static let jumps: [(code: String, name: String)] = [
         ("Eu", "Euler"),
         ("Lo", "Loop"),

@@ -163,15 +163,10 @@ struct MainView: View {
                 // Create chunk queue for incremental rendering pipeline
                 let queue = chunkQueue ?? ChunkQueue(
                     renderer: DefaultChunkRenderer(
-                        // A *second* AVURLAsset over the same file, deliberately. The chunk renders
-                        // run while the video is on screen, and sharing one asset instance between
-                        // the player item and the exporter makes the two pipelines contend for its
-                        // decode/compositor state: with a video composition on the player item,
-                        // sustained chunk exports block the player's own `currentTime` for tens of
-                        // seconds at a time — and AVKit reads `currentTime` on the main thread every
-                        // scrub tick, so the app freezes mid-drag. Measured headlessly: 0/3 drags
-                        // survive the shared asset, 4/4 with a separate one (decision log
-                        // 2026-10-16).
+                        // A *second* AVURLAsset over the same file, deliberately: sharing one
+                        // instance with the player item makes the preview and the chunk export
+                        // contend for its decode/compositor state, which freezes the app mid-drag.
+                        // Do not re-merge them — `docs/HISTORY.md` → *Playhead freeze*.
                         sourceAsset: AVURLAsset(url: url),
                         outputDirectory: FileManager.default.temporaryDirectory
                     ),
@@ -273,8 +268,7 @@ struct MainView: View {
             }
         }
 
-        /// Leaves nothing half-written at the destination, and says what went wrong instead of
-        /// resetting to `.idle` (which used to make every failure look like a no-op).
+        /// Leaves nothing half-written at the destination and reports what went wrong.
         private func failExport(_ message: String, at destinationURL: URL) {
             try? FileManager.default.removeItem(at: destinationURL)
             print("Export failed: \(message)")

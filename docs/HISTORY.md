@@ -96,11 +96,27 @@ this time with the chunk queue rendering (`mediaprocessor.videocompression` /
    instance the player item used, so the chunk export and the preview contended for one asset's
    decode/compositor state.
 
-**Measured** (`scripts/probe-scrub-deadlock.swift`: a human-paced drag, ~5 seeks/s for a minute, with
-2-second chunk exports draining back to back): with a video composition on the player item and a
-**shared** asset the drag stalled >20 s in 3 of 9 runs; with a separate asset it did not stall. The
-chunk-renderer builders are never seeked, so they keep using the filter API and their rendered pixels
-are unchanged.
+**Measured headlessly** (`scripts/probe-scrub-deadlock.swift`: a human-paced drag, ~5 seeks/s, with
+2-second chunk exports draining back to back when `export` is passed):
+
+| Variant | Result |
+|---|---|
+| CIFilter composition, applier lazy (`ci-drag`) | wedges after **2** seeks |
+| same, applier returns the source frame untouched (`ci-trivial`) | wedges the same — it is the composition type, not the filters |
+| same, applier pre-renders its frames (`ci-eager`, the 2026-10-15 fix) | 400/400 on a plain drag; still stalls under a draining export |
+| our own `AVVideoCompositing` on the preview (`shipped`, 2026-10-16) | 400/400 on a plain drag; still stalls under a draining export |
+| no composition / plain `AVMutableVideoComposition` | 300/300 with the export running — the composed-frame path is the hazard |
+| seeks awaited one at a time (`ci-serial`) | 400/400 — why *clicking* the scrubber always worked |
+| Core Animation overlay tool (`std-catool`) | raises on playback — not an option |
+| `shipped` + exporter's own `AVURLAsset` (`sep`) | **6/6 clean** (3/4 stalls without it) |
+| `shipped` + ~0.6 s idle between chunk exports (`pace`) | clean 2/2 |
+| `shipped` + software `CIContext` for the preview (`soft`) | clean 2/2 |
+
+Two records of the shared-vs-separate asset comparison exist: 3 stalls in 9 drags for a shared asset
+(the 2026-10-16 ledger row above) and 3/4 without `sep` against 6/6 with it (the probe's own table).
+
+The chunk-renderer builders are never seeked, so they keep using the filter API and their rendered
+pixels are unchanged.
 
 ## Element abbreviation expansion
 

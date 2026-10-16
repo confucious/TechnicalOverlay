@@ -8,10 +8,9 @@
 import Foundation
 import Testing
 
-/// The HTML fixtures are the real ijsLive pages this module was designed against
-/// (`docs/architecture/protocol-parser.md` §3), fetched 2026-10-14 from the 2026 Boston Open
-/// (event `36683`) and committed beside these tests. Two are synthetic, built from the real pages
-/// to exercise error paths that no published page happened to have:
+/// The HTML fixtures are the real ijsLive pages of `docs/architecture/protocol-parser.md` §3 — the
+/// 2026 Boston Open (event `36683`) — committed beside these tests. Two are synthetic, built from the
+/// real pages to exercise error paths that no published page happened to have:
 ///
 /// - `Synthetic-NoDetailLink.html` — leaderboard page with the `<LI class="judgeDetailRef">` block
 ///   removed, i.e. the state before the organizer publishes judge details.
