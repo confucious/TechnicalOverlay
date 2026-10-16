@@ -55,10 +55,8 @@ public struct ElementNameExpander: ElementNameTranslating {
         guard !core.isEmpty else { return invalid ? "(Invalid)" : nil }
 
         switch core {
-        case "SEQ":                                          // the only call token that is shown (§4.5)
-            return "SEQ"
-        case "COMBO", "REP":                                 // dropped — not elements (§4.5)
-            return nil
+        case "SEQ", "COMBO", "REP":                           // call tokens, shown as published (§4.5)
+            return core
         default:
             break
         }
@@ -116,10 +114,10 @@ public struct ElementNameExpander: ElementNameTranslating {
 
     nonisolated private static let levels: Set<Character> = ["B", "1", "2", "3", "4"]
 
-    /// `StSq<level>` → `Step Sequence <level>`; the choreographic codes → their name.
+    /// `StSq<level>` → `Step Sequence <level>`; a choreographic code → `<name> <digit>`.
     ///
-    /// A choreographic code's trailing digit is part of the code, not a level, and is **not shown**;
-    /// `pChSq1`'s prefix is not shown either (§4.4).
+    /// A choreographic code's trailing digit is part of the code rather than a level, and **is**
+    /// shown; only `pChSq1`'s prefix is dropped (§4.4).
     nonisolated static func sequence(_ core: String) -> String? {
         if core.hasPrefix("StSq") {
             let level = core.dropFirst("StSq".count)
@@ -129,22 +127,23 @@ public struct ElementNameExpander: ElementNameTranslating {
         for entry in choreographic where core.hasPrefix(entry.code) {
             let trailing = core.dropFirst(entry.code.count)
             guard trailing.allSatisfy(\.isNumber) else { return nil }
-            return entry.name
+            return trailing.isEmpty ? entry.name : "\(entry.name) \(trailing)"
         }
         return nil
     }
 
     nonisolated private static let choreographic: [(code: String, name: String)] = [
-        ("pChSq", "Choreographic Sequence"),
-        ("ChSq", "Choreographic Sequence"),
-        ("ChSp", "Choreographic Spin"),
+        ("pChSq", "Choreo Sequence"),
+        ("ChSq", "Choreo Sequence"),
+        ("ChSp", "Choreo Spin"),
     ]
 
     // MARK: - Spins
 
-    /// `<spin name> <level>`, with `V` (a reduced value — a spin requirement was not fulfilled)
-    /// after the level as printed: `CCoSp1V`, `CCoSpBV` (§4.3). A spin the panel called with no
-    /// level gets the name alone, because there is nothing to append.
+    /// `<spin name> <level>` plus, when the panel marked it, a `V` (a reduced value — a spin
+    /// requirement was not fulfilled) separated from the level by a space: `CCoSp1V` →
+    /// `Change Combo Spin 1 V`, `CCoSpBV` → `Change Combo Spin B V` (§4.3). A spin the panel called
+    /// with no level gets the name alone, because there is nothing to append.
     nonisolated private static let spins: [(code: String, name: String)] = [
         ("USp", "Upright Spin"),
         ("LSp", "Layback Spin"),
@@ -162,10 +161,10 @@ public struct ElementNameExpander: ElementNameTranslating {
         ("FCLSp", "Flying Change Layback Spin"),
         ("FCCSp", "Flying Change Camel Spin"),
         ("FCSSp", "Flying Change Sit Spin"),
-        ("CoSp", "Combination Spin"),
-        ("CCoSp", "Change Combination Spin"),
-        ("FCoSp", "Flying Combination Spin"),
-        ("FCCoSp", "Flying Change Combination Spin"),
+        ("CoSp", "Combo Spin"),
+        ("CCoSp", "Change Combo Spin"),
+        ("FCoSp", "Flying Combo Spin"),
+        ("FCCoSp", "Flying Change Combo Spin"),
     ]
 
     /// Longest code first: the codes are prefixes of one another and all end in `Sp` — `CSp` ⊂
@@ -176,20 +175,29 @@ public struct ElementNameExpander: ElementNameTranslating {
 
     nonisolated static func spin(_ core: String) -> String? {
         for entry in spinsByLength where core.hasPrefix(entry.code) {
-            let tail = core.dropFirst(entry.code.count)
-            guard isLevelTail(tail) else { continue }
-            return tail.isEmpty ? entry.name : "\(entry.name) \(tail)"
+            guard let suffix = levelSuffix(core.dropFirst(entry.code.count)) else { continue }
+            return suffix.isEmpty ? entry.name : "\(entry.name) \(suffix)"
         }
         return nil
     }
 
-    /// A level (`B`, `1`–`4`), optionally followed by `V`, and nothing else — so `SSp2` is a spin
-    /// and not a Salchow, and `2Tw4` matches no spin.
-    nonisolated static func isLevelTail(_ tail: Substring) -> Bool {
+    /// The text a spin's tail contributes: the level (`B`, `1`–`4`) with the reduced-value `V` after
+    /// it, space-separated — `""` for a spin the panel did not level, `"B V"` / `"1 V"` when the `V`
+    /// is there. `nil` when the tail is neither, so `SSp2` classifies as a spin while `2Tw4` matches
+    /// no spin at all.
+    nonisolated static func levelSuffix(_ tail: Substring) -> String? {
         var rest = tail
-        if let first = rest.first, levels.contains(first) { rest = rest.dropFirst() }
-        if rest.first == "V" { rest = rest.dropFirst() }
-        return rest.isEmpty
+        var parts: [Substring] = []
+        if let first = rest.first, levels.contains(first) {
+            parts.append(rest.prefix(1))
+            rest = rest.dropFirst()
+        }
+        if rest.first == "V" {
+            parts.append(rest.prefix(1))
+            rest = rest.dropFirst()
+        }
+        guard rest.isEmpty else { return nil }
+        return parts.joined(separator: " ")
     }
 
     // MARK: - Jumps

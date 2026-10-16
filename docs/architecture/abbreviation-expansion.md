@@ -16,7 +16,7 @@ is the specification and §5 the worked examples.
 
 Turn a raw protocol abbreviation (`3Tb1+2T`, `2Lz<<`, `CCoSpBV`, `StSq4b0.5+kpYYYY`) into the name
 shown on the overlay and in the scoring list (`3 Toeloop + 2 Toeloop`, `2 Lutz`,
-`Change Combination Spin BV`, `Step Sequence 4`).
+`Change Combo Spin B V`, `Step Sequence 4`).
 
 **In scope:** singles element codes — jumps, jump combinations/sequences, solo and combination
 spins, step sequences, choreographic sequence/spin; the markers and call tokens that appear on a
@@ -55,7 +55,7 @@ characters, never as `&lt;`:
 | jump + rotation/edge marker | `2A<`, `3Lo<<`, `2Lz!`, `2Lze`, `2F!`, `3Lzq`, `1Lze` |
 | jump + invalid flag | `1Lz*`, `1A*`, `1T*`, `2S*` |
 | combination / sequence | `3Tb1+2T`, `3F+3Tb1`, `2A+Eu+2F`, `3S+1A+2T+SEQ`, `2Lz+SEQ+1A*+2Lo*` |
-| call tokens | `+SEQ`, `+COMBO`, `+REP` (`2Lz+COMBO`, `2Fq+REP`, `3Lo+REP`, `T+COMBO+2T*+REP`, `3S+1A+2T+SEQ`) — only `SEQ` reaches the output (§4.5) |
+| call tokens | `+SEQ`, `+COMBO`, `+REP` (`2Lz+COMBO`, `2Fq+REP`, `3Lo+REP`, `T+COMBO+2T*+REP`, `3S+1A+2T+SEQ`) — all three reach the output, as published (§4.5) |
 | dangling jump | `A`, `A*`, `T`, `Lo*`, `Lz*` (the jump through which a repeat fell apart) |
 | spin | `CCoSp4`, `FSSp3`, `CCoSp1V`, `CCoSpBV`, `CSp2`, `CoSp`, `FSSp` |
 | step sequence | `StSq2+kpYNNN`, `StSqB+kpNNNN`, `StSq4b0.5+kpYYYY` |
@@ -68,7 +68,7 @@ rules operate on. Two consequences visible in the fixtures:
 
 - `+kp…` is a **separate token** (`StSq4b0.5` + `kpYYYY`), not a suffix of the `StSq` token — so
   "ignore the `+kp` addition" is a token-drop rule, not a string trim.
-- In `2Lz+SEQ+1A*+2Lo*` a call token sits **between** jumps, so `SEQ` keeps its position in the
+- In `2Lz+SEQ+1A*+2Lo*` a call token sits **between** jumps, so it keeps its position in the
   joined output rather than being moved to the end (§4.5).
 
 ### 2.4 Traps that decide the implementation
@@ -97,13 +97,13 @@ lists as parsed and invariant-checked (`protocol-parser.md` §3, §12).
 | Tokens that are jumps | 460 |
 | Tokens that are spins | 126 |
 | Tokens that are step sequences / choreographic | 94 |
-| `SEQ` tokens (kept in the expansion) | 38 |
-| `COMBO` / `REP` tokens (dropped, §4.5) | 6 + 8 |
+| Call tokens, all shown (§4.5): `SEQ` / `COMBO` / `REP` | 38 / 6 / 8 |
 | Tokens to be dropped (`kp…`) | 47 |
 | Rows carrying at least one marker or bonus (`<`/`<<`/`!`/`e`/`q`/`*`/`b…`) | 157 of 535 |
 | Rows whose every token the rules below classify once `kp…` is dropped | **535 / 535** |
-| Rows whose expansion changes when `COMBO`/`REP` are dropped rather than shown | 13 of 535 |
-| Abbreviation length → expansion length | mean 5.7 → 15.4 chars; max 18 → 50 |
+| Rows carrying a `COMBO` or `REP` | 13 of 535 |
+| Rows carrying any call token (`SEQ` + those) | 51 of 535 |
+| Abbreviation length → expansion length | mean 5.7 → 14.5 chars; max 18 → 50 |
 
 Marker census over those 535 rows (`<` 42 rows, `<<` 8, `!` 10, `e` 6, `q` 9, `*` 12, `b1`/`b0.5` 18)
 is why §4.6 ignores markers rather than rejecting a row.
@@ -117,8 +117,7 @@ abbreviation
   └─ split on "+"                             → [token]
        └─ per token: strip "*" (remember it), strip b<digits>[.<digits>] anywhere, strip trailing
           marker run
-            ├─ token is "SEQ"                           → keep the token verbatim
-            ├─ token is "COMBO" | "REP"                 → drop the token entirely
+            ├─ token is "SEQ" | "COMBO" | "REP"        → keep the token verbatim
             ├─ token starts with kp                    → drop the token entirely
             ├─ token matches StSq / ChSq / ChSp / pChSq → §4.4
             ├─ token matches a spin code (longest first) → §4.3
@@ -150,8 +149,8 @@ Classifier ordering is a correctness requirement, not a style choice — see tra
 
 ### 4.3 Spins
 
-`<spin name> <level>` with `V` (reduced value) appended after the level. The level is one of
-`B`, `1`, `2`, `3`, `4`.
+`<spin name> <level>`, with `V` (reduced value) after the level **separated by a space**. The
+level is one of `B`, `1`, `2`, `3`, `4`.
 
 | Code     | Name                           | In the fixtures                                                          |
 | -------- | ------------------------------ | ------------------------------------------------------------------------ |
@@ -171,10 +170,10 @@ Classifier ordering is a correctness requirement, not a style choice — see tra
 | `FCLSp`  | Flying Change Layback Spin     | —                                                                        |
 | `FCCSp`  | Flying Change Camel Spin       | —                                                                        |
 | `FCSSp`  | Flying Change Sit Spin         | —                                                                        |
-| `CoSp`   | Combination Spin               | ✅ `CoSp`                                                                 |
-| `CCoSp`  | Change Combination Spin        | ✅ `CCoSpB`…`CCoSp4`, `CCoSp1V`, `CCoSp2V`, `CCoSp3V`, `CCoSpBV`, `CCoSp` |
-| `FCoSp`  | Flying Combination Spin        | —                                                                        |
-| `FCCoSp` | Flying Change Combination Spin | ✅ `FCCoSp3`, `FCCoSp4`                                                   |
+| `CoSp`   | Combo Spin               | ✅ `CoSp`                                                                 |
+| `CCoSp`  | Change Combo Spin        | ✅ `CCoSpB`…`CCoSp4`, `CCoSp1V`, `CCoSp2V`, `CCoSp3V`, `CCoSpBV`, `CCoSp` |
+| `FCoSp`  | Flying Combo Spin        | —                                                                        |
+| `FCCoSp` | Flying Change Combo Spin | ✅ `FCCoSp3`, `FCCoSp4`                                                   |
 
 ("—" = a valid ISU code that does not occur in these five pages; it must still be in the table, since
 a singles protocol may use it. The list is the ISU singles abbreviation set.) 34 distinct spin
@@ -182,41 +181,46 @@ tokens appear, and they justify every entry on the ✅ rows.
 
 Behaviour:
 
-- `CCoSp4` → `Change Combination Spin 4`; `CSp2` → `Camel Spin 2`; `FSSpB` → `Flying Sit Spin B`.
-- **`V` follows the level as printed**, including the `B` level: `CCoSp1V` → `…Spin 1V`,
-  `CCoSpBV` → `…Spin BV`.
-- **No level** → the name alone, nothing appended: `CoSp` → `Combination Spin`, `CCSp` →
+- `CCoSp4` → `Change Combo Spin 4`; `CSp2` → `Camel Spin 2`; `FSSpB` → `Flying Sit Spin B`.
+- **`V` follows the level, space-separated**, including the `B` level: `CCoSp1V` →
+  `Change Combo Spin 1 V`, `CCoSpBV` → `Change Combo Spin B V`.
+- **No level** → the name alone, nothing appended: `CoSp` → `Combo Spin`, `CCSp` →
   `Change Camel Spin`. These are the uncredited rows the parser already imports with zero values
   (`protocol-parser.md` §6) — the site prints the code with no level for them.
-- `V` where no level is present: not observed; the grammar allows `(B-4)V`, so the same rule covers it.
+- `V` where no level is present: not observed; the grammar allows `(B-4)V`, so the same rule covers
+  it — `CoSpV` would read `Combo Spin V`.
 
 ### 4.4 Step sequences and choreographic elements
 
 | Code          | Expansion                | Notes                                                                        |
 | ------------- | ------------------------ | ---------------------------------------------------------------------------- |
 | `StSq<level>` | `Step Sequence <level>`  | level `B`, `1`–`4`. `StSqB` → `Step Sequence B`, `StSq4` → `Step Sequence 4` |
-| `ChSq1`       | `Choreographic Sequence` | the trailing `1` is not shown                                                |
-| `ChSp1`       | `Choreographic Spin`     | the trailing `1` is not shown                                                |
-| `pChSq1`      | `Choreographic Sequence` | neither the `p` prefix nor the trailing `1` is shown                         |
+| `ChSq1`       | `Choreo Sequence 1`      | the trailing `1` is shown                                                    |
+| `ChSp1`       | `Choreo Spin 1`          | the trailing `1` is shown                                                    |
+| `pChSq1`      | `Choreo Sequence 1`      | the `p` prefix is not shown; the `1` is                                       |
 
 - `StSq…b0.5` carries a bonus marker: `StSq4b0.5` → `Step Sequence 4`.
 - The `+kp…` token is dropped (§4.6), so `StSq2+kpYNNN` → `Step Sequence 2` with **no dangling
   separator**. 47 of the 535 rows carry a `kp…` token.
 
-### 4.5 Call tokens: only `SEQ` is shown
+### 4.5 Call tokens: `SEQ`, `COMBO` and `REP` are all shown
 
 | Token | Rule | Example |
 |---|---|---|
 | `SEQ` | kept in place, uppercase as published, separated by the same ` + ` | `3S+1A+2T+SEQ` → `3 Salchow + 1 Axel + 2 Toeloop + SEQ` |
-| `COMBO` | **dropped entirely** | `2Lz+COMBO` → `2 Lutz` |
-| `REP` | **dropped entirely** | `3Lo+REP` → `3 Loop` |
+| `COMBO` | kept in place | `2Lz+COMBO` → `2 Lutz + COMBO` |
+| `REP` | kept in place | `3Lo+REP` → `3 Loop + REP` |
 
-`COMBO`/`REP` are calls the technical panel made about a jump that fell apart or was repeated, not
-elements; the user wants only the sequence marker shown. Dropping them leaves no dangling separator
-and no empty token, so a bare `2Lz+COMBO` collapses to `2 Lutz`, and
-`T+COMBO+2T*+REP` → `Toeloop + 2 Toeloop (Invalid)`. This changes the expansion of **13 of the 535**
-singles rows (§3), and interactively: `SEQ` stays where it sits, even mid-abbreviation
-(`2Lz+SEQ+1A*+2Lo*` → `2 Lutz + SEQ + 1 Axel (Invalid) + 2 Loop (Invalid)`).
+These are calls the technical panel made rather than elements — a combination that did not complete, a
+jump that was repeated — and they are shown as published. They are common: **52 tokens over 51 of the
+535 singles rows** (`SEQ` 38, `COMBO` 6, `REP` 8, one row carrying both `COMBO` and `REP`). A call
+token keeps its position, even mid-abbreviation:
+
+| Input | Output |
+|---|---|
+| `2Lz+COMBO` | `2 Lutz + COMBO` |
+| `T+COMBO+2T*+REP` | `Toeloop + COMBO + 2 Toeloop (Invalid) + REP` |
+| `2Lz+SEQ+1A*+2Lo*` | `2 Lutz + SEQ + 1 Axel (Invalid) + 2 Loop (Invalid)` |
 
 ### 4.6 Ignored tokens and markers
 
@@ -229,7 +233,6 @@ singles rows (§3), and interactively: `SEQ` stays where it sits, even mid-abbre
 | `e` | wrong edge | stripped |
 | `q` | quarter-short of rotation | stripped |
 | `kpNNNN`, `kpYNNN`, … | step-sequence key points | the whole token is **dropped** |
-| `COMBO`, `REP` | call tokens for a broken/repeated combination (§4.5) | the whole token is **dropped** |
 
 ### 4.7 The invalid flag `*`
 
@@ -238,17 +241,17 @@ singles rows (§3), and interactively: `SEQ` stays where it sits, even mid-abbre
 
 | Input | Output |
 |---|---|
-| `1Lz*+COMBO` | `1 Lutz (Invalid)` |
+| `1Lz*+COMBO` | `1 Lutz (Invalid) + COMBO` |
 | `2Lz+SEQ+1A*+2Lo*` | `2 Lutz + SEQ + 1 Axel (Invalid) + 2 Loop (Invalid)` |
-| `3Sb1+COMBO+1T*` | `3 Salchow + 1 Toeloop (Invalid)` |
+| `3Sb1+COMBO+1T*` | `3 Salchow + COMBO + 1 Toeloop (Invalid)` |
 | `A*` | `Axel (Invalid)` |
 
 ### 4.8 Joining
 
 Surviving parts are joined with **` + `** (one space on each side) — the requirement's separator,
-applied after markers are stripped and the `kp…`, `COMBO` and `REP` tokens are dropped, so no
-separator is left dangling and no empty part is emitted: `StSq4b0.5+kpYYYY` → `Step Sequence 4`,
-`2Lz+COMBO` → `2 Lutz`, and never `Step Sequence 4 + ` or `2 Lutz + `.
+applied after markers are stripped and the `kp…` tokens are dropped, so no separator is left
+dangling and no empty part is emitted: `StSq4b0.5+kpYYYY` → `Step Sequence 4`, never
+`Step Sequence 4 + `.
 
 ### 4.9 Unknown tokens
 
@@ -269,23 +272,23 @@ Produced by the throwaway prototype of §4 over the real fixture strings (§10):
 | `3Lz<b1`           | `3 Lutz`                                             |
 | `3Lz!+2T`          | `3 Lutz + 2 Toeloop`                                 |
 | `2Lo+2Tq`          | `2 Loop + 2 Toeloop`                                 |
-| `1Lz*+COMBO`       | `1 Lutz (Invalid)`                                   |
-| `T+COMBO+2T*+REP`  | `Toeloop + 2 Toeloop (Invalid)`                      |
-| `2Lz+COMBO`        | `2 Lutz`                                             |
-| `3Lo+REP`          | `3 Loop`                                             |
+| `1Lz*+COMBO`       | `1 Lutz (Invalid) + COMBO`                           |
+| `T+COMBO+2T*+REP`  | `Toeloop + COMBO + 2 Toeloop (Invalid) + REP`        |
+| `2Lz+COMBO`        | `2 Lutz + COMBO`                                     |
+| `3Lo+REP`          | `3 Loop + REP`                                       |
 | `2Lz+SEQ+1A*+2Lo*` | `2 Lutz + SEQ + 1 Axel (Invalid) + 2 Loop (Invalid)` |
 | `3S+1A+2T+SEQ`     | `3 Salchow + 1 Axel + 2 Toeloop + SEQ`               |
 | `4T`               | `4 Toeloop`                                          |
 | `3A`               | `3 Axel`                                             |
 | `StSqB+kpNNNN`     | `Step Sequence B`                                    |
 | `StSq4b0.5+kpYYYY` | `Step Sequence 4`                                    |
-| `ChSq1`            | `Choreographic Sequence`                             |
-| `ChSp1`            | `Choreographic Spin`                                 |
-| `pChSq1`           | `Choreographic Sequence`                             |
-| `CoSp`             | `Combination Spin`                                   |
-| `CCoSpBV`          | `Change Combination Spin BV`                         |
-| `CCoSp1V`          | `Change Combination Spin 1V`                         |
-| `FCCoSp4`          | `Flying Change Combination Spin 4`                   |
+| `ChSq1`            | `Choreo Sequence 1`                                  |
+| `ChSp1`            | `Choreo Spin 1`                                      |
+| `pChSq1`           | `Choreo Sequence 1`                                  |
+| `CoSp`             | `Combo Spin`                                   |
+| `CCoSpBV`          | `Change Combo Spin B V`                              |
+| `CCoSp1V`          | `Change Combo Spin 1 V`                              |
+| `FCCoSp4`          | `Flying Change Combo Spin 4`                   |
 | `CSp2`             | `Camel Spin 2`                                       |
 
 ## 6. Public API
@@ -335,7 +338,7 @@ Consequences to be aware of:
   after import the code is gone, so a rule change here means re-importing to see it. Keeping the code
   on the model is **out of scope** — it would touch the persisted model and its
   `version` (`docs/ARCHITECTURE.md` §4), so it is not a silent addition.
-- **Names get much longer.** Mean 5.7 → 15.4 characters, worst case 18 → 50
+- **Names get much longer.** Mean 5.7 → 14.5 characters, worst case 18 → 50
   (`2Lutz + SEQ + 1 Axel (Invalid) + 2 Loop (Invalid)`). The overlay's element-name row is laid out
   from `Metrics`: at a 1280×720 overlay the pane is 16% of the height with a 2.65 aspect
   (≈ 305 × 115 px), the name row is the full pane width and ≈ 28 px tall, and the label font is
@@ -370,11 +373,11 @@ Pure string tests — no fixtures needed for the table itself; the sweep uses th
 | 3 | Separator | every `+` becomes ` + `; no dangling separator when `kp…` is dropped                                                                                                   |
 | 4 | Bonus ignored, both positions | `3Tb1+2T` → `3 Toeloop + 2 Toeloop`; `3Lz<b1` → `3 Lutz`                                                                                                               |
 | 5 | Markers ignored | `2A<`, `3Lo<<`, `2Lz!`, `2Lze`, `3Lzq`, `1Lze` all strip to the plain name                                                                                             |
-| 6 | Invalid flag | `1Lz*+COMBO` → `1 Lutz (Invalid)`; two `*` in one row both flagged                                                                                                     |
-| 7 | Call tokens | `SEQ` kept in place; `COMBO` and `REP` dropped with no dangling separator or empty token (`2Lz+COMBO` → `2 Lutz`, `T+COMBO+2T*+REP` → `Toeloop + 2 Toeloop (Invalid)`) |
+| 6 | Invalid flag | `1Lz*+COMBO` → `1 Lutz (Invalid) + COMBO`; two `*` in one row both flagged |
+| 7 | Call tokens | `SEQ`, `COMBO` and `REP` all kept in place exactly as published (`2Lz+COMBO` → `2 Lutz + COMBO`, `T+COMBO+2T*+REP` → `Toeloop + COMBO + 2 Toeloop (Invalid) + REP`) |
 | 8 | Step sequences | `StSqB+kpNNNN` → `Step Sequence B`; `StSq4b0.5+kpYYYY` → `Step Sequence 4`                                                                                             |
-| 9 | Choreographic | `ChSq1` → `Choreographic Sequence`; `ChSp1` → `Choreographic Spin` (no digit); `pChSq1` → `Choreographic Sequence` (no prefix, no digit)                               |
-| 10 | Spins | `CCoSp4`, `CCoSp1V`, `CCoSpBV`, `FCCoSp4`, `CSp2`, `SSpB`                                                                                                              |
+| 9 | Choreographic | `ChSq1` → `Choreo Sequence 1`; `ChSp1` → `Choreo Spin 1`; `pChSq1` → `Choreo Sequence 1` (prefix dropped, digit kept) |
+| 10 | Spins | `CCoSp4` → `Change Combo Spin 4`; `CCoSp1V` → `Change Combo Spin 1 V` (a space before the `V`); `CCoSpBV` → `Change Combo Spin B V`; `FCCoSp4`, `CSp2`, `SSpB` |
 | 11 | Longest-match spin codes | `CCSp3` is not `CSp`…; `FSSp3` is not `SSp`…; `SSp2` is not a Salchow                                                                                                  |
 | 12 | Pairs codes untouched (regression) | `3STh`, `3Tw3`, `5ALi4`, `BoDs2`, `ChPSp1` returned verbatim                                                                                                           |
 | 13 | Trap regressions (§2.4) | `StSq2`/`ChSq1` survive the `q` marker rule; `3Lz<b1` strips                                                                                                           |
@@ -413,13 +416,20 @@ with zero passthrough, and every row of all eleven detail pages (825) well forme
 - The prototype is what found the `q`-vs-`StSq`/`ChSq` collision (§2.4 trap 1) and the
   bonus-after-marker order (`3Lz<b1`, trap 2) — both silently mis-expanded `StSq*`/`ChSq*` and
   `3Lz<b1` in its first version.
-- **Rules settled and re-measured 2026-10-15** after the naming pass: `COMBO` and `REP` are dropped
-  with only `SEQ` shown (§4.5) — **13 of the 535 rows** change against keeping them (6 with `COMBO`,
-  8 with `REP`, one row carrying both); the `ChSq1`, `ChSp1` and `pChSq1` digits are not shown (§4.4);
-  and the spins use the short names of §4.3 (`Change…` rather than `Change Foot…`). Prototype re-run
-  over every row with all of it applied: still **535 / 535** rows classify with 0 passthrough tokens,
-  and the mean expansion is **15.4** characters (16.2 with `Change Foot…`, 17.3 with the call tokens
-  shown) — worst case 50 either way.
+- **Rules revised again 2026-10-15** (user): the spin `V` is now **separated from the level by a
+  space** (`CCoSp1V` → `Change Combo Spin 1 V`, `CCoSpBV` → `Change Combo Spin B V`) — §4.3;
+  `Choreographic` became **`Choreo`**, and the
+  choreographic codes now **show their trailing digit** (`ChSq1` → `Choreo Sequence 1`, `ChSp1` →
+  `Choreo Spin 1`, `pChSq1` → `Choreo Sequence 1`) — superseding the digitless rule in the bullet
+  below. Prototype re-run: still **535 / 535** rows classified with 0 passthrough tokens, mean
+  expansion **14.5** characters.
+- **Rules revised 2026-10-15** (user) — several after the first implementation: `COMBO` and `REP`
+  went from dropped to **shown** like `SEQ` (§4.5); `Combination` became **`Combo`** in the spin names
+  (§4.3, `CCoSp4` → `Change Combo Spin 4`); the choreographic digits are not shown (§4.4); and the
+  spins use the short names of §4.3 (`Change…`, not `Change Foot…`). Prototype re-run with the final
+  rules over every row: still **535 / 535** rows classify with 0 passthrough tokens, and the mean
+  expansion is **14.9** characters — 15.4 with `Combination`, 16.2 with `Change Foot…`, 17.3 before
+  the choreographic digits were dropped — worst case 50 throughout.
 - Checked each spin code in §4.3 against the ISU singles abbreviation list; the ✅ column is which
   codes actually occur in the fixtures, and the "—" rows are codes from that list that do not.
 - Not verified: **pairs and ice dance** (the pairs codes are enumerated in

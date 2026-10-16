@@ -75,8 +75,8 @@ struct ElementNameExpanderTests {
     @Test("an asterisk marks the token it belongs to invalid")
     func invalidFlag() {
         #expect(expanded("1Lz*") == "1 Lutz (Invalid)")
-        #expect(expanded("1Lz*+COMBO") == "1 Lutz (Invalid)")
-        #expect(expanded("3Sb1+COMBO+1T*") == "3 Salchow + 1 Toeloop (Invalid)")
+        #expect(expanded("1Lz*+COMBO") == "1 Lutz (Invalid) + COMBO")
+        #expect(expanded("3Sb1+COMBO+1T*") == "3 Salchow + COMBO + 1 Toeloop (Invalid)")
         #expect(expanded("A*") == "Axel (Invalid)")
         // Both tokens flagged, each on its own part.
         #expect(expanded("2Lz+SEQ+1A*+2Lo*") == "2 Lutz + SEQ + 1 Axel (Invalid) + 2 Loop (Invalid)")
@@ -84,14 +84,16 @@ struct ElementNameExpanderTests {
 
     // MARK: - Call tokens
 
-    @Test("of the call tokens only SEQ is shown")
+    @Test("the call tokens SEQ, COMBO and REP are shown as published")
     func callTokens() {
-        #expect(expanded("2Lz+COMBO") == "2 Lutz")
-        #expect(expanded("3Lo+REP") == "3 Loop")
-        #expect(expanded("2Fq+REP") == "2 Flip")
-        #expect(expanded("T+COMBO+2T*+REP") == "Toeloop + 2 Toeloop (Invalid)")
+        #expect(expanded("2Lz+COMBO") == "2 Lutz + COMBO")
+        #expect(expanded("3Lo+REP") == "3 Loop + REP")
+        #expect(expanded("2Fq+REP") == "2 Flip + REP")
+        #expect(expanded("T+COMBO+2T*+REP") == "Toeloop + COMBO + 2 Toeloop (Invalid) + REP")
         #expect(expanded("SEQ") == "SEQ")
-        // SEQ keeps its place rather than moving to the end.
+        #expect(expanded("COMBO") == "COMBO")
+        #expect(expanded("REP") == "REP")
+        // A call token keeps its place rather than moving to the end.
         #expect(expanded("2Lz+SEQ+1A+2Lo") == "2 Lutz + SEQ + 1 Axel + 2 Loop")
     }
 
@@ -107,21 +109,23 @@ struct ElementNameExpanderTests {
         #expect(expanded("StSq4b0.5+kpYYYY") == "Step Sequence 4")   // bonus ignored, no dangling +
     }
 
-    @Test("the choreographic codes drop their digit")
+    @Test("the choreographic codes keep their digit; only pChSq's prefix is dropped")
     func choreographic() {
-        #expect(expanded("ChSq1") == "Choreographic Sequence")
-        #expect(expanded("ChSp1") == "Choreographic Spin")
-        #expect(expanded("pChSq1") == "Choreographic Sequence")
+        #expect(expanded("ChSq1") == "Choreo Sequence 1")
+        #expect(expanded("ChSp1") == "Choreo Spin 1")
+        #expect(expanded("pChSq1") == "Choreo Sequence 1")
     }
 
     // MARK: - Spins
 
     @Test("a spin is expanded with its level and its reduced-value flag")
     func spins() {
-        #expect(expanded("CCoSp4") == "Change Combination Spin 4")
-        #expect(expanded("CCoSp1V") == "Change Combination Spin 1V")
-        #expect(expanded("CCoSpBV") == "Change Combination Spin BV")
-        #expect(expanded("FCCoSp4") == "Flying Change Combination Spin 4")
+        #expect(expanded("CCoSp4") == "Change Combo Spin 4")
+        // The reduced-value V is separated from the level by a space.
+        #expect(expanded("CCoSp1V") == "Change Combo Spin 1 V")
+        #expect(expanded("CCoSp2V") == "Change Combo Spin 2 V")
+        #expect(expanded("CCoSpBV") == "Change Combo Spin B V")
+        #expect(expanded("FCCoSp4") == "Flying Change Combo Spin 4")
         #expect(expanded("CSp2") == "Camel Spin 2")
         #expect(expanded("SSpB") == "Sit Spin B")
         #expect(expanded("FCSp3") == "Flying Camel Spin 3")
@@ -132,11 +136,12 @@ struct ElementNameExpanderTests {
 
     @Test("a spin the panel called with no level gets the name alone")
     func spinsWithoutLevel() {
-        #expect(expanded("CoSp") == "Combination Spin")
+        #expect(expanded("CoSp") == "Combo Spin")
         #expect(expanded("CCSp") == "Change Camel Spin")
         #expect(expanded("FSSp") == "Flying Sit Spin")
-        #expect(expanded("CCoSp") == "Change Combination Spin")
+        #expect(expanded("CCoSp") == "Change Combo Spin")
         #expect(expanded("CSSp") == "Change Sit Spin")
+        #expect(expanded("CoSpV") == "Combo Spin V")      // a V with no level still shows
     }
 
     @Test("the longest spin code wins, and a spin is not a jump")
@@ -208,13 +213,15 @@ struct ElementNameExpanderTests {
                     // A token the rules do not know comes back verbatim (§4.9). No row on these pages
                     // may, so the surviving parts must line up one-for-one with the tokens that are
                     // not dropped — the failure this test exists to catch is silent otherwise, because
-                    // the output still looks like a name.
+                    // the output still looks like a name. The call tokens are the exception to the
+                    // "verbatim means passthrough" test below: a call token's expansion *is* itself.
+                    let callTokens: Set<String> = ["SEQ", "COMBO", "REP"]
                     let survivors = abbreviation
                         .components(separatedBy: "+")
-                        .filter { !$0.hasPrefix("kp") && $0 != "COMBO" && $0 != "REP" }
+                        .filter { !$0.hasPrefix("kp") }
                     #expect(parts.count == survivors.count,
                             "\(page) #\(element.index) \(abbreviation) → \(parts)")
-                    for part in parts where part != "SEQ" {
+                    for part in parts where !callTokens.contains(part) {
                         #expect(!survivors.contains(part),
                                 "verbatim passthrough: \(page) #\(element.index) \(abbreviation) → \(part)")
                     }
