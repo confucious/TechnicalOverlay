@@ -10,13 +10,13 @@ import Foundation
 // ProtocolParser — imports a skater's executed elements from a published ijsLive competition
 // protocol. See docs/architecture/protocol-parser.md for the specification this implements.
 
-/// Every failure the module can report (`docs/architecture/protocol-parser.md` §7.4).
+/// Every failure the module can report (`protocol-parser.md` §7.4).
 /// Structural problems fail fast; only genuinely optional columns default.
 public enum ProtocolParserError: Error, LocalizedError, Equatable {
     /// Not a results page this module understands (404 body, login page, another site).
     case unrecognizedPage
     /// A leaderboard page whose judge-detail link has not been published yet. The user retries
-    /// later; no leaderboard-page data is used as a fallback (§10b).
+    /// later; no leaderboard-page data is used as a fallback (protocol-parser.md §10b).
     case detailLinkMissing
     case detailLinkAmbiguous(count: Int)
     /// A relative `href` with no base URL to resolve it against.

@@ -184,6 +184,9 @@ opens with a chronological decision ledger and then one section per topic.
   rationale, no dates, no "this used to…", no bug stories. Where a comment guards a constraint, keep
   one line plus a pointer (`// Do not re-merge them — docs/HISTORY.md → *Playhead freeze*`). Test
   comments state what is asserted, not what once broke.
+- **A section citation names its document** — `(protocol-parser.md §5.1)`, `(ARCHITECTURE.md §2.2)` —
+  never a bare `(§5.1)`: inside a `.swift` file there is nothing to say which doc that section is in.
+  (Inside a doc, a bare `§` means that document, which is correct.)
 - **Why:** these docs are read into a session before it can work, so every line of history in them is
   context that gets re-read every time instead of looked up on demand. A stale snapshot in a doc is
   also re-taught instead of corrected — the same reason `AGENTS.md` has no test-count table.

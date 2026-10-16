@@ -8,7 +8,7 @@
 import Foundation
 import Testing
 
-/// The HTML fixtures are the real ijsLive pages of `docs/architecture/protocol-parser.md` §3 — the
+/// The HTML fixtures are the real ijsLive pages of `protocol-parser.md` §3 — the
 /// 2026 Boston Open (event `36683`) — committed beside these tests. Two are synthetic, built from the
 /// real pages to exercise error paths that no published page happened to have:
 ///
@@ -41,7 +41,7 @@ enum Fixture {
     static let leaderboardPages = ["CAT022SEG033.html", "CAT022SEG034.html"]
 
     /// The five **singles** segment pages of the set above — the ones the abbreviation expansion's
-    /// census was measured over (`docs/architecture/abbreviation-expansion.md` §3): 535 element rows.
+    /// census was measured over (`abbreviation-expansion.md` §3): 535 element rows.
     /// `SEGM033` is singles too, but it is the sibling page the link test needs; the rest are pairs.
     static let singlesDetailPages = [
         "SEGM001.html", "SEGM011.html", "SEGM015.html", "SEGM021.html", "SEGM034.html",

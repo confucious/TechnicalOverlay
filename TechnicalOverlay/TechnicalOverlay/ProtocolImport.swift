@@ -13,7 +13,7 @@ extension ElementData {
     /// An imported element, untimed — the timeline is the user's, and only a merge may touch it.
     ///
     /// The name is the **display name** for the abbreviation
-    /// (`docs/architecture/abbreviation-expansion.md` §4): `3Tb1+2T` becomes
+    /// (`abbreviation-expansion.md` §4): `3Tb1+2T` becomes
     /// `3 Toeloop + 2 Toeloop`. The translator is injectable with the expander as its default, so a
     /// caller (or a test) can hand in the identity default and get the abbreviation back verbatim.
     convenience init(
@@ -30,7 +30,8 @@ extension ElementData {
 }
 
 extension OverlayData {
-    /// Merges an imported protocol into `elementScores`, keyed by element index (§8.1).
+    /// Merges an imported protocol into `elementScores`, keyed by element index
+    /// (protocol-parser.md §8.1).
     ///
     /// - an entry that exists at an index: values are refreshed in place and **`displayTime` is
     ///   kept** exactly as it was (a timestamp survives, `nil` stays `nil`);

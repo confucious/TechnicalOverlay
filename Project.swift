@@ -21,7 +21,7 @@ let baseSettings: SettingsDictionary = [
 ]
 
 // The app declares its `.tojson` document type (UTType). Exported only: the same identifier
-// must not also be in UTImportedTypeDeclarations. See docs/ARCHITECTURE.md §4 (Persistence).
+// must not also be in UTImportedTypeDeclarations. See ARCHITECTURE.md §4 (Persistence).
 let appInfoPlist: InfoPlist = .extendingDefault(with: [
     "UTExportedTypeDeclarations": [
         [
@@ -89,7 +89,7 @@ private let appTestsTarget = Target.target(
     sources: ["TechnicalOverlay/TechnicalOverlayTests/**/*.swift"],
     dependencies: [
         .target(name: "TechnicalOverlay"),
-        // The merge test builds `ProtocolSkater` values directly (docs/architecture/protocol-parser.md §11).
+        // The merge test builds `ProtocolSkater` values directly (protocol-parser.md §11).
         .target(name: "ProtocolParser"),
     ],
     settings: .settings(base: baseSettings)
@@ -155,8 +155,8 @@ private let protocolParserTarget = Target.target(
     bundleId: "org.cjas.jhsu.ProtocolParser",
     deploymentTargets: deploymentTarget,
     sources: ["LayoutEngine/ProtocolParser/ProtocolParser/**/*.swift"],
-    // SwiftSoup: the tolerant HTML parser (docs/architecture/protocol-parser.md §4.1).
-    // Decided per docs/ARCHITECTURE.md §2.2; pinned exactly, and it has no dependencies of its own.
+    // SwiftSoup: the tolerant HTML parser (protocol-parser.md §4.1).
+    // Decided per ARCHITECTURE.md §2.2; pinned exactly, and it has no dependencies of its own.
     dependencies: [.package(product: "SwiftSoup")],
     settings: .settings(base: baseSettings)
 )
@@ -178,8 +178,8 @@ let project = Project(
     name: "TechnicalOverlay",
     organizationName: "cjas",
     packages: [
-        // SwiftSoup — the only external dependency; see docs/ARCHITECTURE.md §2.2 and
-        // docs/architecture/protocol-parser.md §4.1 for the measured case for it.
+        // SwiftSoup — the only external dependency; see ARCHITECTURE.md §2.2 and
+        // protocol-parser.md §4.1 for the measured case for it.
         .remote(url: "https://github.com/scinfu/SwiftSoup.git", requirement: .exact("2.14.2")),
     ],
     targets: [

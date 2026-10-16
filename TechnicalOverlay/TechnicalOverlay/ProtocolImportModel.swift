@@ -4,7 +4,7 @@
 //
 //  Drives the "Import Protocol" flow on `ScoringListView`: validate what the user gave us, run the
 //  importer, merge the result, report anything that went wrong.
-//  Spec: docs/architecture/protocol-parser.md §7.3 (the importer) and §8.1 (the merge).
+//  Spec: docs/architecture/protocol-parser.md — §7.3 (the importer), §8.1 (the merge).
 //
 
 import Foundation
@@ -33,7 +33,7 @@ final class ProtocolImportModel {
     ///
     /// The merge is index-keyed and timing-preserving: elements already on the timeline keep their
     /// `displayTime`, new elements are appended untimed, and anything past the protocol's element
-    /// count is left alone (`docs/architecture/protocol-parser.md` §8.1).
+    /// count is left alone (`protocol-parser.md` §8.1).
     func importElements(into data: OverlayData) async {
         guard let url = Self.url(from: urlString) else {
             errorMessage = "Enter the address of the protocol page (the results page or the judge detail scores page)."

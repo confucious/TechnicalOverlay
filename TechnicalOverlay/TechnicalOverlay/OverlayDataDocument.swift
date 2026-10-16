@@ -17,7 +17,7 @@ struct OverlayDataDocument: FileDocument {
     }
     // Must be the *static* exported identifier, not `UTType(filenameExtension:)`: that lookup
     // silently returns a dynamic type when the extension is unregistered, which the picker can't
-    // match either. The extension is `.tojson`, never `.tod` (`docs/ARCHITECTURE.md` §4).
+    // match either. The extension is `.tojson`, never `.tod` (`ARCHITECTURE.md` §4).
     static let fileType = UTType(exportedAs: "org.cjas.jhsu.overlay-document", conformingTo: .json)
     static var readableContentTypes: [UTType] = [fileType]
     static var writableContentTypes: [UTType] = [fileType]

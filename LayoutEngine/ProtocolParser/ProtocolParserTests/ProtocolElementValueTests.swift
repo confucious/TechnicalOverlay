@@ -18,7 +18,7 @@ struct ProtocolElementValueTests {
         let milo = try #require(try ProtocolHTMLParser.parseSegment(html: try Fixture.html("SEGM034.html"))
             .skaters.first { $0.namePart == "Milo Yeon" })
 
-        // #, abbreviation, base, GOE, bonus, panel — all in hundredths (§5.2).
+        // #, abbreviation, base, GOE, bonus, panel — all in hundredths (protocol-parser.md §5.2).
         let expected: [(String, Int, Int, Int, Int)] = [
             ("2Lz", 210, 42, 0, 252),
             ("3Tb1+2T", 550, 25, 100, 675),
@@ -42,7 +42,8 @@ struct ProtocolElementValueTests {
 
     @Test("a negative GOE below one point keeps its sign")
     func negativeFractionalGOE() throws {
-        // -0.26 must not become +26: the sign is not carried by the whole-number component (§5.1).
+        // -0.26 must not become +26: the sign is not carried by the whole-number component
+        // (protocol-parser.md §5.1).
         let milo = try #require(try ProtocolHTMLParser.parseSegment(html: try Fixture.html("SEGM034.html"))
             .skaters.first { $0.namePart == "Milo Yeon" })
         let sequenced = try #require(milo.elements.first { $0.abbreviation == "3Sb1+1A+2Lo+SEQ" })

@@ -38,7 +38,7 @@ public struct ProtocolImporter: Sendable {
                 named: name, in: try ProtocolHTMLParser.parseSegment(html: html))
 
         case .leaderboard:
-            // The leaderboard page is used for nothing but locating the link (§10b).
+            // The leaderboard page is used for nothing but locating the link (protocol-parser.md §10b).
             let detailURL = try ProtocolHTMLParser.judgeDetailLink(in: html, relativeTo: baseURL)
             let detailHTML = try await fetcher.fetch(detailURL)
             guard ProtocolHTMLParser.pageKind(of: detailHTML) == .segmentDetail else {

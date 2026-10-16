@@ -133,16 +133,16 @@ attached-`V` rule.
 
 **Verification (2026-10-15).** All **535** singles element cells were extracted from the five
 committed singles fixtures (`SEGM001`, `SEGM011`, `SEGM015`, `SEGM021`, `SEGM034`) — 187 distinct
-abbreviations, 119 distinct `+`-separated tokens — and the inventory in the module doc §3 was built
+abbreviations, 119 distinct `+`-separated tokens — and the inventory in `abbreviation-expansion.md` §3 was built
 from those bytes, not from a rendered view. A throwaway prototype (Python, scratch) of the rule model
 was run over every row: with `kp…` dropped, **535/535 rows classify completely, 0 unclassified
-tokens**, and every example in the doc's §5 is that prototype's real output. The prototype is what
+tokens**, and every example in `abbreviation-expansion.md` §5 is that prototype's real output. The prototype is what
 found the `q`-vs-`StSq`/`ChSq` collision and the bonus-after-marker order (`3Lz<b1`) — both silently
 mis-expanded `StSq*`/`ChSq*` and `3Lz<b1` in its first version. Mean expansion length moved 14.9 →
 14.5 characters across the revisions (15.4 with `Combination`, 16.2 with `Change Foot…`, 17.3 before
 the choreographic digits were shown); worst case 50 throughout.
 
-Each spin code in the doc's §4.3 table was checked against the ISU singles abbreviation list, so the
+Each spin code in `abbreviation-expansion.md` §4.3 was checked against the ISU singles abbreviation list, so the
 table carries codes that do not occur in these five pages but may occur in another singles protocol.
 
 **Implementation (2026-10-15).** `ElementNameExpander.swift` plus `ElementNameExpanderTests.swift`
@@ -169,8 +169,8 @@ implementation's corrections to it, and the counts that moved.
 
 **Verification performed (2026-10-14).** The two reference pages in the requirements, the event index
 (`index.asp`) and **ten** segment detail pages (five singles, five pairs) were fetched from the same
-event (`2026 Boston Open`, id `36683`) and the raw markup inspected — every structural claim in the
-spec's §2, §4 and §5 comes from that markup, not from a rendered export. A throwaway prototype
+event (`2026 Boston Open`, id `36683`) and the raw markup inspected — every structural claim in
+`protocol-parser.md` §2, §4 and §5 comes from that markup, not from a rendered export. A throwaway prototype
 (Python, scratch) of the parsing model parsed all ten detail pages: **85 skaters, 672 element rows, 0
 unparsed rows, 0 violations of `bv + goe + bonus == psv`**.
 
@@ -184,8 +184,8 @@ unparsed rows, 0 violations of `bv + goe + bonus == psv`**.
   `&nbsp;`/`&lt;`-only entity set, and the all-ASCII body.
 - Version drift observed within one event: `index.asp` reports ijsLive 2.6.3 while every segment page
   reports 2.6.4 — so field presence must be handled per page, not per site version.
-- All seven design questions were resolved by the user on 2026-10-14 (the module doc §10 keeps the
-  letters and the answers).
+- All seven design questions were resolved by the user on 2026-10-14 (`protocol-parser.md` §10 keeps the letters
+  and the answers).
 - Not verified in that pass: ice dance (no dance segment exists at this competition — the user
   confirmed), a page with a withdrawn skater (no `elm` table; no `Withdrawn`/`WD`/`DNS` marker appears
   in any fixture), other events/eras of ijsLive, and non-U.S. events.
@@ -249,7 +249,7 @@ index and a 404 body:
 |---|---|---|
 | Output vs. the other implementation | **identical** on all 16 files / 825 rows (0 diffs) | **identical** |
 | `bv + goe + bonus == psv` invariant | 0 violations | 0 violations |
-| Reference skater (`Milo Yeon`, 9 elements) | matches the spec's §5.2 table | matches the spec's §5.2 table |
+| Reference skater (`Milo Yeon`, 9 elements) | matches `protocol-parser.md` §5.2 table | matches `protocol-parser.md` §5.2 table |
 | Implementation size | 162 lines + the trap-specific tests below | **58 lines** |
 | Parse time, 16 files, release | 430 ms | **139 ms** (3.1× faster) |
 | Parse time, 154 KB page (largest) | 70 ms | 21 ms |
@@ -275,7 +275,7 @@ permanent regression test. SwiftSoup cannot have them: it is a port of jsoup, a 
 decades of real-world tag soup behind it, and its `.text()` gives canonical, entity-decoded,
 whitespace-normalized text (it normalizes `&nbsp;` away for us).
 
-**Decision (adopted 2026-10-14): SwiftSoup is the parsing implementation.** It clears the §2.2 bar on
+**Decision (adopted 2026-10-14): SwiftSoup is the parsing implementation.** It clears the `ARCHITECTURE.md` §2.2 bar on
 every count — it removes real work (58 lines against 162 plus ~10 trap tests), it is well-fitted (CSS
 selectors over exactly the tables we key on), it is maintained and proven, it has no transitive
 footprint, it is 3× faster than the scanner we would write, and it is *verified* to build for this
@@ -284,7 +284,7 @@ Release build, and ~4 MB per architecture of linked code (the largest single cos
 the import path is one-shot user-initiated work with no server-side size pressure, and the app
 already links AVFoundation/CoreImage).
 
-**Behaviour it imposes on us** (now stated as rules in the module doc §4.1): it parses to an HTML5
+**Behaviour it imposes on us** (now stated as rules in `protocol-parser.md` §4.1): it parses to an HTML5
 tree, so selectors are written against the parsed tree and section pairing stays "the next
 `table.elm` in document order after the matched `table.sum`"; its `.text()` normalizes whitespace and
 drops `&nbsp;`; and it is a class-based, non-`Sendable` API, so parsing stays on the calling actor or

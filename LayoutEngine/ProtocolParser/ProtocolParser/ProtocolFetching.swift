@@ -33,7 +33,7 @@ public struct URLSessionProtocolFetcher: ProtocolFetching {
         return text
     }
 
-    /// UTF-8 first, then ISO-8859-1 — the pages declare `charset=iso-8859-1` (§4.2).
+    /// UTF-8 first, then ISO-8859-1 — the pages declare `charset=iso-8859-1` (protocol-parser.md §4.2).
     nonisolated static func decode(_ data: Data) -> String? {
         String(data: data, encoding: .utf8) ?? String(data: data, encoding: .isoLatin1)
     }

@@ -210,10 +210,10 @@ struct ElementNameExpanderTests {
                     let abbreviation = element.abbreviation
                     let parts = expanded(abbreviation).components(separatedBy: " + ")
 
-                    // A token the rules do not know comes back verbatim (§4.9), and no row on these
-                    // pages may: the surviving parts must line up one-for-one with the tokens that are
-                    // not dropped. Call tokens are the exception — a call token's expansion *is*
-                    // itself.
+                    // A token the rules do not know comes back verbatim
+                    // (abbreviation-expansion.md §4.9), and no row on these pages may: the surviving
+                    // parts must line up one-for-one with the tokens that are not dropped. Call
+                    // tokens are the exception — a call token's expansion *is* itself.
                     let callTokens: Set<String> = ["SEQ", "COMBO", "REP"]
                     let survivors = abbreviation
                         .components(separatedBy: "+")

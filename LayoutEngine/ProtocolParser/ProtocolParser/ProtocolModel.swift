@@ -9,25 +9,28 @@
 import Foundation
 
 /// Which of the two published page kinds a document is
-/// (`docs/architecture/protocol-parser.md` §2.3).
+/// (`protocol-parser.md` §2.1–§2.2).
 public enum ProtocolPageKind: Sendable, Equatable {
-    /// `CATnnnSEGnnn.html` — the results table; used only to locate the judge-detail link (§7.3).
+    /// `CATnnnSEGnnn.html` — the results table; used only to locate the judge-detail link
+    /// (protocol-parser.md §7.3).
     case leaderboard
     /// `SEGMnnn.html` — the static page that is actually parsed.
     case segmentDetail
 }
 
-/// One executed element. Identified by its raw abbreviation; the `info` column is never read (§10a).
+/// One executed element. Identified by its raw abbreviation; the `info` column is never read
+/// (protocol-parser.md §10a).
 public struct ProtocolElement: Sendable, Equatable, Hashable {
-    /// The protocol's own element number, 1-based and contiguous (§4.5).
+    /// The protocol's own element number, 1-based and contiguous (protocol-parser.md §4.5).
     public let index: Int
     /// The abbreviation exactly as published, entity-decoded: `3Tb1+2T`, `2Lz<<`, `StSq2+kpYYNN`.
     public let abbreviation: String
     public let baseValue: Int
     public let goeValue: Int
-    /// Bonus for a difficult element; `0` when the column is empty (§5.1).
+    /// Bonus for a difficult element; `0` when the column is empty (protocol-parser.md §5.1).
     public let bonusValue: Int
-    /// The page's own total column, kept for sanity checking only — never displayed (§5.2, §10e).
+    /// The page's own total column, kept for sanity checking only — never displayed
+    /// (protocol-parser.md §5.2, §10e).
     public let panelScore: Int
 
     public init(

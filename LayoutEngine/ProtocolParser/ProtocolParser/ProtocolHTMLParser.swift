@@ -18,8 +18,8 @@ public enum ProtocolHTMLParser {
     ///
     /// The judge-detail link is the surest leaderboard signal, but it is *absent exactly when* the
     /// organizer has not published judge details yet — the page is still a leaderboard page, and
-    /// that absence is the `.detailLinkMissing` case (§10b). So the results table and the
-    /// segment-links list count as leaderboard signals too.
+    /// that absence is the `.detailLinkMissing` case (protocol-parser.md §10b). So the results table
+    /// and the segment-links list count as leaderboard signals too.
     nonisolated public static func pageKind(of html: String) -> ProtocolPageKind? {
         guard let document = try? SwiftSoup.parse(html) else { return nil }
 
@@ -57,7 +57,7 @@ public enum ProtocolHTMLParser {
 
     // MARK: - Segment detail page
 
-    /// Reads a whole segment page into skaters and elements (§4.4–§4.6).
+    /// Reads a whole segment page into skaters and elements (protocol-parser.md §4.4–§4.6).
     nonisolated public static func parseSegment(html: String) throws -> ProtocolSegment {
         guard let document = try? SwiftSoup.parse(html) else { throw ProtocolParserError.unrecognizedPage }
 
@@ -70,7 +70,7 @@ public enum ProtocolHTMLParser {
 
         // Walk the tables in document order: a skater's elements come from the *next* element table
         // after their summary table, so a section with no element table fails on its own name
-        // (§4.4).
+        // (protocol-parser.md §4.4).
         for table in (try? document.select("table"))?.array() ?? [] {
             let classes = (try? table.className())?.split(separator: " ").map(String.init) ?? []
             if classes.contains("sum") {
@@ -99,7 +99,8 @@ public enum ProtocolHTMLParser {
     }
 
     /// The element rows of one table: rows carrying a `<TD class=num>`. The program-components
-    /// block and the totals rows live in the same table and are skipped by that test (§4.5).
+    /// block and the totals rows live in the same table and are skipped by that test
+    /// (protocol-parser.md §4.5).
     nonisolated private static func elements(in table: Element, skater: String) throws -> [ProtocolElement] {
         var elements: [ProtocolElement] = []
         for row in (try? table.select("tr"))?.array() ?? [] {
@@ -121,8 +122,8 @@ public enum ProtocolHTMLParser {
                     skater: skater, index: index, reason: "GOE is missing or not a number")
             }
 
-            // Optional columns: an empty or &nbsp; bonus cell is 0 (§5.1); the panel score is the
-            // page's own arithmetic, kept for sanity checking only (§5.2).
+            // Optional columns (protocol-parser.md §5.1–§5.2): an empty or &nbsp; bonus cell is 0,
+            // and the panel score is the page's own arithmetic, kept for sanity checking only.
             let bonusValue = hundredths(try? row.select("td.ref").first()?.text()) ?? 0
             let panelScore = hundredths(try? row.select("td.psv").first()?.text()) ?? 0
 
@@ -139,8 +140,9 @@ public enum ProtocolHTMLParser {
 
     // MARK: - Skater selection
 
-    /// Isolates one skater by name (§6): normalized exact match against the name part, falling back
-    /// to the club-qualified name to disambiguate — never a prefix, substring or fuzzy match.
+    /// Isolates one skater by name (protocol-parser.md §6): normalized exact match against the name
+    /// part, falling back to the club-qualified name to disambiguate — never a prefix, substring or
+    /// fuzzy match.
     nonisolated public static func skater(named name: String, in segment: ProtocolSegment) throws -> ProtocolSkater {
         let query = normalized(name)
 
@@ -183,7 +185,7 @@ public enum ProtocolHTMLParser {
     /// Decimal string → integer hundredths. `nil` when the cell holds no number at all.
     ///
     /// The sign is tracked separately from the whole-number component: `Int("-0") == 0`, so reading
-    /// the sign off `parts[0]` turns `-0.90` into `+90` (§5.1).
+    /// the sign off `parts[0]` turns `-0.90` into `+90` (protocol-parser.md §5.1).
     nonisolated private static func hundredths(_ raw: String?) -> Int? {
         guard let raw else { return nil }
         let trimmed = text(raw)

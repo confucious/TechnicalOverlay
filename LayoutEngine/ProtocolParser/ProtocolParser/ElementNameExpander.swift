@@ -4,13 +4,13 @@
 //
 //  Abbreviation → display name for the singles vocabulary
 //  (`docs/architecture/abbreviation-expansion.md` §4). Pure, `nonisolated`, no I/O and no state;
-//  a token these rules do not know is returned verbatim (§4.9).
+//  a token these rules do not know is returned verbatim (abbreviation-expansion.md §4.9).
 //
 
 import Foundation
 
 /// Turns a published element abbreviation into the name shown on the overlay and in the scoring
-/// list (`docs/architecture/abbreviation-expansion.md` §6).
+/// list (`abbreviation-expansion.md` §6).
 ///
 /// The default implementation returns the abbreviation unchanged, so a conformer that implements
 /// nothing — or the absence of a translator altogether — is not a failure mode.
@@ -28,13 +28,14 @@ public extension ElementNameTranslating {
 }
 
 /// The singles implementation: jumps, spin, step-sequence and choreographic codes, the protocol's
-/// markers, and the call tokens (§4.1–§4.9).
+/// markers, and the call tokens (abbreviation-expansion.md §4.1–§4.9).
 public struct ElementNameExpander: ElementNameTranslating {
 
     public nonisolated init() {}
 
     /// Expands a whole abbreviation — `3Tb1+2T` → `3 Toeloop + 2 Toeloop`. Tokens are split on `+`
-    /// and joined back with ` + `; dropped tokens leave neither a separator nor an empty part (§4.8).
+    /// and joined back with ` + `; dropped tokens leave neither a separator nor an empty part
+    /// (abbreviation-expansion.md §4.8).
     public nonisolated func displayName(for abbreviation: String) -> String {
         abbreviation
             .split(separator: "+", omittingEmptySubsequences: false)
@@ -73,7 +74,8 @@ public struct ElementNameExpander: ElementNameTranslating {
     ///
     /// These are a **trailing run on a jump token**, never a character class over the whole token:
     /// `q` is also a letter of `StSq`/`ChSq`, so a blanket strip turns `StSq2` into `StS2` and
-    /// `ChSq1` into `ChS1`, and every step sequence silently stops classifying (§2.4 trap 1).
+    /// `ChSq1` into `ChS1`, and every step sequence silently stops classifying
+    /// (abbreviation-expansion.md §2.4 trap 1).
     nonisolated private static let markers: Set<Character> = ["<", "!", "e", "q"]
 
     nonisolated static func withoutIgnoredMarkers(_ token: String) -> String {
@@ -83,11 +85,11 @@ public struct ElementNameExpander: ElementNameTranslating {
     }
 
     /// Removes `b<digits>[.<digits>]` — the bonus for a difficult element, which the protocol also
-    /// carries in its own column, so the name drops it (§4.6).
+    /// carries in its own column, so the name drops it (abbreviation-expansion.md §4.6).
     ///
     /// It is stripped **wherever it sits**: `3Tb1` and `3Lz<b1` both occur, so a fixed "markers then
-    /// bonus" order misses the second (§2.4 trap 2). A bare `b` is left alone, which is what keeps
-    /// the spin level `B` (uppercase) and codes like `1LiB` intact.
+    /// bonus" order misses the second (abbreviation-expansion.md §2.4 trap 2). A bare `b` is left
+    /// alone, which is what keeps the spin level `B` (uppercase) and codes like `1LiB` intact.
     nonisolated static func removingBonusMarker(from token: String) -> String {
         var characters = Array(token)
         var index = 0
@@ -116,7 +118,7 @@ public struct ElementNameExpander: ElementNameTranslating {
     /// `StSq<level>` → `Step Sequence <level>`; a choreographic code → `<name> <digit>`.
     ///
     /// A choreographic code's trailing digit is part of the code rather than a level, and **is**
-    /// shown; only `pChSq1`'s prefix is dropped (§4.4).
+    /// shown; only `pChSq1`'s prefix is dropped (abbreviation-expansion.md §4.4).
     nonisolated static func sequence(_ core: String) -> String? {
         if core.hasPrefix("StSq") {
             let level = core.dropFirst("StSq".count)
@@ -141,8 +143,8 @@ public struct ElementNameExpander: ElementNameTranslating {
 
     /// `<spin name> <level>` plus, when the panel marked it, a `V` (a reduced value — a spin
     /// requirement was not fulfilled) separated from the level by a space: `CCoSp1V` →
-    /// `Change Combo Spin 1 V`, `CCoSpBV` → `Change Combo Spin B V` (§4.3). A spin the panel called
-    /// with no level gets the name alone.
+    /// `Change Combo Spin 1 V`, `CCoSpBV` → `Change Combo Spin B V`
+    /// (abbreviation-expansion.md §4.3). A spin the panel called with no level gets the name alone.
     nonisolated private static let spins: [(code: String, name: String)] = [
         ("USp", "Upright Spin"),
         ("LSp", "Layback Spin"),
@@ -168,7 +170,8 @@ public struct ElementNameExpander: ElementNameTranslating {
 
     /// Longest code first: the codes are prefixes of one another and all end in `Sp` — `CSp` ⊂
     /// `CCSp`, `SSp` ⊂ `FSSp`/`CSSp`, `CoSp` ⊂ `CCoSp`/`FCoSp`, `CSp` ⊂ `FCSp` — so a
-    /// first-match walk over an unordered table would expand `CCSp3` as a Camel Spin (§2.4 trap 3).
+    /// first-match walk over an unordered table would expand `CCSp3` as a Camel Spin
+    /// (abbreviation-expansion.md §2.4 trap 3).
     nonisolated private static let spinsByLength: [(code: String, name: String)] =
         spins.sorted { $0.code.count > $1.code.count }
 
@@ -202,8 +205,8 @@ public struct ElementNameExpander: ElementNameTranslating {
     // MARK: - Jumps
 
     /// `<revolutions> <jump name>`, the number always shown — `Euler` excepted, which never takes
-    /// one (§4.2). The remainder after the code must be empty: `3STh` must not become a Salchow
-    /// (§2.4 trap 4).
+    /// one (abbreviation-expansion.md §4.2). The remainder after the code must be empty: `3STh` must
+    /// not become a Salchow (abbreviation-expansion.md §2.4 trap 4).
     nonisolated private static let jumps: [(code: String, name: String)] = [
         ("Eu", "Euler"),
         ("Lo", "Loop"),
