@@ -120,7 +120,11 @@ extension Optional where Wrapped == CIImage {
             return "none"
         case .some(let image):
             let extent = image.extent
-            return "image(\(Int(extent.width))×\(Int(extent.height)))"
+            if extent.isInfinite {
+                return "image(infinite)"
+            } else {
+                return "image(\(Int(extent.width))×\(Int(extent.height)))"
+            }
         }
     }
 }

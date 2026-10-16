@@ -100,10 +100,10 @@ struct ProtocolImportModelTests {
 
         #expect(model.errorMessage == nil)
         #expect(data.elementScores.count == 2)
-        #expect(data.elementScores[0].name == "2Lz")
+        #expect(data.elementScores[0].name == "2 Lutz")
         #expect(data.elementScores[0].baseValue == 210)
         #expect(data.elementScores[0].displayTime == 12.5)      // the timeline survives
-        #expect(data.elementScores[1].name == "3T")
+        #expect(data.elementScores[1].name == "3 Toeloop")
         #expect(data.elementScores[1].bonusValue == 100)
         #expect(data.elementScores[1].displayTime == nil)       // appended, untimed
     }
