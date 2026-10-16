@@ -40,4 +40,11 @@ enum Fixture {
         "SEGM034.html",
     ]
     static let leaderboardPages = ["CAT022SEG033.html", "CAT022SEG034.html"]
+
+    /// The five **singles** segment pages of the set above — the ones the abbreviation expansion's
+    /// census was measured over (`docs/architecture/abbreviation-expansion.md` §3): 535 element rows.
+    /// `SEGM033` is singles too, but it is the sibling page the link test needs; the rest are pairs.
+    static let singlesDetailPages = [
+        "SEGM001.html", "SEGM011.html", "SEGM015.html", "SEGM021.html", "SEGM034.html",
+    ]
 }

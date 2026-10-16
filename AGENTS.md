@@ -60,13 +60,13 @@ xcodebuild test -scheme LayoutEngine -workspace TechnicalOverlay.xcworkspace \
    contain a scheme named <X>`, and Xcode opens a gutted project. **Always re-run
    `tuist generate` after a test run.**
 
-**Test health** — every bundle builds and runs (iPhone 17 simulator; `ProtocolParser` and the app's
-unit tests re-verified 2026-10-14, the rest 2026-10-12):
+**Test health** — every bundle builds and runs (iPhone 17 simulator; `ProtocolParser` re-verified
+2026-10-15, its app-side counterparts and the rest 2026-10-14 or earlier):
 
 | Scheme | Result |
 |--------|--------|
 | `LayoutEngine` | 1 test — boilerplate stub |
-| `ProtocolParser` | 39 tests pass — parser, importer and link extraction over the committed fixtures |
+| `ProtocolParser` | 56 tests pass — parser, importer, link extraction and the singles element-name expansion, over the committed fixtures |
 | `VideoProcessor` | 63 tests pass |
 | `TechnicalOverlay` | 22 unit tests pass (5 the protocol merge, 8 the import flow) + 2 UI tests for the Import Protocol button |
 
@@ -155,7 +155,7 @@ LayoutEngine/                           # Shared library sources (one Tuist proj
     ├── OverlayDataChangeTests.swift
     └── VideoProcessorTests.swift
 
-ProtocolParser/                            # Protocol importer (implemented; not yet called from the app)
+ProtocolParser/                            # Protocol importer + element-name expansion (implemented; the expansion is not wired in yet)
 ```
 
 **Dependencies:** one third-party package is linked — **SwiftSoup 2.14.2**, used by `ProtocolParser` only (pinned exactly in `Project.swift`; `Package.resolved` committed). Everything else is Apple frameworks: SwiftUI, AVFoundation, CoreImage, UIKit, CoreMedia, Observation, UniformTypeIdentifiers. That is the current state, **not a rule**: take a package when it gives an obvious, well-fitted benefit over self-written code (policy and the worked example: `docs/ARCHITECTURE.md` §2.2, `docs/architecture/protocol-parser.md` §4.1).

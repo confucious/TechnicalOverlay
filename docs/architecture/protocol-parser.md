@@ -648,12 +648,12 @@ it presents the address prompt.
 
 ## 9. Abbreviation → display name (deferred)
 
-Until the translation is designed, `ElementData.name` receives the raw abbreviation. The future
-translator is a single component with an **identity default**, so its absence is not a failure
-mode. **The singles rules for that component are specified in
-[`docs/architecture/abbreviation-expansion.md`](abbreviation-expansion.md)** (design complete, every
-rule settled, no code) — that document owns the jump / spin / step-sequence / choreographic
-vocabulary and the marker handling, and this section keeps only the seam and the token inventory.
+`ElementData.name` receives the raw abbreviation until the app calls the translator (§8.1). The
+translator is a single component with an **identity default**, so its absence is not a failure mode.
+**The singles rules are implemented in this module's `ElementNameExpander.swift` and specified in
+[`docs/architecture/abbreviation-expansion.md`](abbreviation-expansion.md)** — that document owns the
+jump / spin / step-sequence / choreographic vocabulary and the marker handling; this section keeps
+only the seam and the token inventory.
 
 ```swift
 public protocol ElementNameTranslating: Sendable {

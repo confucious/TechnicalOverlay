@@ -1,13 +1,16 @@
 # Element Abbreviation Expansion (Singles)
 
-**Source:** `LayoutEngine/ProtocolParser/ProtocolParser/` (planned — nothing is in the tree yet)
+**Source:** `LayoutEngine/ProtocolParser/ProtocolParser/ElementNameExpander.swift`, tests in
+`LayoutEngine/ProtocolParser/ProtocolParserTests/ElementNameExpanderTests.swift`
 
-Status: **Design complete — every rule settled; no code written.** This document
-specifies the deferred translator of `docs/architecture/protocol-parser.md` §9 (an abbreviation →
-display-name component with an identity default). It covers **singles only**: the jump, spin,
-step-sequence and choreographic vocabulary of the singles protocol. Pairs and ice-dance codes are
-deliberately out of scope (§8) and currently pass through unchanged. **Every rule is settled**: §4 is
-the specification and §5 the worked examples.
+Status: **Implemented — not yet wired into the app.** `ElementNameTranslating` / `ElementNameExpander`
+and their 17 tests are in the module and pass; nothing calls them yet, so `ElementData.name` still
+receives the raw abbreviation (§7). This document is the authoritative specification for the
+component, and is the deferred translator of `docs/architecture/protocol-parser.md` §9 (an
+abbreviation → display-name component with an identity default). It covers **singles only**: the jump,
+spin, step-sequence and choreographic vocabulary of the singles protocol. Pairs and ice-dance codes
+are deliberately out of scope (§8) and currently pass through unchanged. **Every rule is settled**: §4
+is the specification and §5 the worked examples.
 
 ## 1. Purpose
 
@@ -310,6 +313,9 @@ public struct ElementNameExpander: ElementNameTranslating {
 }
 ```
 
+Both types are in the module (`ElementNameExpander.swift`). The identity default lives in a protocol
+extension, so a conformer that implements nothing is valid — the identity test in §9 pins that.
+
 **No failure mode.** An unclassifiable token is not an error — it is returned verbatim (§4.9), so
 this component cannot fail an import and needs no error type.
 
@@ -370,8 +376,20 @@ Pure string tests — no fixtures needed for the table itself; the sweep uses th
 | 14 | **Sweep over the five singles fixtures** | 535/535 rows expand with zero verbatim-passthrough tokens once `kp…` is dropped (the number §3 freezes); any row that regresses to passthrough fails the test          |
 | 15 | Identity default | a type conforming without implementing anything returns the abbreviation unchanged (`protocol-parser.md` §9)                                                           |
 
+**Implemented as `ElementNameExpanderTests.swift`** — one `@Suite("Element name expansion")`, 17 tests
+in the order above, all passing. Tests 14 and its neighbour are the two sweeps: 535/535 singles rows
+with zero passthrough, and every row of all eleven detail pages (825) well formed.
+
 ## 10. Verification performed (2026-10-15)
 
+- **Implemented 2026-10-15.** `ElementNameExpander.swift` — the `ElementNameTranslating` protocol
+  with its identity default, the marker/bonus stripping, and the jump / spin / step-sequence /
+  choreographic classifiers — with `ElementNameExpanderTests.swift` beside it. **56 / 56 tests in 7
+  suites pass** (`xcodebuild test -scheme ProtocolParser -destination 'platform=iOS Simulator,name=iPhone 17'`,
+  `** TEST SUCCEEDED **`), 17 of them the new suite; that includes both sweeps: **535 / 535** singles
+  rows classified with zero verbatim passthrough, and all **825** rows of the eleven detail pages
+  expanding to a well-formed name (no empty part, no dangling separator, no `kp…` leaking through).
+  The app-side wiring of §7 is **not** done — nothing calls the expander yet.
 - Extracted all **535** singles element cells from the five committed singles fixtures
   (`SEGM001`, `SEGM011`, `SEGM015`, `SEGM021`, `SEGM034`) — 187 distinct abbreviations, 119 distinct
   `+`-separated tokens — and built the token census in §3 from those bytes, not from a rendered view.
