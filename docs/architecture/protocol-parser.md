@@ -309,7 +309,7 @@ our own value/section logic and hold under either approach.
 | 6 | Class **token** matching, not substring (`sum` ≠ `detailScoreSum`) | leaderboard page | the parser (CSS class selector) |
 | 7 | Nested tables — the body needs depth counting, not "first `</TABLE>`" | leaderboard page | the parser (tree) |
 | 8 | `<BR>` in header cells; `&nbsp;` padding runs in data cells | both | the parser |
-| 9 | Empty / `&nbsp;` bonus cell means `0` | 654 of 672 rows | ours (§5.1) |
+| 9 | Empty / `&nbsp;` bonus cell means `0` | 696 of 717 rows | ours (§5.1) |
 | 10 | Hundredths conversion incl. the sign-below-1.00 trap | 268 rows when done wrong | ours (§5.1) |
 | 11 | Variable judge count and extra empty cells shifting positions | 7–9 judges; Jackson Patterson's table | ours (class keying, §4.6) |
 
@@ -330,7 +330,7 @@ Conversion rules (module-local `String → Int` helper; the app's `String.toHund
   **268 of the 825 rows** in the spike (every GOE below −1.00 magnitude), and it is invisible except
   for the §5.2 invariant — the numbers still look like plausible scores. Test it directly:
   `"-0.90" → -90`, `"-1.19" → -119`, `"0.42" → 42`.
-- Empty, `&nbsp;` → `0` for the **bonus** column (654 of 672 rows are empty).
+- Empty, `&nbsp;` → `0` for the **bonus** column (696 of 717 rows are empty).
 - Empty / `-` / non-numeric for `bv`, `goe` → `.malformedElementRow` (§6). `-` appears only in
   judge cells, which are ignored.
 - All 2016 `bv`/`goe`/`psv` values in the fixture set are exactly two decimals, so the conversion is
@@ -339,7 +339,7 @@ Conversion rules (module-local `String → Int` helper; the app's `String.toHund
 
 ### 5.2 The total column is an invariant, not a field
 
-The last column satisfies `bv + goe + bonus == psv` **exactly, in hundredths, for all 672 element
+The last column satisfies `bv + goe + bonus == psv` **exactly, in hundredths, for all 717 element
 rows across the ten fixture pages** (0 mismatches, 0 non-numeric). Confirmed examples:
 
 | # | abbrev | base | GOE | bonus | panel | check |
@@ -650,7 +650,10 @@ it presents the address prompt.
 
 Until the translation is designed, `ElementData.name` receives the raw abbreviation. The future
 translator is a single component with an **identity default**, so its absence is not a failure
-mode:
+mode. **The singles rules for that component are specified in
+[`docs/architecture/abbreviation-expansion.md`](abbreviation-expansion.md)** (design complete, every
+rule settled, no code) — that document owns the jump / spin / step-sequence / choreographic
+vocabulary and the marker handling, and this section keeps only the seam and the token inventory.
 
 ```swift
 public protocol ElementNameTranslating: Sendable {
@@ -658,8 +661,8 @@ public protocol ElementNameTranslating: Sendable {
 }
 ```
 
-The token grammar the table must cover, taken from the **221 distinct abbreviations** in the ten
-fixtures (166 singles + 66 pairs, largely disjoint vocabularies):
+The token grammar the table must cover, taken from the **241 distinct abbreviations** in the ten
+fixtures (187 singles + 66 pairs, largely disjoint vocabularies):
 
 | Shape | Examples | Note |
 |---|---|---|
@@ -781,6 +784,13 @@ would otherwise have shipped plausible-looking wrong scores. Keep it regardless 
   being reported as "not a protocol page" instead of `.detailLinkMissing`), and
   `skater(named:inHTML:baseURL:)` must be `async` because following a supplied page's link is a
   fetch. Both are reflected above.
+- **Counts re-measured 2026-10-15** (while specifying the abbreviation expansion,
+  `docs/architecture/abbreviation-expansion.md`): the ten detail pages hold **717** element rows
+  (535 singles + 182 pairs — the sum of §3's own per-page column), the invariant holds on all 717,
+  **696** of those rows have an empty bonus cell, and the distinct abbreviations are **241**
+  (187 singles + 66 pairs). The 672 / 654 / 221 figures this document previously carried were stale.
+  The 825-row figure for the committed eleven-detail-page set was already correct
+  (717 + `SEGM033`'s 108).
 - Not verified: **ice dance** (no dance segment exists at this competition — the user confirmed),
   a page with a withdrawn skater (no `elm` table; no `Withdrawn`/`WD`/`DNS` marker appears in any
   fixture), other events/eras of ijsLive, and non-U.S. events. The design is structure-based and
