@@ -60,15 +60,10 @@ xcodebuild test -scheme LayoutEngine -workspace TechnicalOverlay.xcworkspace \
    contain a scheme named <X>`, and Xcode opens a gutted project. **Always re-run
    `tuist generate` after a test run.**
 
-**Test health** — every bundle builds and runs (iPhone 17 simulator; `ProtocolParser` re-verified
-2026-10-15, its app-side counterparts and the rest 2026-10-14 or earlier):
-
-| Scheme | Result |
-|--------|--------|
-| `LayoutEngine` | 1 test — boilerplate stub |
-| `ProtocolParser` | 56 tests pass — parser, importer, link extraction and the singles element-name expansion, over the committed fixtures |
-| `VideoProcessor` | 63 tests pass |
-| `TechnicalOverlay` | 23 unit tests pass (6 the protocol merge — one of them the injected-translator seam; 8 the import flow) + 2 UI tests for the Import Protocol button |
+**Test health** — every bundle builds and runs on the iPhone 17 simulator. Per-scheme counts, what
+each bundle covers and when each was last verified live in [`docs/testing.md`](docs/testing.md) —
+**keep them there, not here**: a count written into these instructions goes stale without anyone
+noticing, and this file is read on every session.
 
 `VideoProcessorTests` integration tests need the untracked 398 MB
 `TechnicalOverlay/TechnicalOverlay/Boston Open 2025.mov`; without it `DefaultStitcherTests`

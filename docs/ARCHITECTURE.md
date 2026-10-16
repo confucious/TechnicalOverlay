@@ -38,6 +38,10 @@ Xcode workspace containing all targets — the app, the three frameworks, and th
 | **Video Processor** | [`docs/architecture/video-processor.md`](docs/architecture/video-processor.md) | `LayoutEngine/VideoProcessor/` |
 | **Protocol Parser** | [`docs/architecture/protocol-parser.md`](docs/architecture/protocol-parser.md) | `LayoutEngine/ProtocolParser/` |
 
+Per-scheme test counts, coverage notes and verification dates live in
+[`docs/testing.md`](docs/testing.md) — deliberately not in `AGENTS.md`, where a count goes stale
+unnoticed.
+
 The rest of this document is the consolidated summary; each module doc has the full, current
 detail and is the authoritative reference for its module. A **component-level** spec lives with the
 module that owns it — the singles element-abbreviation expansion rules for the protocol importer are
@@ -54,6 +58,7 @@ LayoutEngine/
 ├── VideoProcessor/                        # AVFoundation composition + chunk pipeline
 └── ProtocolParser/                        # protocol importer (implemented; imported from ScoringListView)
 docs/
+├── testing.md                            # per-scheme test counts + coverage (living record)
 └── architecture/                          # per-module docs (this file links here)
 ```
 
