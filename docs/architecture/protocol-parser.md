@@ -547,8 +547,9 @@ live in the app:
 
 ```swift
 extension ElementData {
-    convenience init(_ element: ProtocolElement) {          // displayTime stays nil — the app sets timing
-        self.init(name: element.abbreviation,               // verbatim until the translator lands (§9)
+    convenience init(_ element: ProtocolElement,           // displayTime stays nil — the app sets timing
+                     translator: ElementNameTranslating = ElementNameExpander()) {
+        self.init(name: translator.displayName(for: element.abbreviation),   // "3Tb1+2T" → "3 Toeloop + 2 Toeloop"
                   baseValue: element.baseValue,
                   goeValue: element.goeValue,
                   bonusValue: element.bonusValue)
@@ -648,8 +649,9 @@ it presents the address prompt.
 
 ## 9. Abbreviation → display name (deferred)
 
-`ElementData.name` receives the raw abbreviation until the app calls the translator (§8.1). The
-translator is a single component with an **identity default**, so its absence is not a failure mode.
+`ElementData.name` receives the abbreviation's **display name**, because the app's import calls the
+translator (§8). The translator is a single component with an **identity default**, so its absence is
+not a failure mode.
 **The singles rules are implemented in this module's `ElementNameExpander.swift` and specified in
 [`docs/architecture/abbreviation-expansion.md`](abbreviation-expansion.md)** — that document owns the
 jump / spin / step-sequence / choreographic vocabulary and the marker handling; this section keeps

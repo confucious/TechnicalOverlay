@@ -3,9 +3,9 @@
 **Source:** `LayoutEngine/ProtocolParser/ProtocolParser/ElementNameExpander.swift`, tests in
 `LayoutEngine/ProtocolParser/ProtocolParserTests/ElementNameExpanderTests.swift`
 
-Status: **Implemented — not yet wired into the app.** `ElementNameTranslating` / `ElementNameExpander`
-and their 17 tests are in the module and pass; nothing calls them yet, so `ElementData.name` still
-receives the raw abbreviation (§7). This document is the authoritative specification for the
+Status: **Implemented and wired into the app.** `ElementNameTranslating` / `ElementNameExpander` and
+their 17 tests are in the module and pass, and the import now writes display names into
+`ElementData.name` (§7). This document is the authoritative specification for the
 component, and is the deferred translator of `docs/architecture/protocol-parser.md` §9 (an
 abbreviation → display-name component with an identity default). It covers **singles only**: the jump,
 spin, step-sequence and choreographic vocabulary of the singles protocol. Pairs and ice-dance codes
@@ -321,8 +321,13 @@ this component cannot fail an import and needs no error type.
 
 ## 7. Integration with the app
 
-Chain: `ProtocolElement.abbreviation` → `ElementNameExpander` → `ElementData.name`
-(the mapping point is the existing `ElementData.init(_ element: ProtocolElement)`, i.e. the import).
+Chain: `ProtocolElement.abbreviation` → `ElementNameExpander` → `ElementData.name`, and it is
+**wired in** — the mapping point is `ElementData.init(_ element:translator:)` in
+`TechnicalOverlay/ProtocolImport.swift`, which `OverlayData.merge(_:translator:)` calls on both of its
+paths: a refresh at an index must land the same text as an append, or re-importing would silently
+revert elements the user has already timed back to raw codes. Both take the translator as a parameter
+defaulted to `ElementNameExpander()`, so the app gets the expansion and a caller (or a test) can hand
+in the identity default — the seam §6 specifies.
 
 Consequences to be aware of:
 
@@ -382,6 +387,15 @@ with zero passthrough, and every row of all eleven detail pages (825) well forme
 
 ## 10. Verification performed (2026-10-15)
 
+- **Wired into the app 2026-10-15.** `ElementData.init(_ element:translator:)` and
+  `OverlayData.merge(_:translator:)` in `TechnicalOverlay/ProtocolImport.swift` now write
+  `displayName(for:)` into `name` on **both** paths — a refresh at an index and an append — so a
+  re-import cannot revert an already-timed element to a raw code; the translator is a parameter
+  defaulted to `ElementNameExpander()`. The app's merge suite follows: its five existing expectations
+  now assert display names (`2 Lutz`, `3 Toeloop`, `3 Toeloop + 2 Toeloop`, `["2 Lutz", "3 Salchow"]`)
+  and a sixth test merges with the identity default to pin the seam. The framework suite is the part
+  of this document's measurements that this session ran (**56/56**); the app's unit suite is the
+  user's to confirm.
 - **Implemented 2026-10-15.** `ElementNameExpander.swift` — the `ElementNameTranslating` protocol
   with its identity default, the marker/bonus stripping, and the jump / spin / step-sequence /
   choreographic classifiers — with `ElementNameExpanderTests.swift` beside it. **56 / 56 tests in 7

@@ -68,7 +68,7 @@ xcodebuild test -scheme LayoutEngine -workspace TechnicalOverlay.xcworkspace \
 | `LayoutEngine` | 1 test — boilerplate stub |
 | `ProtocolParser` | 56 tests pass — parser, importer, link extraction and the singles element-name expansion, over the committed fixtures |
 | `VideoProcessor` | 63 tests pass |
-| `TechnicalOverlay` | 22 unit tests pass (5 the protocol merge, 8 the import flow) + 2 UI tests for the Import Protocol button |
+| `TechnicalOverlay` | 23 unit tests pass (6 the protocol merge — one of them the injected-translator seam; 8 the import flow) + 2 UI tests for the Import Protocol button |
 
 `VideoProcessorTests` integration tests need the untracked 398 MB
 `TechnicalOverlay/TechnicalOverlay/Boston Open 2025.mov`; without it `DefaultStitcherTests`

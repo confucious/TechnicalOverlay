@@ -42,7 +42,7 @@ struct ProtocolImportTests {
             elements: [parsed(1, "2Lz", base: 210, goe: 42)]))
 
         #expect(data.elementScores.count == 1)
-        #expect(data.elementScores[0].name == "2Lz")
+        #expect(data.elementScores[0].name == "2 Lutz")          // the display name, not "2Lz"
         #expect(data.elementScores[0].baseValue == 210)
         #expect(data.elementScores[0].goeValue == 42)
         #expect(data.elementScores[0].displayTime == 12.5)
@@ -55,7 +55,7 @@ struct ProtocolImportTests {
         data.merge(ProtocolSkater(name: "Skater", elements: [parsed(1, "3T", base: 462, goe: 84)]))
 
         #expect(data.elementScores[0].displayTime == nil)
-        #expect(data.elementScores[0].name == "3T")
+        #expect(data.elementScores[0].name == "3 Toeloop")
     }
 
     @Test("elements the protocol adds beyond the current data are appended, untimed")
@@ -69,7 +69,7 @@ struct ProtocolImportTests {
 
         #expect(data.elementScores.count == 2)
         #expect(data.elementScores[0].displayTime == 3.0)
-        #expect(data.elementScores[1].name == "3Tb1+2T")
+        #expect(data.elementScores[1].name == "3 Toeloop + 2 Toeloop")   // bonus marker dropped
         #expect(data.elementScores[1].baseValue == 550)
         #expect(data.elementScores[1].bonusValue == 100)
         #expect(data.elementScores[1].displayTime == nil)
@@ -103,7 +103,25 @@ struct ProtocolImportTests {
             parsed(2, "3S", base: 473, goe: 43),
         ]))
 
-        #expect(data.elementScores.map(\.name) == ["2Lz", "3S"])
+        #expect(data.elementScores.map(\.name) == ["2 Lutz", "3 Salchow"])
         #expect(data.elementScores.allSatisfy { $0.displayTime == nil })
+    }
+
+    @Test("a translator can be handed in — the identity default keeps the abbreviation")
+    func injectedIdentityTranslator() {
+        // The seam the spec specifies: the app uses the expander by default, and a caller that wants
+        // the raw code (or a different naming policy) supplies its own translator.
+        struct Verbatim: ElementNameTranslating {}
+
+        let data = OverlayData(elementScores: [existing("Typed By Hand", at: 3.0)])
+        data.merge(
+            ProtocolSkater(name: "Skater", elements: [
+                parsed(1, "3Tb1+2T", base: 550, goe: 25, bonus: 100),
+                parsed(2, "2A", base: 363, goe: 59),
+            ]),
+            translator: Verbatim())
+
+        #expect(data.elementScores.map(\.name) == ["3Tb1+2T", "2A"])
+        #expect(data.elementScores[0].displayTime == 3.0)       // timing still preserved
     }
 }

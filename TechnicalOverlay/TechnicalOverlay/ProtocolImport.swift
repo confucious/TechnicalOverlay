@@ -11,9 +11,17 @@ import ProtocolParser
 
 extension ElementData {
     /// An imported element, untimed — the timeline is the user's, and only a merge may touch it.
-    convenience init(_ element: ProtocolElement) {
+    ///
+    /// The name is the **display name** for the abbreviation
+    /// (`docs/architecture/abbreviation-expansion.md` §4): `3Tb1+2T` becomes
+    /// `3 Toeloop + 2 Toeloop`. The translator is injectable with the expander as its default, so a
+    /// caller (or a test) can hand in the identity default and get the abbreviation back verbatim.
+    convenience init(
+        _ element: ProtocolElement,
+        translator: ElementNameTranslating = ElementNameExpander()
+    ) {
         self.init(
-            name: element.abbreviation,      // verbatim until the name translator lands (§9)
+            name: translator.displayName(for: element.abbreviation),
             baseValue: element.baseValue,
             goeValue: element.goeValue,
             bonusValue: element.bonusValue,
@@ -31,14 +39,18 @@ extension OverlayData {
     ///
     /// Timing is never destroyed, so re-importing after a correction cannot cost the user the
     /// work of placing elements on the timeline, and a bad parse cannot either.
-    func merge(_ skater: ProtocolSkater) {
+    ///
+    /// Both paths write the abbreviation's **display name**, not the abbreviation — a refresh at an
+    /// index must land the same text as an append, or re-importing would silently revert elements
+    /// the user has already timed to raw codes.
+    func merge(_ skater: ProtocolSkater, translator: ElementNameTranslating = ElementNameExpander()) {
         for (index, element) in skater.elements.enumerated() {
             guard index < elementScores.count else {
-                elementScores.append(ElementData(element))
+                elementScores.append(ElementData(element, translator: translator))
                 continue
             }
             let existing = elementScores[index]
-            existing.name = element.abbreviation
+            existing.name = translator.displayName(for: element.abbreviation)
             existing.baseValue = element.baseValue
             existing.goeValue = element.goeValue
             existing.bonusValue = element.bonusValue
