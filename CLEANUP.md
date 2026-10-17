@@ -5,8 +5,8 @@ repetition and readability**. Every item names the file and line it lives at and
 move or delete — no "consider refactoring".
 
 **How to use this file:** delete an item when it lands; this list should shrink, never accumulate.
-IDs are never reused, so a gap in the numbering is finished work (B1, M2, M3, R1, R2, R3, Y2 and Y4
-are done). It is a backlog, not a design doc: rationale for anything that ships goes in `docs/HISTORY.md`
+IDs are never reused, so a gap in the numbering is finished work (B1, M2, M3, R1, R2, R3, Y2, Y3 and
+Y4 are done). It is a backlog, not a design doc: rationale for anything that ships goes in `docs/HISTORY.md`
 per `AGENTS.md` → Documentation, and `docs/ARCHITECTURE.md` stays current-state only.
 
 **Tags**
@@ -129,13 +129,6 @@ copies of `required init?(coder:) { fatalError }` as well.
 
 **Fix:** a case label that says what it means (`rendered` rather than `idle`).
 
-### Y3. `print` is the logging channel
-
-24 `print`s in the app target alone (`"saved"`, `"loaded"`, `"Invalidating cachedSize"`), none
-prefixed, none filterable; `Trace.log` is the only structured one.
-
-**Fix:** `os.Logger` subsystems for both, with one switch to silence the chunk pipeline.
-
 ### Y5. `makeSlides` duplicates its own fade-out block, and the copy lies
 
 `OverlayData.swift:179-182` and `208-217` are the same block with the same comment, but the second
@@ -150,8 +143,10 @@ one fades out the *element* slides, not the intro slide.
 - `AGENTS.md` names `MainView.ViewModel.assetUrl` (the pairing rule for security scopes, `:281`), and
   its source listing at `:124` omits `MainViewModel`/`AssetSession`/`RenderPipeline`/
   `ExportCoordinator`. Its Gotchas still describe `ContentView.swift` as a legacy prototype and
-  `ElementBuilderView.swift` as a placeholder; both files are deleted. That file is a protected
-  instruction file, so the corrections have to come from the user.
+  `ElementBuilderView.swift` as a placeholder; both files are deleted. Its "Tracing the chunk
+  pipeline" section still describes plain `print` output that "does not reach Console.app" — the
+  pipeline now logs to `os.Logger` (`chunk-pipeline` category, `debug` level, `Trace.isEnabled`).
+  That file is a protected instruction file, so the corrections have to come from the user.
 
 ---
 

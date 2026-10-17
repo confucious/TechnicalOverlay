@@ -9,6 +9,7 @@ import AVFoundation
 import Foundation
 import Observation
 import VideoProcessor
+import os
 
 /// Turns the render pipeline's chunks into the file the user asked for, and reports where it got to.
 @Observable
@@ -101,13 +102,13 @@ final class ExportCoordinator {
         Task {
             for await stitchState in exportSession.exportState {
                 switch stitchState {
-                case .pending: print("pending stitch export")
-                case .waiting: print("waiting stitch export")
+                case .pending: Log.export.debug("pending stitch export")
+                case .waiting: Log.export.debug("waiting stitch export")
                 case let .exporting(progress: progress):
-                    print("stitch exporting \(progress)")
+                    Log.export.debug("stitch exporting \(progress.fractionCompleted, privacy: .public)")
                     stitchingProgress = progress
                 @unknown default:
-                    print("unknown stitch state")
+                    Log.export.debug("unknown stitch state")
                 }
             }
         }
@@ -116,7 +117,7 @@ final class ExportCoordinator {
     /// Leaves nothing half-written at the destination and reports what went wrong.
     private func fail(_ message: String, at destinationURL: URL) {
         try? FileManager.default.removeItem(at: destinationURL)
-        print("Export failed: \(message)")
+        Log.export.error("Export failed: \(message, privacy: .public)")
         phase = .failed(message)
     }
 }

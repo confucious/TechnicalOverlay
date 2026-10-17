@@ -11,6 +11,7 @@ import Foundation
 import LayoutEngine
 import Observation
 import VideoProcessor
+import os
 
 @Observable
 class OverlayData: Codable {
@@ -53,27 +54,27 @@ class OverlayData: Codable {
     func save() {
         guard let json = try? JSONEncoder().encode(self)
         else {
-            print("Couldn't serialize to save state")
+            Log.data.error("Couldn't serialize to save state")
             return
         }
-        print("saved")
+        Log.data.debug("saved")
         UserDefaults.standard.set(json, forKey: "state")
     }
     
     func load() {
         guard let data = UserDefaults.standard.data(forKey: "state") else {
-            print("No saved state found.")
+            Log.data.debug("No saved state found.")
             return
         }
         guard let loaded = try? JSONDecoder().decode(Self.self, from: data) else {
-            print("Couldn't decode saved state")
+            Log.data.error("Couldn't decode saved state")
             return
         }
         self.skaterFullName = loaded.skaterFullName
         self.skaterAbbreviatedName = loaded.skaterAbbreviatedName
         self.introductionTexts = loaded.introductionTexts
         self.elementScores = loaded.elementScores
-        print("loaded")
+        Log.data.debug("loaded")
     }
     
     // MARK: - State management

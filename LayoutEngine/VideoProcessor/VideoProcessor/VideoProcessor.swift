@@ -7,6 +7,7 @@
 
 import AVFoundation
 import CoreImage
+import os
 
 public struct Slide: Sendable, Equatable {
     let image: CIImage?
@@ -157,7 +158,7 @@ public class VideoComposer {
     public func setupComposition() async throws -> AVVideoComposition? {
         let tracks = try await asset.load(.tracks)
         guard let videoTrack = tracks.first(where: { $0.mediaType == .video }) else {
-            print("No video track to compose for")
+            Log.composition.error("No video track to compose for")
             return nil
         }
         let duration = try await asset.load(.duration)
@@ -192,14 +193,14 @@ public class VideoComposer {
         guard await AVAssetExportSession.compatibility(ofExportPreset: preset,
                                                        with: asset,
                                                        outputFileType: outputFileType) else {
-            print("The preset can't export the video to the output file type.")
+            Log.composition.error("The preset can't export the video to the output file type.")
             return nil
         }
         
         // Create and configure the export session.
         guard let exportSession = AVAssetExportSession(asset: asset,
                                                        presetName: preset) else {
-            print("Failed to create export session.")
+            Log.composition.error("Failed to create export session.")
             return nil
         }
         
@@ -212,7 +213,7 @@ public class VideoComposer {
                 outputFileType: outputFileType
             )
         } catch {
-            print("export failed \(error)")
+            Log.composition.error("export failed: \(error.localizedDescription, privacy: .public)")
             return nil
         }
     }

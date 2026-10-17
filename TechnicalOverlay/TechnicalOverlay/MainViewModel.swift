@@ -10,6 +10,7 @@ import AVFoundation
 import Foundation
 import Observation
 import VideoProcessor
+import os
 
 /// What `MainView` holds: the player, the scoring document, and the pipeline and export jobs that
 /// work from them.
@@ -86,7 +87,7 @@ final class MainViewModel {
             }
             let asset = AVURLAsset(url: assetUrl)
             guard let size = await session.size(of: asset) else {
-                print("Couldn't determine video size")
+                Log.media.error("Couldn't determine video size")
                 return
             }
 

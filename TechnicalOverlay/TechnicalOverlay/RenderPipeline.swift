@@ -10,6 +10,7 @@ import CoreMedia
 import Foundation
 import Observation
 import VideoProcessor
+import os
 
 /// Draws the preview and renders the overlays for export.
 ///
@@ -56,7 +57,7 @@ final class RenderPipeline {
         do {
             item.videoComposition = try await composer.setupComposition()
         } catch {
-            print("Video composer failed \(error)")
+            Log.media.error("Video composer failed: \(error.localizedDescription, privacy: .public)")
         }
         return item
     }

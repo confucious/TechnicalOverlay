@@ -8,6 +8,7 @@
 import AVFoundation
 import CoreGraphics
 import Foundation
+import os
 
 /// The security scope a loaded video holds, plus the metadata the app probes from it.
 ///
@@ -32,7 +33,7 @@ final class AssetSession {
 
         guard let url else { return }
         if !url.startAccessingSecurityScopedResource() {
-            print("Failed to get security scope")
+            Log.media.error("Failed to get security scope")
         }
     }
 
@@ -45,13 +46,13 @@ final class AssetSession {
         guard let tracks = try? await asset.load(.tracks),
               let videoTrack = tracks.first(where: { $0.mediaType == .video })
         else {
-            print("Couldn't find video track")
+            Log.media.error("Couldn't find video track")
             return nil
         }
         guard let naturalSize = try? await videoTrack.load(.naturalSize),
               let transform = try? await videoTrack.load(.preferredTransform)
         else {
-            print("Couldn't load size or transform for video track")
+            Log.media.error("Couldn't load size or transform for video track")
             return nil
         }
 

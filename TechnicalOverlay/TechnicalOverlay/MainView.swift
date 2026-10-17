@@ -9,6 +9,7 @@ import SwiftUI
 import AVFoundation
 import AVKit
 import VideoProcessor
+import os
 
 //enum State {
 //    case waitingForVideo
@@ -92,10 +93,10 @@ struct MainView: View {
                         model.scoring.update(from: newData)
                         model.scoring.save()
                     } catch {
-                        print("data load error: \(error)")
+                        Log.data.error("data load error: \(String(describing: error), privacy: .public)")
                     }
                 case let .failure(error):
-                    print("data load error: \(error)")
+                    Log.data.error("data load error: \(String(describing: error), privacy: .public)")
                 }
             }
     }
@@ -110,7 +111,7 @@ struct MainView: View {
             document: OverlayDataDocument(overlayDataForSave: model.scoring),
             contentType: OverlayDataDocument.fileType,
             defaultFilename: model.scoring.skaterFullName) { result in
-                print("overlay data save: \(result)")
+                Log.data.debug("overlay data save: \(String(describing: result), privacy: .public)")
             }
     }
 
@@ -171,7 +172,7 @@ struct MainView: View {
                             case let .success(fileUrl):
                                 model.assetUrl = fileUrl
                             case let .failure(error):
-                                print(error)
+                                Log.media.error("\(String(describing: error), privacy: .public)")
                             }
                         }
                     Button("Save Video") {
@@ -193,7 +194,7 @@ struct MainView: View {
                         case let .success(destinationURL):
                             Task { await model.exportScoredVideo(to: destinationURL) }
                         case let .failure(error):
-                            print("Save panel dismissed without a destination: \(error)")
+                            Log.export.debug("Save panel dismissed without a destination: \(String(describing: error), privacy: .public)")
                         }
                     }
                     .sheet(isPresented: showProgressModal, content: {

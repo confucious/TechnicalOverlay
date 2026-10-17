@@ -4,35 +4,41 @@
 //
 // Formatting helpers for the chunk-pipeline trace output.
 //
-// The pipeline traces with plain `print` (matching the rest of this module) through
-// `Trace.log` so every line carries the same `[Area]` prefix and the console can be
-// scanned or grepped by stage:
+// The pipeline logs through `Trace.log`, so every line carries the same `[Area]` prefix and the
+// console can be filtered or grepped by stage:
 //
 //   [ChunkQueue]     queueing: enqueue, what came back from the diff, drains, staleness
 //   [ChunkRenderer]  per-chunk render (export of one time-limited segment)
 //   [Stitcher]       per-chunk assembly into the final composition, then the export session
 //
-// Lines are per-chunk and verbose: this is diagnostic output for reading one export end to end,
-// not production telemetry. Nothing here is redacted or rate-limited.
+// Lines are per-chunk and verbose: diagnostic output for reading one export end to end, not
+// production telemetry. They go to `Log.chunkPipeline` at `debug` — streamed while debugging, not
+// stored — and `Trace.isEnabled` silences the whole pipeline without touching a call site.
 
 import AVFoundation
 import CoreImage
 import Foundation
+import os
 
 // MARK: - Trace entry point
 
 enum Trace {
 
-    /// Which pipeline stage a line came from. The raw value is the printed prefix.
+    /// Which pipeline stage a line came from. The raw value is the logged prefix.
     enum Area: String {
         case queue = "ChunkQueue"
         case renderer = "ChunkRenderer"
         case stitcher = "Stitcher"
     }
 
+    /// The whole trace's switch: these lines are loud, so the pipeline can be silenced without
+    /// editing a call site.
+    static var isEnabled = true
+
     /// Writes one trace line as `[Area] message`.
     static func log(_ area: Area, _ message: String) {
-        print("[\(area.rawValue)] \(message)")
+        guard isEnabled else { return }
+        Log.chunkPipeline.debug("[\(area.rawValue, privacy: .public)] \(message, privacy: .public)")
     }
 }
 
