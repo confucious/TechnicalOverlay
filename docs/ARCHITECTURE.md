@@ -116,7 +116,7 @@ All data uses Apple's `@Observable` macro (Observation framework). The core mode
 
 | Type | Purpose |
 |------|---------|
-| `OverlayData` | Top-level: `skaterFullName`, `skaterAbbreviatedName`, `introductionTexts: [IntroductionData]`, `elementScores: [ElementData]`. Its `showsElementBox` is the live overlay-look value, seeded from `OverlayPreferences` (not document data). Methods: `save()`/`load()` (UserDefaults), `update(from:)`, `setIntroTime/setElementTime`, `makeSlides(size:)`, `makeSlide(size:mode:startTime:)`, `renderingHash`, `imageCache`, `clearCache()`. |
+| `OverlayData` | Top-level: `skaterFullName`, `skaterAbbreviatedName`, `introductionTexts: [IntroductionData]`, `elementScores: [ElementData]`. Its `showsElementBox` is the live overlay-look value, seeded from `OverlayPreferences` (not document data). Methods: `update(from:)`, `isEmpty`, `renderingHash`; `save()`/`load()` forward to `OverlayStore`, `setIntroTime`/`setElementTime` and `slidePlan()` live in `OverlayTimeline`/`SlideFactory`. |
 | `IntroductionData` | One intro slide: `left`/`center`/`right` + optional `displayTime`. `makeMode(skaterName:)` → `.lowerThirdPane`. |
 | `ElementData` | One scoring element: `name`, `baseValue`, `goeValue`, `bonusValue` (all `Int` hundredths), optional `displayTime`. String accessors `baseValueString`/`goeValueString`/`bonusValueString` round-trip through `toHundredthsInt()`. `makeMode(skaterName:runningTotal:boxModes:)` → `.technicalPane`. |
 
@@ -126,7 +126,7 @@ All score quantities are stored as **`Int` hundredths** (3.40 → `340`, −1.19
 `Double`. Do not reintroduce `Double` for these fields: precision in comparisons and hashing is the
 reason. String↔Int conversion lives in a `String` extension (`numberCharacters()`, `onlyDigits()`,
 `toHundredthsInt()`), and `ElementData.formatValue(_:decimalPlaces:)` renders `w.ff` with a fixed
-fractional width.
+fractional width. Both live in `ScoreFormatting.swift`.
 
 ### 3.2 Cascading timing
 
@@ -184,8 +184,9 @@ the named `Color`/`Metrics` constants are in `docs/architecture/layout-engine.md
 ### 5.2 Composing onto video — two rendering paths
 
 **`Metrics.transitionTime = 0.75`** (in `VideoProcessor`) is the dissolve duration used
-everywhere. `OverlayData.imageCache` caches rendered `CIImage`s keyed by `(size, mode)`;
-`clearCache()` empties it on data changes.
+everywhere. `SlideFactory` caches the rendered `CIImage`s keyed by `(size, mode)` and keeps only the
+modes the current plan uses, so a timing edit re-renders nothing and an editing session cannot grow
+the cache without bound.
 
 **Path 1 — `VideoComposer` (live preview + full-video export).**
 `AVVideoComposition` with a per-frame handler that finds the last `Slide` with
@@ -250,7 +251,7 @@ Full detail (types, per-chunk composition methods, region/diff algorithms) is in
 ```
 Load Video (fileImporter, .movie) → MainViewModel.assetUrl
   → session.adopt (startAccessingSecurityScopedResource / stop the previous), generateSlides()
-  → makeSlides(size:) (size = naturalSize.applying(transform), abs'ed) → VideoComposer
+  → slidePlan() → SlideFactory.slides (size = naturalSize.applying(transform), abs'ed) → VideoComposer
   → AVPlayerItem.videoComposition → replaceCurrentItem (seek preserves position)
   → RenderPipeline.enqueue(slides:) (pre-render for export)
 
@@ -264,7 +265,7 @@ Jump to a set time (TimeSettingsView's time button → player.seek) — a seek, 
 Edit overlay look (Element boxes toggle → OverlayPreferences + showsElementBox → generateSlides()
   → new VideoComposer + re-enqueue; changed modes make the diff re-render the affected chunks)
 
-Edit data (ScoringListView → onDisappear save() + clearCache())
+Edit data (ScoringListView → onDisappear save())
 
 Clear Slides → confirmation dialog → clearSlides() invokes `OverlayData.update(from: OverlayData())` on
   the same instance, saves the emptied state and regenerates the slides

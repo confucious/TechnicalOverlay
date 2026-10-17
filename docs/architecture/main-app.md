@@ -30,9 +30,13 @@ All data uses Apple's `@Observable` macro (Swift Concurrency Observation framewo
 
 | Type | Purpose |
 |------|---------|
-| `OverlayData` | Top-level model: skater full name, abbreviated name, intro slides, element scores. `showsElementBox` is the live overlay-look value, seeded from `OverlayPreferences` rather than the document. Methods: `save()`/`load()` (UserDefaults), `update(from:)`, `setIntroTime(index:time:)`, `setElementTime(index:time:)`, `makeSlides(size:)`, `makeSlide(size:mode:startTime:)`, `renderingHash` (deterministic hash of all rendering-affecting fields). |
+| `OverlayData` | Top-level model: skater full name, abbreviated name, intro slides, element scores. `showsElementBox` is the live overlay-look value, seeded from `OverlayPreferences` rather than the document. Owns `update(from:)`, `isEmpty` and `renderingHash` (a deterministic hash of every rendering-affecting field). |
+| `OverlayTimeline.swift` | Editing the timeline: `setIntroTime`/`setElementTime` and the one `shiftTimes` cascade they share — the edited item takes the new time and everything after it moves by the same delta. |
+| `SlideFactory.swift` | The document read as overlays (`slidePlan()` — modes and start times, with a `.none` fade-out after the introductions and after the elements) and `SlideFactory`, which renders each mode's `CIImage` once per `(size, mode)` and keeps only what the current plan uses. |
+| `OverlayStore.swift` | The autosave: the whole document as JSON in `UserDefaults` under `state`. `OverlayData.save()`/`load()` are one-line forwarders. |
+| `ScoreFormatting.swift` | Integer hundredths ↔ text: `ScoreFormatting.string(from:decimalPlaces:)`, `ElementData.formatValue`, and the `String` helpers the scoring fields use (`toHundredthsInt()` and friends). |
 | `IntroductionData` | One intro slide: `left`/`center`/`right` text strings + optional `displayTime`. `displayValue` joins non-empty texts with `" | "`. `makeMode(skaterName:)` → `VideoOverlay.Mode.lowerThirdPane`. |
-| `ElementData` | One scoring element: `name`, `baseValue`, `goeValue`, `bonusValue` (all stored as `Int` in hundredths), optional `displayTime`. Computed properties `baseValueString`, `goeValueString`, `bonusValueString` handle string↔hundredths conversion for UI text fields. `formatValue(_:)` converts hundredths to "X.XX" string. `makeMode(skaterName:runningTotal:boxModes:)` → `VideoOverlay.Mode.technicalPane`. |
+| `ElementData` | One scoring element: `name`, `baseValue`, `goeValue`, `bonusValue` (all stored as `Int` in hundredths), optional `displayTime`. Computed properties `baseValueString`, `goeValueString`, `bonusValueString` handle string↔hundredths conversion for UI text fields. `formatValue(_:)` converts hundredths to "X.XX" string (defined in `ScoreFormatting.swift`). `makeMode(skaterName:runningTotal:boxModes:)` → `VideoOverlay.Mode.technicalPane`. |
 
 ### Score representation
 

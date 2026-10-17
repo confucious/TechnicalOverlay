@@ -123,7 +123,6 @@ struct ScoringListView: View {
         }
         .onDisappear {
             state.save()
-            state.clearCache()
         }
         .alert("Import Protocol", isPresented: $isAskingForProtocolURL) {
             TextField("Protocol page address", text: $importModel.urlString)

@@ -35,6 +35,8 @@ final class MainViewModel {
     let session = AssetSession()
     let pipeline: RenderPipeline
     let export: ExportCoordinator
+    /// Renders the overlay images a plan needs, keeping them for reuse.
+    let slideFactory = SlideFactory()
 
     init(player: AVPlayer? = nil, assetUrl: URL? = nil, scoring: OverlayData = OverlayData()) {
         let pipeline = RenderPipeline()
@@ -91,7 +93,7 @@ final class MainViewModel {
                 return
             }
 
-            let slides = scoring.makeSlides(size: size)
+            let slides = slideFactory.slides(from: scoring.slidePlan(), size: size)
             let playerItem = await pipeline.makePreviewItem(asset: asset, slides: slides)
             if let player {
                 let currentTime = player.currentTime()
@@ -120,10 +122,9 @@ final class MainViewModel {
     /// Resets the scoring data to an empty document. The existing `OverlayData` instance is
     /// updated in place, so every view already holding it sees the reset; the emptied state is
     /// saved, and the slides are regenerated so the preview and the chunk queue drop the
-    /// overlays.
+    /// overlays — an empty plan also drops every cached image.
     func clearSlides() {
         scoring.update(from: OverlayData())
-        scoring.clearCache()
         scoring.save()
         generateSlides()
     }

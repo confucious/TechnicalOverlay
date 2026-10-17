@@ -5,8 +5,8 @@ repetition and readability**. Every item names the file and line it lives at and
 move or delete — no "consider refactoring".
 
 **How to use this file:** delete an item when it lands; this list should shrink, never accumulate.
-IDs are never reused, so a gap in the numbering is finished work (B1, M1, M2, M3, R1, R2, R3, R4, R5,
-R6, Y2, Y3, Y4 and Y5 are done). It is a backlog, not a design doc: rationale for anything that ships goes in `docs/HISTORY.md`
+IDs are never reused, so a gap in the numbering is finished work (B1, M1, M2, M3, M4, R1, R2, R3, R4,
+R5, R6, Y2, Y3, Y4 and Y5 are done). It is a backlog, not a design doc: rationale for anything that ships goes in `docs/HISTORY.md`
 per `AGENTS.md` → Documentation, and `docs/ARCHITECTURE.md` stays current-state only.
 
 **Tags**
@@ -61,16 +61,6 @@ give the renderer a `chunks/<uuid>/` subdirectory so cleanup is one `removeItem`
 
 ## Modularity / isolation
 
-### M4. `OverlayData` is a god object [generate]
-
-394 lines carrying the model, `Codable` keys, `UserDefaults` persistence (`53-77`), the image cache
-(`155-163`), slide generation (`165-240`), the timing cascade (`85-128`), plus `IntroductionData`,
-`ElementData` and four `String` extensions.
-
-**Fix:** model / `OverlayTimeline` (cascade) / `SlideFactory` (cache + `makeSlides`) /
-`OverlayStore` (the `"state"` key) / `ScoreFormatting`. `imageCache` on an `@Observable` model means
-render-state mutation invalidates views for nothing — it belongs in the factory.
-
 ### M5. `deinit { assetUrl = nil }` relies on observers firing during deinit
 
 `MainViewModel.swift:52-54` releases the security scope by assigning through `assetUrl`'s `didSet`,
@@ -101,8 +91,10 @@ which also nils `player` and drops the pipeline's queue mid-teardown.
   pipeline now logs to `os.Logger` (`chunk-pipeline` category, `debug` level, `Trace.isEnabled`).
   Its module tree still lists `VideoProcessor.swift` (split into `Slide`/`VideoComposer`/
   `ExportSession`/`Chunk`/`RegionPlan`/`ChunkQueue`) and says the VideoProcessor test bundle has
-  7 files (it has 8, with `TestSupport.swift`). That file is a protected instruction file, so the
-  corrections have to come from the user.
+  7 files (it has 8, with `TestSupport.swift`). Its Gotchas say `OverlayData` clears its
+  `imageCache` and that `ScoringListView` clears the cache on `onDisappear` — the cache is now
+  `SlideFactory`'s and prunes itself to the current plan. That file is a protected instruction
+  file, so the corrections have to come from the user.
 
 ---
 

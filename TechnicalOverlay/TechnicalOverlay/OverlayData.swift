@@ -4,14 +4,14 @@
 //
 //  Created by Jerry Hsu on 10/24/25.
 //
+//  The document: the skater, the introduction slides and the scored elements. Timing edits live in
+//  OverlayTimeline.swift, persistence in OverlayStore.swift, rendering in SlideFactory.swift and the
+//  score string conversions in ScoreFormatting.swift.
+//
 
-import CoreImage
-import CoreMedia
 import Foundation
 import LayoutEngine
 import Observation
-import VideoProcessor
-import os
 
 @Observable
 class OverlayData: Codable {
@@ -50,110 +50,10 @@ class OverlayData: Codable {
         elementScores = data.elementScores
     }
 
-    // MARK: - Load / Save
-    func save() {
-        guard let json = try? JSONEncoder().encode(self)
-        else {
-            Log.data.error("Couldn't serialize to save state")
-            return
-        }
-        Log.data.debug("saved")
-        UserDefaults.standard.set(json, forKey: "state")
-    }
-    
-    func load() {
-        guard let data = UserDefaults.standard.data(forKey: "state") else {
-            Log.data.debug("No saved state found.")
-            return
-        }
-        guard let loaded = try? JSONDecoder().decode(Self.self, from: data) else {
-            Log.data.error("Couldn't decode saved state")
-            return
-        }
-        self.skaterFullName = loaded.skaterFullName
-        self.skaterAbbreviatedName = loaded.skaterAbbreviatedName
-        self.introductionTexts = loaded.introductionTexts
-        self.elementScores = loaded.elementScores
-        Log.data.debug("loaded")
-    }
-    
     // MARK: - State management
 
     var isEmpty: Bool {
         skaterFullName == "" && skaterAbbreviatedName == "" && introductionTexts.isEmpty && elementScores.isEmpty
-    }
-
-    /// Moves an introduction slide to `time`, carrying the delta to the slides after it.
-    ///
-    /// A trailing run of unscheduled slides is stamped five seconds apart, so adding a slide and
-    /// setting its time lays the rest of the introduction out in one gesture.
-    func setIntroTime(index: Int, time: TimeInterval) {
-        shiftTimes(
-            in: introductionTexts,
-            from: index,
-            to: time,
-            defaultUnsetSpacing: 5,
-            displayTime: { $0.displayTime },
-            setDisplayTime: { $0.displayTime = $1 }
-        )
-    }
-
-    /// Moves a scored element to `time`, carrying the delta to the elements after it. An element
-    /// with no time is left unscheduled — the timeline is the user's to fill in.
-    func setElementTime(index: Int, time: TimeInterval) {
-        shiftTimes(
-            in: elementScores,
-            from: index,
-            to: time,
-            displayTime: { $0.displayTime },
-            setDisplayTime: { $0.displayTime = $1 }
-        )
-    }
-
-    /// The cascade both setters share: the item at `index` takes `time`, and every item after it
-    /// moves by the same delta, so relative spacing survives.
-    ///
-    /// With `defaultUnsetSpacing`, the unscheduled run that follows is filled in as
-    /// `previous + spacing` — introductions use it to lay out slides the user has not timed yet.
-    /// Without it, the first unscheduled item ends the cascade.
-    private func shiftTimes<Item>(
-        in items: [Item],
-        from index: Int,
-        to time: TimeInterval,
-        defaultUnsetSpacing: TimeInterval? = nil,
-        displayTime: (Item) -> TimeInterval?,
-        setDisplayTime: (Item, TimeInterval?) -> Void
-    ) {
-        guard items.indices.contains(index) else {
-            return
-        }
-
-        let oldTime = displayTime(items[index])
-        setDisplayTime(items[index], time)
-
-        var cursor = index + 1
-
-        if let oldTime {
-            let delta = time - oldTime
-            while cursor < items.count, let itemTime = displayTime(items[cursor]) {
-                setDisplayTime(items[cursor], itemTime + delta)
-                cursor += 1
-            }
-        }
-
-        guard let spacing = defaultUnsetSpacing,
-              cursor < items.count,
-              displayTime(items[cursor]) == nil
-        else {
-            return
-        }
-
-        var previous = time
-        while cursor < items.count, displayTime(items[cursor]) == nil {
-            previous += spacing
-            setDisplayTime(items[cursor], previous)
-            cursor += 1
-        }
     }
 
     // MARK: - Rendering Hash
@@ -178,82 +78,6 @@ class OverlayData: Codable {
             elem.displayTime?.hash(into: &hasher)
         }
         return String(hasher.finalize())
-    }
-
-    // MARK: - Generation
-    private struct CacheKey: Hashable {
-        let size: CGSize
-        let mode: VideoOverlay.Mode
-    }
-    private var imageCache: [CacheKey:CIImage] = [:]
-
-    func clearCache() {
-        imageCache = [:]
-    }
-    
-    func makeSlides(size: CGSize) -> [Slide] {
-        var slides: [Slide] = []
-
-        /// A `.none` slide five seconds after the last one, so the overlay fades out to the source
-        /// instead of holding on screen until the video ends.
-        func appendFadeOut() {
-            guard let lastSlide = slides.last else { return }
-            slides.append(makeSlide(size: size, mode: .none, startTime: lastSlide.startTime.seconds + 5))
-        }
-
-        for introduction in introductionTexts {
-            let mode = introduction.makeMode(skaterName: skaterFullName)
-            if let displayTime = introduction.displayTime {
-                slides.append(makeSlide(size: size, mode: mode, startTime: displayTime))
-            }
-        }
-        appendFadeOut()
-
-        var cumulativeBoxModes: [ElementBoxView.Mode] = Array(repeating: .unscored, count: elementScores.count)
-        var cumulativeScore = 0
-
-        for (index, element) in elementScores.enumerated() {
-            cumulativeBoxModes[index] = if element.baseValue == 0 {
-                .neutral
-            } else if element.goeValue >= 0 {
-                .positive
-            } else {
-                .negative
-            }
-            cumulativeScore += element.baseValue + element.goeValue + element.bonusValue
-            let mode = element.makeMode(
-                skaterName: skaterAbbreviatedName,
-                runningTotal: cumulativeScore,
-                boxModes: cumulativeBoxModes,
-                showsElementBox: showsElementBox
-            )
-            if let displayTime = element.displayTime {
-                slides.append(makeSlide(size: size, mode: mode, startTime: displayTime))
-            }
-        }
-        appendFadeOut()
-
-        return slides
-    }
-
-    func makeSlide(size: CGSize, mode: VideoOverlay.Mode, startTime: TimeInterval) -> Slide {
-        if mode == .none {
-            return Slide(
-                image: nil,
-                startTime: CMTime(seconds: startTime, preferredTimescale: 1000)
-            )
-        }
-        let image: CIImage
-        if let cachedImage = imageCache[CacheKey(size: size, mode: mode)] {
-            image = cachedImage
-        } else {
-            image = VideoOverlay(mode: mode).render(size: size)
-            imageCache[CacheKey(size: size, mode: mode)] = image
-        }
-        return Slide(
-            image: image,
-            startTime: CMTime(seconds: startTime, preferredTimescale: 1000)
-        )
     }
 }
 
@@ -360,52 +184,5 @@ class ElementData: Codable {
             boxModes: boxModes,
             showsElementBox: showsElementBox
         ))
-    }
-
-    func formatValue(_ value: Int, decimalPlaces: Int = 2) -> String {
-        let negative = value < 0
-        let whole = abs(value) / 100
-        let fractional = abs(value) % 100
-        if negative {
-            return String(format: "-%d.%0\(decimalPlaces)d", whole, fractional)
-        } else {
-            return String(format: "%d.%0\(decimalPlaces)d", whole, fractional)
-        }
-    }
-}
-
-extension String {
-    func numberCharacters() -> String {
-        let digits = CharacterSet(charactersIn: "-.0123456789")
-        return String(
-            unicodeScalars.filter { digits.contains($0) }
-        )
-    }
-    func onlyDigits() -> String {
-        let digits = CharacterSet(charactersIn: "0123456789")
-        return String(
-            unicodeScalars.filter { digits.contains($0) }
-        )
-    }
-    func toHundredthsInt() -> Int {
-        let trimmed = numberCharacters()
-        if trimmed.isEmpty {
-            return 0
-        }
-        let components = trimmed.split(
-            separator: ".",
-            maxSplits: 2,
-            omittingEmptySubsequences: false
-        )
-        let isNegative = components[0].first == "-"
-        let whole = Int(components[0]) ?? 0
-        let fractionalString = components.count > 1 ? String(components[1]).onlyDigits() + "00" : "00"
-        let index = fractionalString.index(
-            fractionalString.startIndex,
-            offsetBy: 2
-        )
-        let fractionalValue = Int(fractionalString[..<index]) ?? 0
-        
-        return (abs(whole) * 100 + fractionalValue) * (isNegative ? -1 : 1)
     }
 }
