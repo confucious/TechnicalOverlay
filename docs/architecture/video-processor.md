@@ -9,7 +9,14 @@ Handles video composition with overlay slides and chunk-based rendering. Uses `A
 | File | Role |
 |------|------|
 | `OverlayCompositing.swift` | The overlay program and the chunk composition builder. `OverlayComposite` — `hold(_:over:)` and `dissolve(from:to:progress:over:)` — is how an image lands on a source frame, shared by the preview compositor and the chunk renderer. `ChunkComposition` turns a chunk's overlay(s) into an `AVVideoComposition` for `DefaultChunkRenderer`. |
-| `VideoProcessor.swift` | `Slide`, `Metrics`, the preview (`PreviewRecipe`, `PreviewVideoCompositor`), `VideoComposer` (preview composition + the slide-based export), `ExportSession`, `ContentIdentity`, `ChunkType`, `ChunkState`, `Chunk`, protocols (`ChunkRendererProtocol`, `StitcherProtocol`), `ChunkRegion`, `generateRegions()`, `diffRegionsIntoChunks()`, `ChunkQueue` actor. |
+| `Slide.swift` | `Slide` — an overlay image with the time it starts — and `Metrics.transitionTime`, the dissolve length. |
+| `VideoComposer.swift` | The preview pipeline: `PreviewRecipe` (the recipe the compositor reads, published through a lock), `PreviewVideoCompositor` (the custom `AVVideoCompositing` that must not be replaced by the filter API), and `VideoComposer`, which publishes the recipe, builds the preview `AVVideoComposition` and offers the slide-based `setupExport`. |
+| `ExportSession.swift` | `VideoComposer.ExportSession` — a configured `AVAssetExportSession` with async progress, performed by the caller. |
+| `Chunk.swift` | `ContentIdentity`, `ChunkType`, `ChunkState`, `Chunk` (with the `hasOverlay` / `isInPlan` / `needsRender` / `isRendered` / `isValid` predicates the stages share), and the pipeline's two seams, `ChunkRendererProtocol` and `StitcherProtocol`. |
+| `RegionPlan.swift` | `ChunkRegion`, `generateRegions()` — the timeline swept into clipped, contiguous regions — and `diffRegionsIntoChunks()`, which reuses what the new plan still covers and drops the rest. |
+| `ChunkQueue.swift` | `ChunkQueueProgress` and the `ChunkQueue` actor: it owns the plan and drains it through the renderer, one chunk at a time. |
+| `ChunkPipelineTrace.swift` | `Trace.log` and the formatting helpers (`traceLabel`, `traceDescription`, `TraceTimer`) that put one `[Area]`-prefixed line per chunk into the `chunk-pipeline` log. `Trace.isEnabled` silences the whole pipeline. |
+| `VideoProcessorLog.swift` | The module's `os.Logger`s: `chunk-pipeline` for the trace, `composition` for export-setup failures. |
 | `DefaultChunkRenderer.swift` | Concrete `ChunkRendererProtocol` implementation. `VideoSettings` config. Renders chunks via `ChunkComposition` + `AVAssetExportSession`; failures are traced and return `nil`, not thrown. |
 | `DefaultStitcher.swift` | Concrete `StitcherProtocol` implementation. Assembles rendered chunks plus source-video ranges into one `AVMutableComposition` and hands back an `ExportSession` for the caller to perform. |
 
@@ -133,7 +140,8 @@ compositionTime ──┬─ before first slide ──→ source unchanged
 
 The app's export path, wired into `MainView`'s **Save Video**. `ChunkQueue` (actor) renders pending
 chunks through `DefaultChunkRenderer`, and `DefaultStitcher` assembles them into the final file.
-`generateRegions` / `diffRegionsIntoChunks` / `ChunkQueue` live in `VideoProcessor.swift`.
+`generateRegions` / `diffRegionsIntoChunks` live in `RegionPlan.swift`, and `ChunkQueue` in
+`ChunkQueue.swift`.
 
 ```
 [Slide[]] ──generateRegions()──→ [ChunkRegion[]] ──diffRegionsIntoChunks()──→ [Chunk[]]

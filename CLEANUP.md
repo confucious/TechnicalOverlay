@@ -5,8 +5,8 @@ repetition and readability**. Every item names the file and line it lives at and
 move or delete — no "consider refactoring".
 
 **How to use this file:** delete an item when it lands; this list should shrink, never accumulate.
-IDs are never reused, so a gap in the numbering is finished work (B1, M2, M3, R1, R2, R3, R4, R5, R6,
-Y2, Y3, Y4 and Y5 are done). It is a backlog, not a design doc: rationale for anything that ships goes in `docs/HISTORY.md`
+IDs are never reused, so a gap in the numbering is finished work (B1, M1, M2, M3, R1, R2, R3, R4, R5,
+R6, Y2, Y3, Y4 and Y5 are done). It is a backlog, not a design doc: rationale for anything that ships goes in `docs/HISTORY.md`
 per `AGENTS.md` → Documentation, and `docs/ARCHITECTURE.md` stays current-state only.
 
 **Tags**
@@ -61,17 +61,6 @@ give the renderer a `chunks/<uuid>/` subdirectory so cleanup is one `removeItem`
 
 ## Modularity / isolation
 
-### M1. `VideoProcessor.swift` is still one 760-line file holding nine public types [generate]
-
-`Slide`, `Metrics`, `PreviewRecipe`, `PreviewVideoCompositor`, `VideoComposer`, `ExportSession`,
-`ContentIdentity`, `ChunkType`, `ChunkState`, `Chunk`, both protocols, `ChunkRegion`,
-`generateRegions`, `diffRegionsIntoChunks`, `ChunkQueueProgress`, `ChunkQueue`.
-
-**Fix:** split along the seams that already exist: `Slide`+`Metrics`, `VideoComposer` (preview),
-`Chunk`/`ChunkType`/`ChunkState`/`ContentIdentity`/`ChunkRegion`, `RegionPlan`
-(`generateRegions`, `diffRegionsIntoChunks`), `ChunkQueue`, `ExportSession`. Pure moves. The
-composition half is already out (`OverlayCompositing.swift`), so this is smaller than it was.
-
 ### M4. `OverlayData` is a god object [generate]
 
 394 lines carrying the model, `Codable` keys, `UserDefaults` persistence (`53-77`), the image cache
@@ -110,7 +99,10 @@ which also nils `player` and drops the pipeline's queue mid-teardown.
   `ElementBuilderView.swift` as a placeholder; both files are deleted. Its "Tracing the chunk
   pipeline" section still describes plain `print` output that "does not reach Console.app" — the
   pipeline now logs to `os.Logger` (`chunk-pipeline` category, `debug` level, `Trace.isEnabled`).
-  That file is a protected instruction file, so the corrections have to come from the user.
+  Its module tree still lists `VideoProcessor.swift` (split into `Slide`/`VideoComposer`/
+  `ExportSession`/`Chunk`/`RegionPlan`/`ChunkQueue`) and says the VideoProcessor test bundle has
+  7 files (it has 8, with `TestSupport.swift`). That file is a protected instruction file, so the
+  corrections have to come from the user.
 
 ---
 
