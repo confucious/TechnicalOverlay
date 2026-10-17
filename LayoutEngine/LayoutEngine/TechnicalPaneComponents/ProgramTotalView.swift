@@ -7,8 +7,9 @@
 
 import UIKit
 
-class ProgramTotalView: UIView {
-    
+/// The skater's abbreviated name on the left and the running total on the right.
+class ProgramTotalView: OverlayView {
+
     public var skaterName: String = "" {
         didSet {
             configure()
@@ -20,67 +21,43 @@ class ProgramTotalView: UIView {
             configure()
         }
     }
-    
-    let nameLabel = UILabel()
-    let nameBackground = UIView()
-    let totalLabel = UILabel()
-    let totalBackground = UIView()
-    
+
+    let nameBox = LabelBoxView(frame: .zero)
+    let totalBox = LabelBoxView(frame: .zero)
+
     init() {
-        super.init(
-            frame: CGRect(origin: .zero, size: CGSize(width: 100, height: 50))
-        )
-        addSubview(nameBackground)
-        nameBackground.addSubview(nameLabel)
-        nameLabel.frame = nameBackground.bounds
-        addSubview(totalBackground)
-        totalBackground.addSubview(totalLabel)
-        totalLabel.frame = totalBackground.bounds
-        
-        nameLabel.numberOfLines = 1
-        nameLabel.adjustsFontSizeToFitWidth = true
-        nameLabel.textColor = .white
-        nameLabel.textAlignment = .left
-        nameBackground.backgroundColor = Color.nameBox
-        
-        totalLabel.numberOfLines = 1
-        totalLabel.adjustsFontSizeToFitWidth = true
-        totalLabel.textColor = .white
-        totalLabel.textAlignment = .right
-        totalBackground.backgroundColor = Color.totalScore
-        
+        super.init(frame: .zero)
+        addSubview(nameBox)
+        addSubview(totalBox)
+
+        nameBox.geometry = LabelBoxGeometry(box: (1, 1, 1, 0.5), label: (1, 0.5))
+        nameBox.cornerRadiusSource = .row
+        nameBox.textAlignment = .left
+        nameBox.boxColor = Color.nameBox
+
+        totalBox.geometry = LabelBoxGeometry(box: (1, 0.5, 1, 1), label: (1, 0.5))
+        totalBox.cornerRadiusSource = .row
+        totalBox.textAlignment = .right
+        totalBox.boxColor = Color.totalScore
+        totalBox.font = { .monospacedDigitSystemFont(ofSize: $0, weight: .bold) }
+
         backgroundColor = Color.technicalBackground
-}
-    
-    required init?(coder: NSCoder) {
-        fatalError("init(coder:) has not been implemented")
     }
-    
+
     override func layoutSubviews() {
         super.layoutSubviews()
         let width = bounds.size.width
-        let height = bounds.size.height
-        let inset = height * Metrics.borderPercent
-        nameBackground.frame = CGRect(
-            origin: .zero,
-            size: CGSize(width: width * 0.75, height: height)
-        ).inset(by: .init(top: inset, left: inset, bottom: inset, right: inset/2))
-        nameLabel.frame = nameBackground.bounds.insetBy(dx: inset, dy: inset/2)
-        nameLabel.font = .boldSystemFont(ofSize: nameLabel.fontSize())
-        totalBackground.frame = CGRect(
-            origin: CGPoint(x: width * 0.75, y: 0.0),
-            size: CGSize(width: width * 0.25, height: height)
-        ).inset(by: .init(top: inset, left: inset/2, bottom: inset, right: inset))
-        totalLabel.frame = totalBackground.bounds.insetBy(dx: inset, dy: inset/2)
-        totalLabel.font =
-            .monospacedDigitSystemFont(ofSize: totalLabel.fontSize(), weight: .bold)
-        
-        nameBackground.cornerConfiguration = roundedCornerConfiguration()
-        totalBackground.cornerConfiguration = roundedCornerConfiguration()
+        nameBox.frame = CGRect(x: 0, y: 0, width: width * 0.75, height: bounds.size.height)
+        totalBox.frame = CGRect(
+            x: width * 0.75,
+            y: 0,
+            width: width * 0.25,
+            height: bounds.size.height
+        )
     }
-    
+
     func configure() {
-        nameLabel.text = skaterName
-        totalLabel.text = totalValue
+        nameBox.label.text = skaterName
+        totalBox.label.text = totalValue
     }
 }

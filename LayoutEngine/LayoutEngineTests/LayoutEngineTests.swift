@@ -58,4 +58,37 @@ struct LayoutEngineTests {
 
         #expect(hidden.bounds == shown.bounds)
     }
+
+    @Test func labelBoxInsetsItsBoxAndLabelInProportionToItsHeight() {
+        let box = LabelBoxView(frame: CGRect(x: 0, y: 0, width: 200, height: 40))
+        box.geometry = LabelBoxGeometry(box: (1, 1, 1, 1), label: (1, 0.5))
+        box.setNeedsLayout()
+        box.layoutIfNeeded()
+
+        let inset = 40 * Metrics.borderPercent
+        #expect(box.box.frame == CGRect(
+            x: inset,
+            y: inset,
+            width: 200 - inset * 2,
+            height: 40 - inset * 2
+        ))
+        #expect(box.label.frame == box.box.bounds.insetBy(dx: inset, dy: inset / 2))
+        // The font follows the label's height, not the row's.
+        #expect(box.label.font.pointSize == Metrics.fontSize(for: box.label.bounds.height))
+    }
+
+    @Test func aFullBleedBoxKeepsOnlyTheLabelInset() {
+        let box = LabelBoxView(frame: CGRect(x: 0, y: 0, width: 200, height: 40))
+        box.setNeedsLayout()
+        box.layoutIfNeeded()
+
+        #expect(box.box.frame == box.bounds)
+        let inset = 40 * Metrics.borderPercent
+        #expect(box.label.frame == CGRect(
+            x: inset,
+            y: inset / 2,
+            width: 200 - inset * 2,
+            height: 40 - inset
+        ))
+    }
 }

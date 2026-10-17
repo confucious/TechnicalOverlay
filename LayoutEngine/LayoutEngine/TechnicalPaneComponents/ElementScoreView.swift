@@ -7,7 +7,9 @@
 
 import UIKit
 
-class ElementScoreView: UIView {
+/// The element's base value on the left and its GOE on the right; the GOE box is green or red from the
+/// value's sign.
+class ElementScoreView: OverlayView {
 
     public var baseValue: String = "" {
         didSet {
@@ -20,78 +22,44 @@ class ElementScoreView: UIView {
             configure()
         }
     }
-    
-    let baseValueLabel = UILabel()
-    let baseValueBackground = UIView()
-    let goeValueLabel = UILabel()
-    let goeValueBackground = UIView()
-    
+
+    let baseValueBox = LabelBoxView(frame: .zero)
+    let goeValueBox = LabelBoxView(frame: .zero)
+
     init() {
-        super.init(
-            frame: CGRect(origin: .zero, size: CGSize(width: 100.0, height: 50.0))
-        )
-        addSubview(baseValueBackground)
-        addSubview(goeValueBackground)
-        baseValueBackground.addSubview(baseValueLabel)
-        goeValueBackground.addSubview(goeValueLabel)
+        super.init(frame: .zero)
+        addSubview(baseValueBox)
+        addSubview(goeValueBox)
 
-        baseValueLabel.numberOfLines = 1
-        baseValueLabel.adjustsFontSizeToFitWidth = true
-        baseValueLabel.textColor = .white
-        baseValueLabel.textAlignment = .left
-        baseValueBackground.backgroundColor = .darkGray
+        baseValueBox.geometry = LabelBoxGeometry(box: (1, 1, 1, 0.5), label: (1, 0.5))
+        baseValueBox.cornerRadiusSource = .row
+        baseValueBox.textAlignment = .left
+        baseValueBox.boxColor = .darkGray
+        baseValueBox.font = { .monospacedDigitSystemFont(ofSize: $0, weight: .bold) }
 
-        goeValueLabel.numberOfLines = 1
-        goeValueLabel.adjustsFontSizeToFitWidth = true
-        goeValueLabel.textColor = .white
-        goeValueLabel.textAlignment = .right
-        
+        goeValueBox.geometry = LabelBoxGeometry(box: (1, 0.5, 1, 1), label: (1, 0.5))
+        goeValueBox.cornerRadiusSource = .row
+        goeValueBox.textAlignment = .right
+        goeValueBox.font = { .monospacedDigitSystemFont(ofSize: $0, weight: .bold) }
+
         backgroundColor = Color.technicalBackground
     }
-    
-    required init?(coder: NSCoder) {
-        fatalError("init(coder:) has not been implemented")
-    }
-    
+
     override func layoutSubviews() {
         super.layoutSubviews()
         let width = bounds.size.width
-        let height = bounds.size.height
-        let inset = height * Metrics.borderPercent
-        baseValueBackground.frame = CGRect(
-            origin: .zero,
-            size: CGSize(width: width * 0.65, height: height)
-        ).inset(by: .init(top: inset, left: inset, bottom: inset, right: inset/2))
-        goeValueBackground.frame = CGRect(
-            origin: CGPoint(x: width * 0.65, y: 0),
-            size: CGSize(width: width * 0.35, height: height)
-        ).inset(by: .init(top: inset, left: inset/2, bottom: inset, right: inset))
-        baseValueLabel.frame = baseValueBackground.bounds
-            .insetBy(dx: inset, dy: inset/2)
-        goeValueLabel.frame = goeValueBackground.bounds
-            .insetBy(dx: inset, dy: inset/2)
-
-        baseValueLabel.font = UIFont
-            .monospacedDigitSystemFont(
-                ofSize: baseValueLabel.fontSize(),
-                weight: .bold
-            )
-        goeValueLabel.font =
-            .monospacedDigitSystemFont(
-                ofSize: goeValueLabel.fontSize(),
-                weight: .bold
-            )
-        
-        baseValueBackground.cornerConfiguration = roundedCornerConfiguration()
-        goeValueBackground.cornerConfiguration = roundedCornerConfiguration()
+        baseValueBox.frame = CGRect(x: 0, y: 0, width: width * 0.65, height: bounds.size.height)
+        goeValueBox.frame = CGRect(
+            x: width * 0.65,
+            y: 0,
+            width: width * 0.35,
+            height: bounds.size.height
+        )
     }
-    
+
     func configure() {
-        baseValueLabel.text = "BASE VALUE \(baseValue)"
-        
-        goeValueLabel.text = "GOE \(goeValue)"
-        goeValueBackground.backgroundColor = goeValue.first == "-"
-        ? Color.negative
-        : Color.positive
+        baseValueBox.label.text = "BASE VALUE \(baseValue)"
+        goeValueBox.label.text = "GOE \(goeValue)"
+        goeValueBox.boxColor = goeValue.first == "-" ? Color.negative : Color.positive
     }
 }

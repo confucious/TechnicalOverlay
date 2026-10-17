@@ -7,7 +7,7 @@
 
 import UIKit
 
-class ElementRowView: UIView {
+class ElementRowView: OverlayView {
     
     var boxModes: [ElementBoxView.Mode] = [] {
         didSet {
@@ -22,9 +22,6 @@ class ElementRowView: UIView {
         )
         addSubview(backgroundView)
         backgroundView.backgroundColor = Color.technicalBackground
-    }
-    required init?(coder: NSCoder) {
-        fatalError("init(coder:) has not been implemented")
     }
     
     override func layoutSubviews() {

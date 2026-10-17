@@ -33,6 +33,17 @@ enum Metrics {
     
     static let lowerThirdHeightPercent = CGFloat(0.15)
     static let lowerThirdAspectRatio = CGFloat(8.5)
+
+    /// The border width for a box `height` tall — every inset in the pane and lower-third rows is a
+    /// multiple of it.
+    static func borderInset(for height: CGFloat) -> CGFloat {
+        height * borderPercent
+    }
+
+    /// The font size for a label `height` tall.
+    static func fontSize(for height: CGFloat) -> CGFloat {
+        height * 0.75
+    }
 }
 
 enum CornerDirection {
@@ -54,9 +65,5 @@ extension UIView {
             bottomLeftRadius: corners.contains(.sw) ? radius : nil,
             bottomRightRadius: corners.contains(.se) ? radius : nil
         )
-    }
-    
-    func fontSize() -> CGFloat {
-        return bounds.size.height * 0.75
     }
 }

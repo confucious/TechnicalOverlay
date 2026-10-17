@@ -27,7 +27,7 @@ public struct LowerThirdViewModel: Hashable {
     public let rightText: String
 }
 
-public class IsuLowerThirdView: UIView {
+public class IsuLowerThirdView: OverlayView {
 
     let upperLine: UpperLineView
     let lowerLine: LowerLineView
@@ -48,10 +48,6 @@ public class IsuLowerThirdView: UIView {
         addSubview(upperLine)
         addSubview(lowerLine)
         backgroundColor = Color.technicalBackground
-    }
-    
-    required init?(coder: NSCoder) {
-        fatalError("init(coder:) has not been implemented")
     }
     
     public func update(from viewModel: LowerThirdViewModel) {
@@ -84,36 +80,20 @@ public class IsuLowerThirdView: UIView {
         cornerConfiguration = self.roundedCornerConfiguration()
     }
     
-    public class UpperLineView: UIView {
-        let nameLabel = UILabel()
-        let backgroundView = UIView()
+    /// The skater's name, on the blue box.
+    class UpperLineView: LabelBoxView {
+
+        var nameLabel: UILabel { label }
 
         init() {
             super.init(frame: .zero)
-            addSubview(backgroundView)
-            backgroundView.addSubview(nameLabel)
-            nameLabel.numberOfLines = 1
-            nameLabel.adjustsFontSizeToFitWidth = true
-            nameLabel.textColor = .white
-            nameLabel.textAlignment = .center
-            backgroundView.backgroundColor = Color.nameBox
-        }
-        required init?(coder: NSCoder) {
-            fatalError("init(coder:) has not been implemented")
-        }
-        
-        public override func layoutSubviews() {
-            super.layoutSubviews()
-            let inset = bounds.size.height * Metrics.borderPercent
-            backgroundView.frame = bounds
-            nameLabel.frame = backgroundView.bounds.insetBy(dx: inset, dy: inset/2)
-            nameLabel.font = .boldSystemFont(ofSize: nameLabel.fontSize())
-            backgroundView.cornerConfiguration = backgroundView
-                .roundedCornerConfiguration()
+            boxColor = Color.nameBox
         }
     }
     
-    public class LowerLineView: UIView {
+    /// Left / centre / right text on the dark line. The centre label is measured, and the other two
+    /// fill the space beside it — or the centre takes the whole box when it would not fit.
+    class LowerLineView: OverlayView {
         let centerLabel = UILabel()
         let leftLabel = UILabel()
         let rightLabel = UILabel()
@@ -143,17 +123,13 @@ public class IsuLowerThirdView: UIView {
             backgroundView.backgroundColor = Color.bottomLine
         }
         
-        required init?(coder: NSCoder) {
-            fatalError("init(coder:) has not been implemented")
-        }
-        
-        public override func layoutSubviews() {
+        override func layoutSubviews() {
             super.layoutSubviews()
-            let inset = bounds.size.height * Metrics.borderPercent
+            let inset = Metrics.borderInset(for: bounds.height)
             backgroundView.frame = bounds
-            let layoutRect = backgroundView.bounds.insetBy(dx: inset, dy: inset/2)
+            let layoutRect = backgroundView.bounds.insetBy(dx: inset, dy: inset / 2)
             centerLabel.frame = layoutRect
-            centerLabel.font = .boldSystemFont(ofSize: centerLabel.fontSize())
+            centerLabel.font = .boldSystemFont(ofSize: Metrics.fontSize(for: centerLabel.bounds.height))
             let width = layoutRect.width
             centerLabel.sizeToFit()
             if centerLabel.frame.width > width - inset * 2 {
@@ -170,21 +146,20 @@ public class IsuLowerThirdView: UIView {
                         height: layoutRect.height
                     )
                 )
-                leftLabel.font = .boldSystemFont(ofSize: leftLabel.fontSize())
+                leftLabel.font = .boldSystemFont(ofSize: Metrics.fontSize(for: leftLabel.bounds.height))
                 rightLabel.frame = CGRect(
                     origin: CGPoint(
                         x: centerLabel.frame.maxX + inset,
-                        y: centerLabel
-                            .frame.origin.y),
+                        y: centerLabel.frame.origin.y
+                    ),
                     size: CGSize(
                         width: width - inset - centerLabel.frame.maxX,
                         height: layoutRect.height
                     )
                 )
-                rightLabel.font = .boldSystemFont(ofSize: rightLabel.fontSize())
+                rightLabel.font = .boldSystemFont(ofSize: Metrics.fontSize(for: rightLabel.bounds.height))
             }
-            backgroundView.cornerConfiguration = backgroundView
-                .roundedCornerConfiguration()
+            backgroundView.cornerConfiguration = backgroundView.roundedCornerConfiguration()
         }
     }
 }

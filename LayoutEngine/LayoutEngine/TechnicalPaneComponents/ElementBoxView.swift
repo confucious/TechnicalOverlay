@@ -7,7 +7,7 @@
 
 import UIKit
 
-public class ElementBoxView: UIView {
+public class ElementBoxView: OverlayView {
     public enum Mode {
         case unscored
         case positive
@@ -17,10 +17,6 @@ public class ElementBoxView: UIView {
     
     enum Metrics {
         static let borderWidth: CGFloat = 1.0
-    }
-    
-    required init?(coder: NSCoder) {
-        fatalError("init(coder:) has not been implemented")
     }
     
     var mode: Mode {

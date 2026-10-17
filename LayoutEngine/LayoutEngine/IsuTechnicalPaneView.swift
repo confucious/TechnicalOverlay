@@ -37,7 +37,7 @@ public struct TechnicalViewModel: Hashable {
     public var showsElementBox: Bool
 }
 
-public class IsuTechnicalPaneView: UIView {
+public class IsuTechnicalPaneView: OverlayView {
 
     let elementRow = ElementRowView()
     let elementNameView = ElementNameView()
@@ -66,10 +66,6 @@ public class IsuTechnicalPaneView: UIView {
         elementRow.isHidden = !showsElementBox
     }
     
-    required init?(coder: NSCoder) {
-        fatalError("init(coder:) has not been implemented")
-    }
-    
     public func update(from viewModel: TechnicalViewModel) {
         total.skaterName = viewModel.skaterName
         total.totalValue = viewModel.totalValue
@@ -84,7 +80,7 @@ public class IsuTechnicalPaneView: UIView {
         super.layoutSubviews()
         let width = bounds.size.width
         let mainRowHeight = bounds.size.height * Metrics.mainRowPercent
-        let borderSize = mainRowHeight * Metrics.borderPercent
+        let borderSize = Metrics.borderInset(for: mainRowHeight)
         let boxRowRect = CGRect(
             origin: .zero,
             size: CGSize(

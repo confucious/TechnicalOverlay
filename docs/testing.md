@@ -29,14 +29,14 @@ documented in [`AGENTS.md`](../AGENTS.md) all apply when reading the output:
 
 | Scheme | Tests | Covers |
 |--------|-------|--------|
-| `LayoutEngine` | 3 tests (1 suite), ~0 s | The technical pane's element-box layout: the row is hidden and zero-sized when turned off, the remaining rows move up by its height at unchanged size, and the pane frame is untouched. |
+| `LayoutEngine` | 5 tests (1 suite), ~0 s | The technical pane's element-box layout — the row is hidden and zero-sized when turned off, the remaining rows move up by its height at unchanged size, the pane frame is untouched — and `LabelBoxView`'s inset arithmetic: the box and label insets scale with the row's height, a full-bleed box keeps only the label inset, and the font follows the label's height rather than the row's. |
 | `ProtocolParser` | 56 tests (7 suites), ~8 s | Page classification, judge-detail link extraction, segment parsing into hundredths, the `ProtocolFetching` seam, `ProtocolImporter`, and the singles element-abbreviation expansion — over the committed fixture pages. |
 | `VideoProcessor` | 70 tests (8 suites), ~15 s | Chunk diffing (`DiffAlgorithmTests`, the densest suite), region generation (including the clip to the video's duration and the contiguity of a clipped plan), the `Chunk` predicates the queue, renderer and stitcher share (`ChunkValidityTests`), `ChunkQueue` (reuse, staleness, `waitForCompletion`, progress), the chunk composition (`ChunkComposition`, and the shared overlay program it runs), and the real chunk-render/stitch exports. |
 | `TechnicalOverlay` | 38 unit tests (7 suites) + 8 XCTest tests, ~1.5 min | Unit: the protocol merge (including the injected-translator seam), the import flow, `TimingCascadeTests` (moving a timestamp carries the delta to later items, an unscheduled intro run is stamped `+5 s` up to the next timed slide, an unscheduled element is left alone, an out-of-range index is a no-op), `ClearSlidesTests` (clearing empties the model, keeps the instance identity, persists the emptied state and leaves the device preference alone), and `OverlayConfigurationTests` (the element-box `UserDefaults` preference: absent = shown, written value survives a relaunch, a launch seeds the view model from it, a `.tojson` neither carries it nor overrides it, and it changes both `renderingHash` and the technical slide's mode). XCTest: `ScoringListImportButtonTests` (2), `TechnicalOverlayUITests` (2 — the Import Protocol button), `TechnicalOverlayUITestsLaunchTests` (4). |
 
-`LayoutEngine` (3/3) and `TechnicalOverlay` (38 unit + 8 XCTest) re-verified 2026-10-17 — the app
-bundle again after the main-screen split and the shared timing cascade — both ending
-`** TEST SUCCEEDED **`. `VideoProcessor` re-verified 2026-10-17
+`LayoutEngine` (5/5) and `TechnicalOverlay` (38 unit + 8 XCTest) re-verified 2026-10-17 — the app
+bundle again after the main-screen split and the shared timing cascade, `LayoutEngine` after the
+row refactor onto `LabelBoxView` — both ending `** TEST SUCCEEDED **`. `VideoProcessor` re-verified 2026-10-17
 (70/70, 8 suites, including the real render and stitch exports) after the region clip and the
 overlay-program extraction; `ProtocolParser` last re-verified 2026-10-15 (56/56 after the
 abbreviation expansion) and is untouched by any of them.

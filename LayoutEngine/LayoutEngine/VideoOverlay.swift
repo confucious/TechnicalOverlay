@@ -7,7 +7,7 @@
 
 import UIKit
 
-public class VideoOverlay: UIView {
+public class VideoOverlay: OverlayView {
     public enum Mode: Hashable {
         case none
         case technicalPane(TechnicalViewModel)
@@ -33,10 +33,6 @@ public class VideoOverlay: UIView {
         backgroundColor = .clear
         alpha = 0.9
         configure()
-    }
-
-    required init?(coder: NSCoder) {
-        fatalError("init(coder:) has not been implemented")
     }
     
     func configure() {

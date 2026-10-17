@@ -8,7 +8,9 @@ A UIKit-based view library that renders figure skating scoring overlays, designe
 
 | File | Role |
 |------|------|
-| `LayoutEngine.swift` | Shared constants: `Color` (named overlay colors), `Metrics` (layout proportions), `CornerDirection` enum, `UIView` extensions (`cornerRadius()`, `roundedCornerConfiguration(corners:)`, `fontSize()`). |
+| `LayoutEngine.swift` | Shared constants: `Color` (named overlay colors), `Metrics` (layout proportions, plus `borderInset(for:)` and `fontSize(for:)` for the row arithmetic), `CornerDirection` enum, `UIView` extensions (`cornerRadius()`, `roundedCornerConfiguration(corners:)`). |
+| `OverlayView.swift` | Base class for the overlay's views. Programmatic only: the storyboard initializer is marked unavailable here, and every row inherits that instead of repeating a `fatalError` stub. |
+| `LabelBoxView.swift` | `LabelBoxView` + `LabelBoxGeometry` — a background with one label inset inside it, sized in proportions of its own height. Every single-label row is one of these (the lower third's name line, the element name, both halves of the score row and of the total row), so the border arithmetic and the font sizing live in one place. `cornerRadiusSource` picks whether the corner radius follows the box's height or the row's. |
 | `VideoOverlay.swift` | Main overlay container `UIView` (1280x720 base). Holds `IsuTechnicalPaneView` (top-left) and `IsuLowerThirdView` (bottom-center). `Mode` enum (`none`, `technicalPane`, `lowerThirdPane`). `render(size:)` → `CIImage`. |
 | `IsuLowerThirdView.swift` | Skater introduction overlay with two lines: `UpperLineView` (skater name on blue) + `LowerLineView` (left/center/right text on dark gray). |
 | `IsuTechnicalPaneView.swift` | Technical scoring overlay with four subcomponents: `ElementRowView`, `ElementNameView`, `ElementScoreView`, `ProgramTotalView`. The box row is optional (`showsElementBox`). |
@@ -51,15 +53,22 @@ A UIKit-based view library that renders figure skating scoring overlays, designe
 VideoOverlay (1280x720 base frame)
 ├── IsuTechnicalPaneView          (top-left, 16% height, 2.65 aspect ratio)
 │   ├── ElementRowView            (top row: colored element boxes)
-│   ├── ElementNameView           (element name label, black bg)
-│   ├── ElementScoreView          (base value left, GOE right)
-│   └── ProgramTotalView          (skater name blue-left, total pink-right)
+│   ├── ElementNameView           (element name label, black bg — a LabelBoxView)
+│   ├── ElementScoreView          (base value left, GOE right — two LabelBoxViews)
+│   └── ProgramTotalView          (skater name blue-left, total pink-right — two LabelBoxViews)
 └── IsuLowerThirdView             (bottom-center, 15% height, 8.5 aspect ratio)
-    ├── UpperLineView             (skater name on blue bg)
-    │   └── backgroundView → nameLabel
+    ├── UpperLineView             (skater name on blue bg — a LabelBoxView)
+    │   └── box → label
     └── LowerLineView             (left/center/right text on dark gray bg)
         └── backgroundView → centerLabel, leftLabel, rightLabel
 ```
+
+Every single-label row is a `LabelBoxView`. Its `LabelBoxGeometry` gives the background's inset from
+the row and the label's inset inside the background, both as multiples of
+`Metrics.borderInset(for: rowHeight)`; the label's font is `Metrics.fontSize(for: labelHeight)`. The two
+rows that split into boxes (`ElementScoreView`, `ProgramTotalView`) place their boxes themselves and
+take the corner radius from the row's height rather than the box's. `LowerLineView` keeps its own
+layout — its centre label is measured and the other two fill the space beside it.
 
 ## Rendering
 
