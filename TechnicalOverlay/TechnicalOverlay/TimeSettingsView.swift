@@ -10,6 +10,7 @@ import SwiftUI
 struct TimeSettingsView: View {
     @State var state: OverlayData
     var getTime: () -> TimeInterval
+    var seekTo: (TimeInterval) -> Void
     var timeUpdated: () -> Void
 
     var body: some View {
@@ -20,7 +21,7 @@ struct TimeSettingsView: View {
                     )
                         .gridColumnAlignment(.leading)
                     VStack {
-                        Text(formatDisplayTime(row.displayTime))
+                        displayTime(row.displayTime)
                         Button("Start Now") {
                             state.setIntroTime(index: index, time: getTime())
                             timeUpdated()
@@ -35,7 +36,7 @@ struct TimeSettingsView: View {
                     Text("\(index + 1): \(row.name)")
                         .gridColumnAlignment(.leading)
                     VStack {
-                        Text(formatDisplayTime(row.displayTime))
+                        displayTime(row.displayTime)
                         Button("Start Now") {
                             state.setElementTime(index: index, time: getTime())
                             timeUpdated()
@@ -45,6 +46,22 @@ struct TimeSettingsView: View {
                 }
                 Divider()
             }
+        }
+    }
+
+    /// A set time is a button that jumps the playhead there; an unset one is plain text, since there
+    /// is nowhere to jump to.
+    @ViewBuilder
+    func displayTime(_ time: TimeInterval?) -> some View {
+        if let time {
+            Button(formatDisplayTime(time)) {
+                seekTo(time)
+            }
+            .buttonStyle(.plain)
+            .foregroundStyle(.tint)
+            .accessibilityHint("Jumps the video to this time")
+        } else {
+            Text(formatDisplayTime(nil))
         }
     }
 
@@ -62,6 +79,7 @@ struct TimeSettingsView: View {
     TimeSettingsView(
         state: unsetOverlayData,
         getTime: { -now.timeIntervalSinceNow },
+        seekTo: { _ in },
         timeUpdated: {}
     )
 }

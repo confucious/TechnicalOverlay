@@ -456,6 +456,14 @@ struct MainView: View {
                             getTime: {
                                 player.currentTime().seconds
                             },
+                            seekTo: { time in
+                                player.seek(
+                                    to: CMTime(
+                                        seconds: time,
+                                        preferredTimescale: 600
+                                    )
+                                )
+                            },
                             timeUpdated: {
                                 state.generateSlides()
                             }

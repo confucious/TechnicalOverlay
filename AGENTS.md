@@ -125,7 +125,7 @@ TechnicalOverlay/                          # Main app (iOS)
     ├── OverlayData.swift              # Core data model (@Observable)
     ├── OverlayDataDocument.swift      # .tojson file I/O (versioned JSON)
     ├── ScoringListView.swift          # Full-screen data entry (NavigationLink destination)
-    ├── TimeSettingsView.swift         # Timeline editor with "Start Now"
+    ├── TimeSettingsView.swift         # Timeline editor: "Start Now" / time button seeks there
     ├── ElementBuilderView.swift       # Placeholder — not wired in
     └── ContentView.swift              # Legacy/prototype — not used
 TechnicalOverlayTests/                  # App unit tests

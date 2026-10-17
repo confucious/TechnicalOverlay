@@ -245,6 +245,8 @@ Load Video (fileImporter, .movie) → ViewModel.assetUrl
 Edit timing (TimeSettingsView "Start Now" → setIntro/setElementTime, cascading)
   → generateSlides() → new VideoComposer + re-enqueue
 
+Jump to a set time (TimeSettingsView's time button → player.seek) — a seek, so no regeneration
+
 Edit overlay look (Element boxes toggle → OverlayPreferences + showsElementBox → generateSlides()
   → new VideoComposer + re-enqueue; changed modes make the diff re-render the affected chunks)
 
