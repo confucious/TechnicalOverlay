@@ -25,14 +25,16 @@ struct TimeSettingsView: View {
                         .gridColumnAlignment(.leading)
                     VStack {
                         displayTime(row.displayTime)
-                        if let playheadTime = playhead?.getTime() {
+                        if let playhead {
                             Button("Start Now") {
-                                state.setIntroTime(
-                                    index: index,
-                                    time: playheadTime
-                                )
-                                timeUpdated()
-                                state.save()
+                                if let time = playhead.getTime() {
+                                    state.setIntroTime(
+                                        index: index,
+                                        time: time
+                                    )
+                                    timeUpdated()
+                                    state.save()
+                                }
                             }
                             .buttonStyle(.bordered)
                         }
@@ -46,14 +48,16 @@ struct TimeSettingsView: View {
                         .gridColumnAlignment(.leading)
                     VStack {
                         displayTime(row.displayTime)
-                        if let playheadTime = playhead?.getTime() {
+                        if let playhead {
                             Button("Start Now") {
-                                state.setElementTime(
-                                    index: index,
-                                    time: playheadTime
-                                )
-                                timeUpdated()
-                                state.save()
+                                if let time = playhead.getTime() {
+                                    state.setElementTime(
+                                        index: index,
+                                        time: time
+                                    )
+                                    timeUpdated()
+                                    state.save()
+                                }
                             }
                             .buttonStyle(.bordered)
                         }

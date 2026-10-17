@@ -443,17 +443,14 @@ struct MainView: View {
                         }.interactiveDismissDisabled()
                     })
                 }
-                // Overlay configuration, in its own row so the video buttons stay a fixed pair.
-                // `.fixedSize()` keeps the label next to its switch — a switch-style `Toggle`
-                // given the full row width pushes them to opposite edges.
                 elementBoxToggle
                     .fixedSize()
                 if !state.scoring.isEmpty {
                     ScrollView {
-                        if let player = state.player {
-                            TimeSettingsView(
-                                state: state.scoring,
-                                playhead: Playhead(
+                        TimeSettingsView(
+                            state: state.scoring,
+                            playhead: state.player.map { player in
+                                Playhead(
                                     getTime: {
                                         let time = player.currentTime()
                                         return time.isNumeric ? time.seconds : nil
@@ -466,34 +463,19 @@ struct MainView: View {
                                             )
                                         )
                                     }
-                                ),
-                                timeUpdated: {
-                                    state.generateSlides()
-                                }
-                            ).padding(
-                                .init(
-                                    top: 0.0,
-                                    leading: 10.0,
-                                    bottom: 0.0,
-                                    trailing: 10.0
                                 )
+                            },
+                            timeUpdated: {
+                                state.generateSlides()
+                            }
+                        ).padding(
+                            .init(
+                                top: 0.0,
+                                leading: 10.0,
+                                bottom: 0.0,
+                                trailing: 10.0
                             )
-                        } else {
-                            TimeSettingsView(
-                                state: state.scoring,
-                                playhead: nil,
-                                timeUpdated: {
-                                    state.generateSlides()
-                                }
-                            ).padding(
-                                .init(
-                                    top: 0.0,
-                                    leading: 10.0,
-                                    bottom: 0.0,
-                                    trailing: 10.0
-                                )
-                            )
-                        }
+                        )
                     }
                 }
                 HStack {
