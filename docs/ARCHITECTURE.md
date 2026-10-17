@@ -131,8 +131,9 @@ fractional width.
 ### 3.2 Cascading timing
 
 `setIntroTime(index:time:)` / `setElementTime(index:time:)` propagate the delta to all
-**subsequent** items of the same kind, preserving relative spacing (recursive implementation).
-Unset trailing intro siblings default to `+5s`.
+**subsequent** items of the same kind, preserving relative spacing — both call one forward-walking
+`shiftTimes` helper, so the rule is written once. Unset trailing intro siblings default to `+5 s`;
+an unscheduled element is left alone, which ends the cascade.
 
 ### 3.3 Element colors
 

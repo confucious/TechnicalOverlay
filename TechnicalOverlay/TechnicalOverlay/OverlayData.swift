@@ -83,48 +83,76 @@ class OverlayData: Codable {
         skaterFullName == "" && skaterAbbreviatedName == "" && introductionTexts.isEmpty && elementScores.isEmpty
     }
 
+    /// Moves an introduction slide to `time`, carrying the delta to the slides after it.
+    ///
+    /// A trailing run of unscheduled slides is stamped five seconds apart, so adding a slide and
+    /// setting its time lays the rest of the introduction out in one gesture.
     func setIntroTime(index: Int, time: TimeInterval) {
-        guard index < introductionTexts.count else {
-            return
-        }
-        if let oldTime = introductionTexts[index].displayTime {
-            let diff = time - oldTime
-            introductionTexts[index].displayTime = time
-            if index + 1 < introductionTexts.count {
-                let nextItem = introductionTexts[index + 1]
-                if let oldNextTime = nextItem.displayTime {
-                    setIntroTime(index: index + 1, time: oldNextTime + diff)
-                } else {
-                    setIntroTime(index: index + 1, time: time + 5)
-                }
-            }
-        } else {
-            // Old time wasn't set.
-            introductionTexts[index].displayTime = time
-            if index + 1 < introductionTexts.count {
-                let nextItem = introductionTexts[index + 1]
-                if nextItem.displayTime == nil {
-                    setIntroTime(index: index + 1, time: time + 5)
-                }
-            }
-        }
+        shiftTimes(
+            in: introductionTexts,
+            from: index,
+            to: time,
+            defaultUnsetSpacing: 5,
+            displayTime: { $0.displayTime },
+            setDisplayTime: { $0.displayTime = $1 }
+        )
     }
 
+    /// Moves a scored element to `time`, carrying the delta to the elements after it. An element
+    /// with no time is left unscheduled — the timeline is the user's to fill in.
     func setElementTime(index: Int, time: TimeInterval) {
-        guard index < elementScores.count else {
+        shiftTimes(
+            in: elementScores,
+            from: index,
+            to: time,
+            displayTime: { $0.displayTime },
+            setDisplayTime: { $0.displayTime = $1 }
+        )
+    }
+
+    /// The cascade both setters share: the item at `index` takes `time`, and every item after it
+    /// moves by the same delta, so relative spacing survives.
+    ///
+    /// With `defaultUnsetSpacing`, the unscheduled run that follows is filled in as
+    /// `previous + spacing` — introductions use it to lay out slides the user has not timed yet.
+    /// Without it, the first unscheduled item ends the cascade.
+    private func shiftTimes<Item>(
+        in items: [Item],
+        from index: Int,
+        to time: TimeInterval,
+        defaultUnsetSpacing: TimeInterval? = nil,
+        displayTime: (Item) -> TimeInterval?,
+        setDisplayTime: (Item, TimeInterval?) -> Void
+    ) {
+        guard items.indices.contains(index) else {
             return
         }
-        if let oldTime = elementScores[index].displayTime {
-            let diff = time - oldTime
-            elementScores[index].displayTime = time
-            if index + 1 < elementScores.count {
-                if let oldNextTime = elementScores[index + 1].displayTime {
-                    setElementTime(index: index + 1, time: oldNextTime + diff)
-                }
+
+        let oldTime = displayTime(items[index])
+        setDisplayTime(items[index], time)
+
+        var cursor = index + 1
+
+        if let oldTime {
+            let delta = time - oldTime
+            while cursor < items.count, let itemTime = displayTime(items[cursor]) {
+                setDisplayTime(items[cursor], itemTime + delta)
+                cursor += 1
             }
-        } else {
-            // Old time wasn't set.
-            elementScores[index].displayTime = time
+        }
+
+        guard let spacing = defaultUnsetSpacing,
+              cursor < items.count,
+              displayTime(items[cursor]) == nil
+        else {
+            return
+        }
+
+        var previous = time
+        while cursor < items.count, displayTime(items[cursor]) == nil {
+            previous += spacing
+            setDisplayTime(items[cursor], previous)
+            cursor += 1
         }
     }
 

@@ -5,8 +5,8 @@ repetition and readability**. Every item names the file and line it lives at and
 move or delete — no "consider refactoring".
 
 **How to use this file:** delete an item when it lands; this list should shrink, never accumulate.
-IDs are never reused, so a gap in the numbering is finished work (B1, M2, M3, R1, R2, R3, Y2, Y3, Y4
-and Y5 are done). It is a backlog, not a design doc: rationale for anything that ships goes in `docs/HISTORY.md`
+IDs are never reused, so a gap in the numbering is finished work (B1, M2, M3, R1, R2, R3, R4, Y2, Y3,
+Y4 and Y5 are done). It is a backlog, not a design doc: rationale for anything that ships goes in `docs/HISTORY.md`
 per `AGENTS.md` → Documentation, and `docs/ARCHITECTURE.md` stays current-state only.
 
 **Tags**
@@ -92,14 +92,6 @@ which also nils `player` and drops the pipeline's queue mid-teardown.
 ---
 
 ## Repetition
-
-### R4. The timing cascade is written twice
-
-`setIntroTime` (`OverlayData.swift:85-110`) vs `setElementTime` (`112-128`) differ only in what
-happens to an unset sibling.
-
-**Fix:** one generic shift over `[TimeInterval?]` with a write-back closure; two recursive walks
-become loops.
 
 ### R5. LayoutEngine repeats the same rig five times
 
