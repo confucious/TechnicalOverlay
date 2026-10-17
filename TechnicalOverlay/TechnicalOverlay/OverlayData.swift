@@ -165,22 +165,21 @@ class OverlayData: Codable {
     
     func makeSlides(size: CGSize) -> [Slide] {
         var slides: [Slide] = []
+
+        /// A `.none` slide five seconds after the last one, so the overlay fades out to the source
+        /// instead of holding on screen until the video ends.
+        func appendFadeOut() {
+            guard let lastSlide = slides.last else { return }
+            slides.append(makeSlide(size: size, mode: .none, startTime: lastSlide.startTime.seconds + 5))
+        }
+
         for introduction in introductionTexts {
             let mode = introduction.makeMode(skaterName: skaterFullName)
             if let displayTime = introduction.displayTime {
-                slides.append(
-                    makeSlide(
-                        size: size,
-                        mode: mode,
-                        startTime: displayTime
-                    )
-                )
+                slides.append(makeSlide(size: size, mode: mode, startTime: displayTime))
             }
         }
-        // Fade out last intro slide
-        if let lastSlide = slides.last {
-            slides.append(makeSlide(size: size, mode: .none, startTime: lastSlide.startTime.seconds + 5))
-        }
+        appendFadeOut()
 
         var cumulativeBoxModes: [ElementBoxView.Mode] = Array(repeating: .unscored, count: elementScores.count)
         var cumulativeScore = 0
@@ -201,21 +200,10 @@ class OverlayData: Codable {
                 showsElementBox: showsElementBox
             )
             if let displayTime = element.displayTime {
-                slides
-                    .append(makeSlide(size: size, mode: mode, startTime: displayTime
-                                       ))
+                slides.append(makeSlide(size: size, mode: mode, startTime: displayTime))
             }
         }
-        // Fade out last intro slide
-        if let lastSlide = slides.last {
-            slides
-                .append(
-                    makeSlide(
-                        size: size,
-                        mode: .none,
-                        startTime: lastSlide.startTime.seconds + 5
-            ))
-        }
+        appendFadeOut()
 
         return slides
     }

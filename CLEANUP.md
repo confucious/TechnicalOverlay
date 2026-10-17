@@ -5,8 +5,8 @@ repetition and readability**. Every item names the file and line it lives at and
 move or delete — no "consider refactoring".
 
 **How to use this file:** delete an item when it lands; this list should shrink, never accumulate.
-IDs are never reused, so a gap in the numbering is finished work (B1, M2, M3, R1, R2, R3, Y2, Y3 and
-Y4 are done). It is a backlog, not a design doc: rationale for anything that ships goes in `docs/HISTORY.md`
+IDs are never reused, so a gap in the numbering is finished work (B1, M2, M3, R1, R2, R3, Y2, Y3, Y4
+and Y5 are done). It is a backlog, not a design doc: rationale for anything that ships goes in `docs/HISTORY.md`
 per `AGENTS.md` → Documentation, and `docs/ARCHITECTURE.md` stays current-state only.
 
 **Tags**
@@ -128,13 +128,6 @@ copies of `required init?(coder:) { fatalError }` as well.
   separate `noVideo`, so the two states read as opposites of nothing.
 
 **Fix:** a case label that says what it means (`rendered` rather than `idle`).
-
-### Y5. `makeSlides` duplicates its own fade-out block, and the copy lies
-
-`OverlayData.swift:179-182` and `208-217` are the same block with the same comment, but the second
-one fades out the *element* slides, not the intro slide.
-
-**Fix:** one `appendFadeOut(after:)` helper.
 
 ### Y6. Doc drift
 
