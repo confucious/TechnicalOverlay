@@ -42,7 +42,7 @@ private func slide(_ image: CIImage?, _ seconds: Double) -> Slide {
 
     /// Asserts that non-stale chunks form a contiguous timeline from 0 to videoDuration.
     private func assertCoverage(_ chunks: [Chunk], videoDuration: CMTime) {
-        let valid = chunks.filter { !$0.isStale }
+        let valid = chunks.filter { $0.isInPlan }
 
         guard !valid.isEmpty else {
             Issue.record("no valid chunks")
@@ -73,7 +73,7 @@ private func slide(_ image: CIImage?, _ seconds: Double) -> Slide {
         chunks: [Chunk],
         sourceLocation: SourceLocation = #_sourceLocation
     ) {
-        let valid = chunks.filter { !$0.isStale }
+        let valid = chunks.filter { $0.isInPlan }
         
         #expect(
             valid.count == expectedChunks.count,
@@ -297,7 +297,7 @@ private func slide(_ image: CIImage?, _ seconds: Double) -> Slide {
         ], chunks: chunks)
 
         // Some old chunks should be stale
-        let staleCount = chunks.filter { $0.isStale }.count
+        let staleCount = chunks.filter { !$0.isInPlan }.count
         #expect(staleCount > 0)
 
         assertCoverage(chunks, videoDuration: videoDuration)
@@ -343,7 +343,7 @@ private func slide(_ image: CIImage?, _ seconds: Double) -> Slide {
         ], chunks: chunks)
 
         // Some old chunks should be stale
-        let staleCount = chunks.filter { $0.isStale }.count
+        let staleCount = chunks.filter { !$0.isInPlan }.count
         #expect(staleCount > 0)
 
         assertCoverage(chunks, videoDuration: videoDuration)
@@ -448,7 +448,7 @@ private func slide(_ image: CIImage?, _ seconds: Double) -> Slide {
         assertCoverage(chunks, videoDuration: videoDuration)
 
         let prevValidCount = chunks.filter {
-            !$0.isStale && $0.type != .noOverlay
+            $0.isInPlan && $0.hasOverlay
         }.count
         #expect(prevValidCount > 1)
 
@@ -456,7 +456,7 @@ private func slide(_ image: CIImage?, _ seconds: Double) -> Slide {
         let clearedRegions = generateRegions(slides: [], videoDuration: videoDuration, transitionTime: transitionTime)
         chunks = diffRegionsIntoChunks(newRegions: clearedRegions, existingChunks: chunks)
 
-        let staleCount = chunks.filter { $0.isStale }.count
+        let staleCount = chunks.filter { !$0.isInPlan }.count
         #expect(staleCount == prevValidCount) // all previous valid non-noOverlay chunks become stale.
 
         assertExpectedChunks([(.noOverlay, 0)], chunks: chunks)
@@ -475,7 +475,7 @@ private func slide(_ image: CIImage?, _ seconds: Double) -> Slide {
             let regions = generateRegions(slides: [], videoDuration: videoDuration, transitionTime: transitionTime)
             chunks = diffRegionsIntoChunks(newRegions: regions, existingChunks: chunks)
             assertCoverage(chunks, videoDuration: videoDuration)
-            #expect(chunks.filter { !$0.isStale }.count == 1)
+            #expect(chunks.filter { $0.isInPlan }.count == 1)
         }
 
         // Step 1: Add intro at t=10 with fadeout at t=15
@@ -535,7 +535,7 @@ private func slide(_ image: CIImage?, _ seconds: Double) -> Slide {
             chunks = diffRegionsIntoChunks(newRegions: regions, existingChunks: chunks)
             assertExpectedChunks([(.noOverlay, 0)], chunks: chunks)
             assertCoverage(chunks, videoDuration: videoDuration)
-            #expect(chunks.filter { !$0.isStale }.count == 1)
+            #expect(chunks.filter { $0.isInPlan }.count == 1)
         }
     }
 }

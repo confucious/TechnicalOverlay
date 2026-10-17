@@ -50,7 +50,7 @@ import CoreImage
         let result = diffRegionsIntoChunks(newRegions: [], existingChunks: existing)
         #expect(result.count == existing.count)
         for chunk in result {
-            #expect(chunk.isStale)
+            #expect(!chunk.isInPlan)
         }
     }
 
@@ -73,7 +73,7 @@ import CoreImage
         #expect(result.count == existing.count)
         for chunk in result {
             #expect(chunk.isRendered)
-            #expect(!chunk.isStale)
+            #expect(chunk.isInPlan)
         }
     }
 
@@ -168,7 +168,7 @@ import CoreImage
 
         // All non-noOverlay chunks should be stale.
         for chunk in result where chunk.type != .noOverlay {
-            #expect(chunk.isStale)
+            #expect(!chunk.isInPlan)
         }
     }
 
@@ -188,8 +188,8 @@ import CoreImage
         let result = diffRegionsIntoChunks(newRegions: [newRegion], existingChunks: existing)
 
         #expect(result.count == 1) // just the new 15 second noOverlay chunk. Old one is dropped entirely.
-        let newChunk = result.first { !$0.isStale }
-        let oldChunk = result.first { $0.isStale }
+        let newChunk = result.first { $0.isInPlan }
+        let oldChunk = result.first { !$0.isInPlan }
         #expect(newChunk != nil)
         #expect(newChunk?.renderState == .pending)
         #expect(newChunk?.timeRange == newRange)
@@ -211,7 +211,7 @@ import CoreImage
 
         #expect(result.count == 1)
         #expect(result[0].renderState == .pending) // reused, stays pending
-        #expect(!result[0].isStale)
+        #expect(result[0].isInPlan)
     }
 
     // Stale chunks should be eligible to be reused if time stamps change to enter their range again.
@@ -228,8 +228,8 @@ import CoreImage
         let result = diffRegionsIntoChunks(newRegions: [region], existingChunks: [staleChunk])
 
         #expect(result.count == 1)
-        let newChunk = result.first { $0.renderState == .pending && !$0.isStale }
-        let oldChunk = result.first { $0.isStale }
+        let newChunk = result.first { $0.renderState == .pending && $0.isInPlan }
+        let oldChunk = result.first { !$0.isInPlan }
         #expect(newChunk != nil)
         #expect(oldChunk == nil)
     }
@@ -249,8 +249,8 @@ import CoreImage
         let result = diffRegionsIntoChunks(newRegions: [region], existingChunks: [staleChunk])
 
         #expect(result.count == 2)
-        let newChunk = result.first { $0.renderState == .pending && !$0.isStale }
-        let oldChunk = result.first { $0.isStale }
+        let newChunk = result.first { $0.renderState == .pending && $0.isInPlan }
+        let oldChunk = result.first { !$0.isInPlan }
         #expect(newChunk != nil)
         #expect(oldChunk != nil)
     }
@@ -289,7 +289,7 @@ import CoreImage
         )
 
         let result = diffRegionsIntoChunks(newRegions: [newRegion], existingChunks: existing)
-        let valid = result.filter { !$0.isStale }
+        let valid = result.filter { $0.isInPlan }
 
         // Expected: new pending [5,10], reused [10,15], stale [15,20]
         #expect(valid.count == 2)
@@ -308,7 +308,7 @@ import CoreImage
         #expect(valid[1].isRendered) // was rendered, stays rendered
 
         // Old [15,20] portion is stale, but the chunk overall is not stale.
-        let staleChunks = result.filter { $0.isStale }
+        let staleChunks = result.filter { !$0.isInPlan }
         #expect(staleChunks.count == 0)
     }
 
@@ -334,7 +334,7 @@ import CoreImage
         )
 
         let result = diffRegionsIntoChunks(newRegions: [newRegion], existingChunks: existing)
-        let valid = result.filter { !$0.isStale }
+        let valid = result.filter { $0.isInPlan }
 
         #expect(valid.count == 1)
         #expect(valid[0].renderState == .pending) // new chunk
@@ -362,6 +362,49 @@ import CoreImage
 
         #expect(result.count == 1)
         #expect(result[0].isRendered)
-        #expect(!result[0].isStale)
+        #expect(result[0].isInPlan)
+    }
+}
+
+/// The chunk predicates the queue, the renderer and the stitcher share. They exist so the
+/// "renderable / in plan / valid" rules have one definition rather than a copy in each stage.
+@Suite struct ChunkValidityTests {
+
+    private var range: CMTimeRange {
+        CMTimeRange(start: .zero, duration: CMTime(seconds: 5, preferredTimescale: 1))
+    }
+
+    @Test func overlayChunkIsValidOnlyWhenRenderedAndInPlan() {
+        let pending = Chunk(timeRange: range, type: .constant(CIImage.clear))
+        #expect(pending.hasOverlay)
+        #expect(pending.needsRender)
+        #expect(pending.isInPlan)
+        #expect(!pending.isRendered)
+        #expect(!pending.isValid)
+
+        var rendered = pending
+        rendered.renderState = .rendered(URL(fileURLWithPath: "/tmp/chunk.mov"))
+        #expect(!rendered.needsRender)
+        #expect(rendered.isRendered)
+        #expect(rendered.isValid)
+
+        // Dropped from the plan: still rendered, no longer stitchable.
+        var dropped = rendered
+        dropped.stitchingTimeRange = nil
+        #expect(!dropped.isInPlan)
+        #expect(!dropped.isValid)
+    }
+
+    @Test func noOverlayChunkHasNoWorkAndOnlyNeedsThePlan() {
+        let chunk = Chunk(timeRange: range, type: .noOverlay)
+        #expect(!chunk.hasOverlay)
+        #expect(!chunk.needsRender)
+        #expect(chunk.isRendered)
+        #expect(chunk.isValid)
+
+        var dropped = chunk
+        dropped.stitchingTimeRange = nil
+        #expect(!dropped.isInPlan)
+        #expect(!dropped.isValid)
     }
 }

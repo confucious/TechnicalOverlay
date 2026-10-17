@@ -199,8 +199,9 @@ Designed for incremental/reusable rendering:
 
 ```
 enqueue(slides:, videoDuration:)
-  → generateRegions()        → [ChunkRegion]   (contiguous sweep: noOverlay gaps,
-                                                 transition windows, constant holds)
+  → generateRegions()        → [ChunkRegion]   (contiguous sweep, clipped to the video's
+                                                 duration: noOverlay gaps, transition
+                                                 windows, constant holds)
   → diffRegionsIntoChunks()  → [Chunk]          (reuse unchanged content, mark rest stale)
   → ChunkQueue.drain()       (actor; dequeue pending → renderer → rendered(URL)/stale)
   → waitForCompletion()      (waits for the drain enqueue() started too — a chunk in the
@@ -214,7 +215,9 @@ enqueue(slides:, videoDuration:)
   independent of time range.
 - **Diffing**: `.noOverlay` never reused; `.transition` requires exact time-range match;
   `.constant` may be reused for overlapping portions (splitting new-reuse-new). Unreused
-  existing chunks are marked stale (`stitchingTimeRange = nil`).
+  existing chunks leave the plan (`stitchingTimeRange = nil`). `Chunk`'s own predicates
+  (`hasOverlay`, `isInPlan`, `needsRender`, `isValid`) are the single spelling of those rules for
+  the queue, the renderer and the stitcher.
 - **Renderer**: `DefaultChunkRenderer` (implements `ChunkRendererProtocol`) exports each chunk
   as a time-limited `AVAssetExportSession` segment with the appropriate CIImage composition
   (`chunk_<uuid>.mov`). `ChunkQueue` is an actor so `render(chunk:)` calls are serialized.

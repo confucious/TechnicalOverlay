@@ -153,6 +153,49 @@ import CoreImage
         #expect(end.seconds == videoDuration.seconds)
     }
 
+    // MARK: - Regions stay inside the video
+
+    /// A slide that close to the end used to leave the plan ending past the video (119.5–120.5 in a
+    /// 120 s video), and `DefaultStitcher` refuses a plan that does not end exactly at
+    /// `videoDuration` — so the export aborted on a valid timeline.
+    @Test func slideWithinTransitionTimeOfTheEndIsClampedToTheVideo() {
+        let late = Slide(
+            image: CIImage.clear,
+            startTime: CMTime(seconds: 119.5, preferredTimescale: 1000)
+        )
+        let regions = generateRegions(
+            slides: [late],
+            videoDuration: videoDuration,
+            transitionTime: transitionTime
+        )
+        let last = regions[regions.count - 1]
+        #expect(last.timeRange.end == videoDuration)
+        #expect(regions.allSatisfy {
+            $0.timeRange.start >= .zero && $0.timeRange.end <= videoDuration
+        })
+        // Clamping must not open a hole: each region picks up where the previous one stopped.
+        #expect(regions[0].timeRange.start == .zero)
+        for (previous, next) in zip(regions, regions.dropFirst()) {
+            #expect(previous.timeRange.end == next.timeRange.start)
+        }
+    }
+
+    /// A slide past the end contributes nothing, and the plan still covers the whole video.
+    @Test func slideAfterTheVideoProducesAWholeVideoNoOverlay() {
+        let beyond = Slide(
+            image: CIImage.clear,
+            startTime: CMTime(seconds: 130, preferredTimescale: 1)
+        )
+        let regions = generateRegions(
+            slides: [beyond],
+            videoDuration: videoDuration,
+            transitionTime: transitionTime
+        )
+        #expect(regions.count == 1)
+        #expect(regions[0].type == .noOverlay)
+        #expect(regions[0].timeRange == CMTimeRange(start: .zero, duration: videoDuration))
+    }
+
     // MARK: - Content identity
 
     @Test func regionContentIdentitiesMatchTypes() {

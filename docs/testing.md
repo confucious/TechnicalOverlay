@@ -31,14 +31,14 @@ documented in [`AGENTS.md`](../AGENTS.md) all apply when reading the output:
 |--------|-------|--------|
 | `LayoutEngine` | 3 tests (1 suite), ~0 s | The technical pane's element-box layout: the row is hidden and zero-sized when turned off, the remaining rows move up by its height at unchanged size, and the pane frame is untouched. |
 | `ProtocolParser` | 56 tests (7 suites), ~8 s | Page classification, judge-detail link extraction, segment parsing into hundredths, the `ProtocolFetching` seam, `ProtocolImporter`, and the singles element-abbreviation expansion — over the committed fixture pages. |
-| `VideoProcessor` | 66 tests (7 suites), ~15 s | Chunk diffing (`DiffAlgorithmTests`, the densest suite), region generation, `ChunkQueue` (reuse, staleness, `waitForCompletion`, progress), the composition builders, and the real chunk-render/stitch exports. |
+| `VideoProcessor` | 70 tests (8 suites), ~15 s | Chunk diffing (`DiffAlgorithmTests`, the densest suite), region generation (including the clip to the video's duration and the contiguity of a clipped plan), the `Chunk` predicates the queue, renderer and stitcher share (`ChunkValidityTests`), `ChunkQueue` (reuse, staleness, `waitForCompletion`, progress), the composition builders, and the real chunk-render/stitch exports. |
 | `TechnicalOverlay` | 32 unit tests (6 suites) + 8 XCTest tests, ~1.5 min | Unit: the protocol merge (including the injected-translator seam), the import flow, `ClearSlidesTests` (clearing empties the model, keeps the instance identity, persists the emptied state and leaves the device preference alone), and `OverlayConfigurationTests` (the element-box `UserDefaults` preference: absent = shown, written value survives a relaunch, a launch seeds the view model from it, a `.tojson` neither carries it nor overrides it, and it changes both `renderingHash` and the technical slide's mode). XCTest: `ScoringListImportButtonTests` (2), `TechnicalOverlayUITests` (2 — the Import Protocol button), `TechnicalOverlayUITestsLaunchTests` (4). |
 
 `LayoutEngine` (3/3) and `TechnicalOverlay` (32 unit + 8 XCTest) re-verified 2026-10-17 with the
 element-box toggle, its `UserDefaults` preference and Clear Slides, both ending
-`** TEST SUCCEEDED **`. `ProtocolParser` last re-verified
-2026-10-15 (56/56 after the abbreviation expansion) and `VideoProcessor` 2026-10-16; neither
-bundle is touched by that change.
+`** TEST SUCCEEDED **`. `VideoProcessor` re-verified 2026-10-17 (70/70, 8 suites, including the real
+render and stitch exports) after the region clip; `ProtocolParser` last re-verified 2026-10-15
+(56/56 after the abbreviation expansion) and is untouched by that change.
 
 ## Prerequisites and known flakiness
 
@@ -46,8 +46,8 @@ bundle is touched by that change.
   `TechnicalOverlay/TechnicalOverlay/Boston Open 2025.mov`. Without it `DefaultStitcherTests`
   early-return and pass trivially. They render real chunks and perform real exports, so they are far
   slower than the pure-logic suites; the stitcher refuses a plan whose last chunk does not end
-  exactly at `videoDuration` (defensive — the app always satisfies it by construction), so the tests
-  pass the plan's own end as the duration.
+  exactly at `videoDuration` (defensive — `generateRegions` clips every region to it, so a plan built
+  from slides always ends there), so the tests pass the plan's own end as the duration.
 - Those same real-export tests **crash intermittently when the machine is loaded** — a probe sweep
   or an app build running alongside is enough to kill the simulator's media stack mid-export, and
   the run then reports "Restarting after unexpected exit, crash, or test timeout" per test. They

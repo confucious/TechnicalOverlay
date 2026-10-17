@@ -75,7 +75,7 @@ public final class DefaultChunkRenderer: ChunkRendererProtocol {
 
         // 2. noOverlay check — dequeueNextRenderable() already filters these out,
         //    but the guard is defensive for callers that bypass the queue
-        guard chunk.type != .noOverlay else {
+        guard chunk.hasOverlay else {
             Trace.log(.renderer, "skip \(chunk.traceID): noOverlay has nothing to render")
             return nil
         }

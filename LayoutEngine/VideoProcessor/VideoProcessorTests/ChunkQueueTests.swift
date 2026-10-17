@@ -130,7 +130,7 @@ final class SlowRenderer: ChunkRendererProtocol, @unchecked Sendable {
         await queue.enqueue(slides: [newSlide], videoDuration: videoDuration)
 
         let chunks = await queue.chunks
-        let staleCount = chunks.filter { $0.isStale }.count
+        let staleCount = chunks.filter { !$0.isInPlan }.count
         // Old chunks should be stale since no new region matched their time ranges
         #expect(staleCount > 0)
     }
@@ -142,7 +142,7 @@ final class SlowRenderer: ChunkRendererProtocol, @unchecked Sendable {
 
         let chunks = await queue.chunks
         for chunk in chunks where chunk.type == .noOverlay {
-            #expect(chunk.isStale)
+            #expect(!chunk.isInPlan)
         }
     }
 
@@ -183,10 +183,10 @@ final class SlowRenderer: ChunkRendererProtocol, @unchecked Sendable {
         for chunk in valid {
             switch chunk.type {
             case .noOverlay:
-                #expect(!chunk.isStale)
+                #expect(chunk.isInPlan)
             case .constant, .transition:
                 #expect(chunk.isRendered)
-                #expect(!chunk.isStale)
+                #expect(chunk.isInPlan)
             }
         }
     }
@@ -222,7 +222,7 @@ final class SlowRenderer: ChunkRendererProtocol, @unchecked Sendable {
 
         let renderable = await queue.chunks.filter { $0.type != .noOverlay }
         // All renderable chunks should be stale (render failed)
-        #expect(renderable.allSatisfy { $0.isStale })
+        #expect(renderable.allSatisfy { !$0.isInPlan })
     }
 
     // MARK: - Re-enqueue after invalidation

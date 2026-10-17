@@ -177,6 +177,12 @@ Sweeps the video timeline from start to end, producing contiguous regions:
 2. **Transition regions** (0.75s starting at each slide time): `.transition(from, to)` — dissolve from previous slide to current.
 3. **Constant regions** (end of one transition to start of next): `.constant(CIImage)` or `.noOverlay` — the slide image is held static over the source.
 
+Every region is **clipped to `[0, videoDuration]`**, and a region left empty by the clip is dropped.
+A transition that starts within `transitionTime` of the end (the last slide's, typically) would
+otherwise run past the video, and `DefaultStitcher.stitch` requires the plan to end exactly at
+`videoDuration` — an overrun would abort a valid export. A slide at or beyond `videoDuration` adds no
+region, and a plan with no regions at all is one whole-video `.noOverlay`.
+
 ### Chunk diffing
 
 `diffRegionsIntoChunks(newRegions:existingChunks:)` → `[Chunk]`:
@@ -195,7 +201,7 @@ Compares new regions against existing chunks, reusing unchanged content:
 | `ChunkRegion` | Time-identified region with `ContentIdentity`, `CMTimeRange`, `ChunkType`. |
 | `ChunkType` | `.noOverlay` / `.constant(CIImage)` / `.transition(from: CIImage?, to: CIImage?)` |
 | `ContentIdentity` | Stable hash for content reuse detection, independent of time range. |
-| `Chunk` | Time-range-based unit of work with `renderState` (`pending` → `rendering` → `rendered(URL)`) and `stitchingTimeRange` for pipeline assembly. |
+| `Chunk` | Time-range-based unit of work with `renderState` (`pending` → `rendering` → `rendered(URL)`) and `stitchingTimeRange` for pipeline assembly. Its predicates — `hasOverlay`, `isInPlan`, `needsRender`, `isRendered`, `isValid` — are the single definition of "which chunks need rendering" and "which chunks can be stitched"; the queue, the renderer and the stitcher filter on them rather than restating the rules. |
 | `ChunkState` | `.pending` / `.rendering` / `.rendered(URL)` |
 
 ### ChunkQueue (actor)

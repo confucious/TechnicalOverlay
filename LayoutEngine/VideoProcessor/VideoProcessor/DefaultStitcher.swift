@@ -38,17 +38,10 @@ extension DefaultStitcher: StitcherProtocol {
         to outputURL: URL
     ) async throws -> VideoComposer.ExportSession? {
 
-        // 1. Validate: all chunks must be rendered and non-stale
-        let valid = chunks.filter { chunk in
-            switch chunk.type {
-            case .noOverlay:
-                return !chunk.isStale
-            case .constant, .transition:
-                return chunk.isRendered && !chunk.isStale
-            }
-        }
-        let staleCount = chunks.count(where: { $0.type != .noOverlay && $0.isStale })
-        let unrenderedCount = chunks.count(where: { $0.type != .noOverlay && !$0.isStale && !$0.isRendered })
+        // 1. Validate: every chunk must be in the plan, and every overlay chunk rendered
+        let valid = chunks.filter(\.isValid)
+        let staleCount = chunks.count(where: { $0.hasOverlay && !$0.isInPlan })
+        let unrenderedCount = chunks.count(where: { $0.hasOverlay && $0.isInPlan && !$0.isRendered })
         Trace.log(.stitcher, "stitch: \(chunks.count) chunks in → \(valid.count) valid (\(staleCount) stale, \(unrenderedCount) unrendered dropped), target duration \(videoDuration.traceDescription)")
 
         // 2. Sort by timeRange.start (should already be sorted, but be safe)

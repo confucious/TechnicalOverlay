@@ -466,8 +466,32 @@ public struct Chunk: Sendable {
         self.stitchingTimeRange = timeRange
     }
 
+    /// `true` for the chunks that carry an overlay — the only ones the queue renders and the
+    /// stitcher copies from a rendered file.
+    public var hasOverlay: Bool {
+        type != .noOverlay
+    }
+
+    /// Whether the chunk is part of the current plan. `stitchingTimeRange` is the plan's own record
+    /// of the range this chunk contributes: `diffRegionsIntoChunks` clears it to drop a chunk the
+    /// new plan no longer covers (`markStale(where:)` does the same for a failed render).
+    public var isInPlan: Bool {
+        stitchingTimeRange != nil
+    }
+
+    /// Work the queue still owes this chunk: an overlay chunk with no render yet.
+    public var needsRender: Bool {
+        hasOverlay && renderState == .pending
+    }
+
+    /// Whether the chunk can be stitched: in the plan, and either rendered or an overlay-free range
+    /// of the source. `ChunkQueue.validChunks()` and `DefaultStitcher.stitch` both filter on this.
+    public var isValid: Bool {
+        hasOverlay ? isRendered && isInPlan : isInPlan
+    }
+
     public var isRendered: Bool {
-        if type == .noOverlay {
+        if !hasOverlay {
             // noOverlay chunks have no work to render, so they count as rendered.
             return true
         }
@@ -475,10 +499,6 @@ public struct Chunk: Sendable {
             return true
         }
         return false
-    }
-
-    public var isStale: Bool {
-        stitchingTimeRange == nil
     }
 
     public var outputURL: URL? {
@@ -523,64 +543,60 @@ public func generateRegions(
     videoDuration: CMTime,
     transitionTime: CMTime
 ) -> [ChunkRegion] {
+    let wholeVideo = CMTimeRange(start: .zero, duration: videoDuration)
     guard !slides.isEmpty else {
-        let range = CMTimeRange(start: .zero, duration: videoDuration)
-        return [ChunkRegion(identity: .noOverlay(), timeRange: range, type: .noOverlay)]
+        return [ChunkRegion(identity: .noOverlay(), timeRange: wholeVideo, type: .noOverlay)]
     }
 
     let sorted = slides.sorted { $0.startTime < $1.startTime }
     var regions: [ChunkRegion] = []
+
+    /// Appends the region covering `start..<end`, clipped to the video. A transition that begins
+    /// within `transitionTime` of the end would otherwise run past `videoDuration`, and the plan is
+    /// what the stitcher checks against the video's exact length (`DefaultStitcher.stitch`), so an
+    /// overrun aborts the export. An entirely empty region adds nothing.
+    func append(_ type: ChunkType, from start: CMTime, to end: CMTime) {
+        let clippedStart = max(start, .zero)
+        let clippedEnd = min(end, videoDuration)
+        guard clippedEnd > clippedStart else { return }
+        regions.append(ChunkRegion(
+            identity: type.contentIdentity,
+            timeRange: CMTimeRange(start: clippedStart, end: clippedEnd),
+            type: type
+        ))
+    }
+
     var cursor = CMTime.zero
 
     for (index, slide) in sorted.enumerated() {
         let slideStart = slide.startTime
-        let transEnd = slideStart + transitionTime
 
         // Gap before this slide's transition starts → noOverlay
         if cursor < slideStart {
-            let gapDuration = slideStart - cursor
-            let gapRange = CMTimeRange(start: cursor, duration: gapDuration)
-            regions.append(ChunkRegion(identity: .noOverlay(), timeRange: gapRange, type: .noOverlay))
+            append(.noOverlay, from: cursor, to: slideStart)
         }
 
-        if slideStart > cursor {
-            cursor = slideStart
-        }
-
-        // Transition region
-        let transDuration = transitionTime
-        let transRange = CMTimeRange(start: cursor, duration: transDuration)
-        let previousSlide = index > 0 ? sorted[index - 1] : nil
-        let effectivePreviousSlide = previousSlide?.image == nil ? nil : previousSlide
-        let effectiveSlide = slide.image == nil ? nil : slide // nil if the current slide has no image.
-        let transType: ChunkType = .transition(from: effectivePreviousSlide?.image, to: effectiveSlide?.image)
-        regions.append(ChunkRegion(
-            identity: transType.contentIdentity,
-            timeRange: transRange,
-            type: transType
-        ))
-        cursor = transEnd
+        // Transition region, starting at the slide — or where the previous transition left off,
+        // when the slides are closer together than `transitionTime`.
+        let transitionStart = max(cursor, slideStart)
+        let transitionEnd = transitionStart + transitionTime
+        append(
+            .transition(from: index > 0 ? sorted[index - 1].image : nil, to: slide.image),
+            from: transitionStart,
+            to: transitionEnd
+        )
+        cursor = transitionEnd
 
         // Constant region: from end of transition to next slide start (or video end)
         let nextSlideStart = (index + 1 < sorted.count) ? sorted[index + 1].startTime : videoDuration
         if cursor < nextSlideStart {
-            let constDuration = nextSlideStart - cursor
-            let constRange = CMTimeRange(start: cursor, duration: constDuration)
-            let constType: ChunkType = slide.image == nil ?
-                .noOverlay :
-                .constant(slide.image!)
-            regions.append(ChunkRegion(
-                identity: constType.contentIdentity,
-                timeRange: constRange,
-                type: constType
-            ))
+            append(slide.image.map { .constant($0) } ?? .noOverlay, from: cursor, to: nextSlideStart)
             cursor = nextSlideStart
         }
     }
 
     if regions.isEmpty {
-        let range = CMTimeRange(start: .zero, duration: videoDuration)
-        return [ChunkRegion(identity: .noOverlay(), timeRange: range, type: .noOverlay)]
+        return [ChunkRegion(identity: .noOverlay(), timeRange: wholeVideo, type: .noOverlay)]
     }
 
     return regions
@@ -680,7 +696,7 @@ public func diffRegionsIntoChunks(
 
     // Mark unreused existing chunks as stale (stitchingTimeRange = nil)
     for chunk in existingChunks {
-        if !reusedIDs.contains(chunk.id) && chunk.type != .noOverlay {
+        if !reusedIDs.contains(chunk.id) && chunk.hasOverlay {
             var updated = chunk
             updated.stitchingTimeRange = nil
             result.append(updated)
@@ -729,16 +745,16 @@ public actor ChunkQueue {
         let previousCount = chunks.count
         chunks = diffRegionsIntoChunks(newRegions: newRegions, existingChunks: chunks)
 
-        let toRender = chunks.count(where: { $0.renderState == .pending && $0.type != .noOverlay })
-        let reused = chunks.count(where: { $0.type != .noOverlay && !$0.isStale && $0.renderState != .pending })
-        let stale = chunks.count(where: { $0.type != .noOverlay && $0.isStale })
+        let toRender = chunks.count(where: { $0.needsRender })
+        let reused = chunks.count(where: { $0.hasOverlay && $0.isInPlan && !$0.needsRender })
+        let stale = chunks.count(where: { $0.hasOverlay && !$0.isInPlan })
         Trace.log(.queue, "enqueue: \(chunks.count) chunks (was \(previousCount)) → \(toRender) to render, \(reused) reused, \(stale) stale")
 
-        for chunk in chunks where chunk.type != .noOverlay {
+        for chunk in chunks where chunk.hasOverlay {
             let disposition: String
-            if chunk.isStale {
+            if !chunk.isInPlan {
                 disposition = "stale (not reused)"
-            } else if chunk.renderState == .pending {
+            } else if chunk.needsRender {
                 disposition = "new → pending"
             } else {
                 disposition = "reused → \(chunk.renderState.traceName)"
@@ -768,11 +784,11 @@ public actor ChunkQueue {
         var newlyStale = 0
         for i in chunks.indices {
             if predicate(chunks[i]) {
-                if !chunks[i].isStale { newlyStale += 1 }
+                if chunks[i].isInPlan { newlyStale += 1 }
                 chunks[i].stitchingTimeRange = nil
             }
         }
-        Trace.log(.queue, "markStale: \(newlyStale) newly stale of \(chunks.count) chunks (\(chunks.count(where: { $0.isStale })) stale total)")
+        Trace.log(.queue, "markStale: \(newlyStale) newly stale of \(chunks.count) chunks (\(chunks.count(where: { !$0.isInPlan })) stale total)")
         reportProgress()
     }
 
@@ -781,9 +797,7 @@ public actor ChunkQueue {
     }
 
     public func waitForCompletion() async {
-        let pendingAtStart = chunks.count(where: {
-            $0.renderState == .pending && $0.type != .noOverlay
-        })
+        let pendingAtStart = chunks.count(where: { $0.needsRender })
         let timer = TraceTimer()
         if pendingAtStart > 0 {
             Trace.log(.queue, "waitForCompletion: waiting on \(pendingAtStart) pending chunks")
@@ -802,35 +816,28 @@ public actor ChunkQueue {
         }
 
         if pendingAtStart > 0 {
-            let renderable = chunks.count(where: { $0.type != .noOverlay && $0.isRendered && !$0.isStale })
-            Trace.log(.queue, "waitForCompletion: done in \(timer.elapsedDescription), \(renderable) rendered and non-stale")
+            let renderable = chunks.count(where: { $0.hasOverlay && $0.isRendered && $0.isInPlan })
+            Trace.log(.queue, "waitForCompletion: done in \(timer.elapsedDescription), \(renderable) rendered and in plan")
         }
     }
 
     public func validChunks() -> [Chunk] {
-        let valid = chunks.filter { chunk in
-            switch chunk.type {
-            case .noOverlay:
-                return !chunk.isStale
-            case .constant, .transition:
-                return chunk.isRendered && !chunk.isStale
-            }
-        }
-        Trace.log(.queue, "validChunks: \(valid.count) of \(chunks.count) chunks valid — dropping \(chunks.count(where: { $0.type != .noOverlay && $0.isStale })) stale, \(chunks.count(where: { $0.type != .noOverlay && $0.renderState == .pending })) pending")
+        let valid = chunks.filter(\.isValid)
+        Trace.log(.queue, "validChunks: \(valid.count) of \(chunks.count) chunks valid — dropping \(chunks.count(where: { $0.hasOverlay && !$0.isInPlan })) stale, \(chunks.count(where: { $0.needsRender })) pending")
         return valid
     }
 
     // MARK: - Internal
 
     private func reportProgress() {
-        let total = chunks.count(where: { $0.type != .noOverlay })
+        let total = chunks.count(where: { $0.hasOverlay })
         let completed = chunks.count(where: {
-            $0.type != .noOverlay && $0.isRendered
+            $0.hasOverlay && $0.isRendered
         })
         // Stale chunks are excluded: they have no stitching range, so the queue will never touch them
         // again.
         let isRendering = chunks.contains { chunk in
-            chunk.type != .noOverlay && !chunk.isStale
+            chunk.hasOverlay && chunk.isInPlan
                 && (chunk.renderState == .pending || chunk.renderState == .rendering)
         }
         progressCallback?(ChunkQueueProgress(
@@ -841,9 +848,7 @@ public actor ChunkQueue {
     }
 
     private func drain() async {
-        let pendingAtStart = chunks.count(where: {
-            $0.renderState == .pending && $0.type != .noOverlay
-        })
+        let pendingAtStart = chunks.count(where: { $0.needsRender })
         let drainTimer = TraceTimer()
         var rendered = 0
         var failed = 0
@@ -873,16 +878,14 @@ public actor ChunkQueue {
         }
 
         if pendingAtStart > 0 || rendered > 0 || failed > 0 {
-            let stillPending = chunks.count(where: {
-                $0.renderState == .pending && $0.type != .noOverlay
-            })
+            let stillPending = chunks.count(where: { $0.needsRender })
             Trace.log(.queue, "drain: done, \(rendered) rendered, \(failed) failed, \(stillPending) still pending in \(drainTimer.elapsedDescription)")
             reportProgress()
         }
     }
 
     private func dequeueNextRenderable() -> Chunk? {
-        guard let index = chunks.firstIndex(where: { $0.renderState == .pending && $0.type != .noOverlay })
+        guard let index = chunks.firstIndex(where: { $0.needsRender })
         else { return nil }
         return chunks[index]
     }
