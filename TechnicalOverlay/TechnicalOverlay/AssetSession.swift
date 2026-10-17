@@ -37,6 +37,12 @@ final class AssetSession {
         }
     }
 
+    /// The teardown path: the scope is released here, by the type that took it, rather than by the
+    /// owner watching for its own deinitialization. Replacing a file goes through `adopt`.
+    deinit {
+        url?.stopAccessingSecurityScopedResource()
+    }
+
     /// The video track's natural size with its preferred transform applied, both dimensions positive —
     /// a rotation can make either one negative.
     func size(of asset: AVAsset) async -> CGSize? {

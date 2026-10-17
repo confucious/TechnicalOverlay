@@ -5,8 +5,8 @@ repetition and readability**. Every item names the file and line it lives at and
 move or delete — no "consider refactoring".
 
 **How to use this file:** delete an item when it lands; this list should shrink, never accumulate.
-IDs are never reused, so a gap in the numbering is finished work (B1, M1, M2, M3, M4, R1, R2, R3, R4,
-R5, R6, Y2, Y3, Y4 and Y5 are done). It is a backlog, not a design doc: rationale for anything that ships goes in `docs/HISTORY.md`
+IDs are never reused, so a gap in the numbering is finished work (B1, M1, M2, M3, M4, M5, R1, R2, R3,
+R4, R5, R6, Y2, Y3, Y4 and Y5 are done). It is a backlog, not a design doc: rationale for anything that ships goes in `docs/HISTORY.md`
 per `AGENTS.md` → Documentation, and `docs/ARCHITECTURE.md` stays current-state only.
 
 **Tags**
@@ -61,13 +61,6 @@ give the renderer a `chunks/<uuid>/` subdirectory so cleanup is one `removeItem`
 
 ## Modularity / isolation
 
-### M5. `deinit { assetUrl = nil }` relies on observers firing during deinit
-
-`MainViewModel.swift:52-54` releases the security scope by assigning through `assetUrl`'s `didSet`,
-which also nils `player` and drops the pipeline's queue mid-teardown.
-
-**Fix:** an explicit `close()`; leave `deinit` empty or asserting.
-
 ---
 
 ## Readability
@@ -105,8 +98,8 @@ which also nils `player` and drops the pipeline's queue mid-teardown.
    export can disagree.
 2. **B4** — give the queue a `shutdown()` and its chunks a directory of their own. `RenderPipeline`
    is now the one place that owns the queue, so it is a small change.
-3. **M4** — split `OverlayData`. The model carries persistence, caching and rendering for the app's
-   only document type.
+3. **B3** — cancel or supersede the `Task` in `generateSlides()`. The seams exist now: one owner for
+   the pipeline, one for the file.
 
-Everything left is a refactor with no user-visible behaviour; B2 is the only remaining one that can
-produce a wrong export.
+B2 is the only remaining item that can produce a wrong export; B3 and B4 are lifecycle leaks, and Y1
+and Y6 are naming and doc clean-up.

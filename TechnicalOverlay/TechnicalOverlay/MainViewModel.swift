@@ -52,10 +52,6 @@ final class MainViewModel {
         self.assetUrl = assetUrl
     }
 
-    deinit {
-        assetUrl = nil
-    }
-
     var saveVideoDisabled: Bool {
         player == nil
     }
