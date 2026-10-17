@@ -231,9 +231,15 @@ enqueue(slides:, videoDuration:)
   `VideoComposer.ExportSession` — the file appears only once the caller performs the export. Final
   export is **`.mp4`** via `AVAssetExportPresetPassthrough`.
 
-`MainView.generateSlides()` pre-enqueues slides into the queue so it is ready when the user taps
-"Save Video"; the export flow sets `exportPhase` (idle → rendering → stitching → done, or
-`failed(message)`) and drives a progress sheet.
+`MainViewModel.generateSlides()` pre-enqueues slides into the queue (`RenderPipeline.enqueue`) so it
+is ready when the user taps "Save Video"; `ExportCoordinator` sets `phase` (idle → rendering →
+stitching → done, or `failed(message)`) and drives a progress sheet.
+
+The main screen is one observable view model with three collaborators:
+`AssetSession` (the security-scoped file and its size), `RenderPipeline` (the preview composition and
+the chunk queue, plus the render indicator's `status`), and `ExportCoordinator` (stitch and write).
+`MainView` is the view and carries the SwiftUI presentation of those values
+(`docs/architecture/main-app.md`).
 
 Full detail (types, per-chunk composition methods, region/diff algorithms) is in
 `docs/architecture/video-processor.md`.
@@ -241,11 +247,11 @@ Full detail (types, per-chunk composition methods, region/diff algorithms) is in
 ## 6. App Flow
 
 ```
-Load Video (fileImporter, .movie) → ViewModel.assetUrl
-  → startAccessingSecurityScopedResource, generateSlides()
+Load Video (fileImporter, .movie) → MainViewModel.assetUrl
+  → session.adopt (startAccessingSecurityScopedResource / stop the previous), generateSlides()
   → makeSlides(size:) (size = naturalSize.applying(transform), abs'ed) → VideoComposer
   → AVPlayerItem.videoComposition → replaceCurrentItem (seek preserves position)
-  → chunkQueue.enqueue(slides:) (pre-render for export)
+  → RenderPipeline.enqueue(slides:) (pre-render for export)
 
 Edit timing (TimeSettingsView "Start Now" → playhead time read at tap time → setIntro/setElementTime,
   cascading) → generateSlides() → new VideoComposer + re-enqueue

@@ -47,12 +47,12 @@ struct OverlayConfigurationTests {
         }
     }
 
-    /// A launch picks the stored value up: `MainView.ViewModel` seeds `OverlayData` from it.
+    /// A launch picks the stored value up: `MainViewModel` seeds `OverlayData` from it.
     @Test func mainViewModelAppliesTheStoredElementBoxPreference() {
         withClearedPreference {
             OverlayPreferences.showsElementBox = false
 
-            let viewModel = MainView.ViewModel()
+            let viewModel = MainViewModel()
 
             #expect(!viewModel.scoring.showsElementBox)
         }

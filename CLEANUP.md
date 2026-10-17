@@ -5,8 +5,8 @@ repetition and readability**. Every item names the file and line it lives at and
 move or delete — no "consider refactoring".
 
 **How to use this file:** delete an item when it lands; this list should shrink, never accumulate.
-IDs are never reused, so a gap in the numbering is finished work (B1, M2, R1, R2, R3 and Y4 are
-done). It is a backlog, not a design doc: rationale for anything that ships goes in `docs/HISTORY.md`
+IDs are never reused, so a gap in the numbering is finished work (B1, M2, M3, R1, R2, R3 and Y4
+are done). It is a backlog, not a design doc: rationale for anything that ships goes in `docs/HISTORY.md`
 per `AGENTS.md` → Documentation, and `docs/ARCHITECTURE.md` stays current-state only.
 
 **Tags**
@@ -37,21 +37,22 @@ this frame" has one definition. At minimum, assert the invariant in a test both 
 
 ### B3. `generateSlides()` is an unguarded unstructured `Task` per call (read)
 
-`MainView.swift:135-194`, called from `onAppear` (`584-586`), `assetUrl.didSet` (`73`),
-`timeUpdated` (`549-551`), `clearSlides()` (`216`) and `setShowsElementBox` (`205`). Each call
-spawns a task that interleaves at every `await`; the last writer of `self.videoComposer` and
-`self.chunkQueue` is whichever finishes last, not whichever was called last, and a superseded run
-can still `enqueue(slides:)` after a newer one.
+`MainViewModel.swift:82-106`, called from `MainView.onAppear` (`MainView.swift:300-301`),
+`MainViewModel.load()` (`70`), the timeline's `timeUpdated` closure (`MainView.swift:266`),
+`clearSlides()` (`123`) and `setShowsElementBox` (`110`). Each call spawns a task that interleaves at
+every `await`; the last writer of the pipeline's preview and queue is whichever finishes last, not
+whichever was called last, and a superseded run can still `enqueue(slides:)` after a newer one.
 
 **Fix:** keep the handle (`renderTask?.cancel()`) or a generation counter checked after each
 `await`, keyed by `assetUrl`.
 
 ### B4. Swapping videos leaks the old pipeline and its chunk files (read)
 
-`assetUrl.willSet` nils `chunkQueue` (`MainView.swift:55-64`) but the old queue's `drainTask` keeps
-exporting the old asset and nothing deletes its output. `DefaultChunkRenderer` writes
-`chunk_<uuid>.mov` straight into `FileManager.default.temporaryDirectory` (`MainView.swift:173`),
-with no directory of its own and no cleanup path.
+`MainViewModel.load()` (`MainViewModel.swift:70`) replaces the file, and `RenderPipeline.reset()`
+(`RenderPipeline.swift:44`) drops the queue — but the old queue's `drainTask` keeps exporting the old
+asset and nothing deletes its output. `DefaultChunkRenderer` writes `chunk_<uuid>.mov` straight into
+`FileManager.default.temporaryDirectory` (`RenderPipeline.swift:73`), with no directory of its own and
+no cleanup path.
 
 **Fix:** `ChunkQueue.shutdown()` — cancel the drain, delete its outputs — called from `willSet`;
 give the renderer a `chunks/<uuid>/` subdirectory so cleanup is one `removeItem`.
@@ -71,16 +72,6 @@ give the renderer a `chunks/<uuid>/` subdirectory so cleanup is one `removeItem`
 (`generateRegions`, `diffRegionsIntoChunks`), `ChunkQueue`, `ExportSession`. Pure moves. The
 composition half is already out (`OverlayCompositing.swift`), so this is smaller than it was.
 
-### M3. `MainView.ViewModel` carries five responsibilities in a 649-line view file [generate]
-
-Security scoping (`MainView.swift:55-75`), asset probing (`109-133`), slide generation and
-player-item swap (`135-194`), chunk-queue lifecycle, export orchestration and progress phases
-(`224-301`).
-
-**Fix:** extract `MainViewModel` into its own file (tests already construct it —
-`ClearSlidesTests.swift:29` — so this is a rename there), then split into `AssetSession`,
-`RenderPipeline`, `ExportCoordinator`.
-
 ### M4. `OverlayData` is a god object [generate]
 
 394 lines carrying the model, `Codable` keys, `UserDefaults` persistence (`53-77`), the image cache
@@ -93,8 +84,8 @@ render-state mutation invalidates views for nothing — it belongs in the factor
 
 ### M5. `deinit { assetUrl = nil }` relies on observers firing during deinit
 
-`MainView.swift:105-107` releases the security scope by assigning through `willSet`/`didSet`, which
-also nils `player` and `chunkQueue` mid-teardown.
+`MainViewModel.swift:52-54` releases the security scope by assigning through `assetUrl`'s `didSet`,
+which also nils `player` and drops the pipeline's queue mid-teardown.
 
 **Fix:** an explicit `close()`; leave `deinit` empty or asserting.
 
@@ -133,10 +124,10 @@ copies of `required init?(coder:) { fatalError }` as well.
 
 ### Y1. Names that mislead
 
-- `@State private var state = ViewModel()` (`MainView.swift:308`) makes every call site `state.x`.
-- `QueueStatus` (`30-37`) uses `idle` for "everything rendered" next to a separate `noVideo`.
+- `RenderPipeline.Status` (`RenderPipeline.swift:20-28`) uses `idle` for "everything rendered" next to a
+  separate `noVideo`, so the two states read as opposites of nothing.
 
-**Fix:** `model`, and a label per case that says what it means.
+**Fix:** a case label that says what it means (`rendered` rather than `idle`).
 
 ### Y2. Dead code the compiler still builds — delete, do not polish
 
@@ -163,19 +154,24 @@ one fades out the *element* slides, not the intro slide.
 
 **Fix:** one `appendFadeOut(after:)` helper.
 
-### Y6. Doc drift: `ARCHITECTURE.md` §7 cites a `TODO.md` that is not in the repo
+### Y6. Doc drift
 
-`docs/ARCHITECTURE.md:291` and `:300` point at `TODO.md` for the feature backlog; no such file is
-tracked. Either add it or retarget those lines at this file.
+- `docs/ARCHITECTURE.md:291` and `:300` point at a `TODO.md` for the feature backlog; no such file is
+  tracked. Either add it or retarget those lines at this file.
+- `AGENTS.md:281` names `MainView.ViewModel.assetUrl` (the pairing rule for security scopes) and the
+  source listing at `:124` omits `MainViewModel`/`AssetSession`/`RenderPipeline`/`ExportCoordinator`;
+  the type it names no longer exists. That file is a protected instruction file, so the correction
+  has to come from the user.
 
 ---
 
 ## If you only do three things
 
-1. **M3** — extract `MainViewModel`. It is the file that makes every other item here hard to test.
-2. **B2** — one slide-walk shared by the preview and the plan. `OverlayComposite` unified how a frame
+1. **B2** — one slide-walk shared by the preview and the plan. `OverlayComposite` unified how a frame
    is *drawn*; this unifies *which* slide owns it, which is the remaining way the preview and the
    export can disagree.
+2. **B4** — give the queue a `shutdown()` and its chunks a directory of their own. `RenderPipeline`
+   is now the one place that owns the queue, so it is a small change.
 3. **M4** — split `OverlayData`. The model carries persistence, caching and rendering for the app's
    only document type.
 

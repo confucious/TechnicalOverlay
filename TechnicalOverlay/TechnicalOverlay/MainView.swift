@@ -16,296 +16,12 @@ import VideoProcessor
 //}
 
 struct MainView: View {
-    enum ExportPhase: Sendable, Equatable {
-        case idle
-        case rendering
-        case stitching
-        case done
-        /// Export stopped short, with something to show the user (kept separate from `idle` so a
-        /// failure can't be mistaken for "nothing happened").
-        case failed(String)
-    }
-
-    /// State of the background chunk pipeline, shown as a dot in the button row.
-    enum QueueStatus: Sendable, Equatable {
-        /// Nothing loaded — nothing to render.
-        case noVideo
-        /// Work queued or rendering. **Yellow.**
-        case processing
-        /// Every renderable chunk is rendered and the queue is idle. **Green.**
-        case idle
-    }
-
-    @Observable
-    class ViewModel {
-        internal init(player: AVPlayer? = nil, assetUrl: URL? = nil, scoring: OverlayData = OverlayData()) {
-            self.player = player
-            self.assetUrl = assetUrl
-            self.scoring = scoring
-            scoring.load()
-            // The look is a device preference, so it is applied after the saved document state.
-            scoring.showsElementBox = OverlayPreferences.showsElementBox
-        }
-
-        var saveVideoDisabled: Bool {
-            player == nil
-        }
-
-        var player: AVPlayer?
-        var assetUrl: URL? {
-            willSet {
-                if let assetUrl {
-                    assetUrl.stopAccessingSecurityScopedResource()
-                }
-                print("Invalidating cachedSize")
-                cachedSize = nil
-                chunkQueue = nil
-                queueStatus = .noVideo
-            }
-            didSet {
-                guard let assetUrl else {
-                    player = nil
-                    return
-                }
-                if !assetUrl.startAccessingSecurityScopedResource() {
-                    print("Failed to get security scope")
-                }
-                generateSlides()
-            }
-        }
-        var scoring: OverlayData
-
-        @ObservationIgnored
-        var videoComposer: VideoComposer?
-
-        @ObservationIgnored
-        var chunkQueue: ChunkQueue?
-
-        // Progress tracking
-        var renderingProgress: ChunkQueueProgress?
-        var stitchingProgress: Progress?
-        var exportPhase: ExportPhase = .idle
-
-        /// What the background chunk queue is doing, for the status indicator.
-        var queueStatus: QueueStatus = .noVideo
-
-        @ObservationIgnored
-        var cachedSize: CGSize?
-
-        @ObservationIgnored
-        var outputFilename: String {
-            if let assetUrl {
-                let baseName = assetUrl.deletingPathExtension().lastPathComponent
-                return "\(baseName) Scored.mov"
-            } else {
-                return "Scored.mov"
-            }
-        }
-
-        deinit {
-            assetUrl = nil
-        }
-
-        func getSize(of asset: AVAsset) async -> CGSize? {
-            if let cachedSize {
-                print("Returned cached size \(cachedSize)")
-                return cachedSize
-            }
-            guard let tracks = try? await asset.load(.tracks),
-                  let videoTrack = tracks.first(where: { $0.mediaType == .video })
-            else {
-                print("Couldn't find video track")
-                return nil
-            }
-            guard let naturalSize = try? await videoTrack.load(.naturalSize),
-                  let transform = try? await videoTrack.load(.preferredTransform)
-            else {
-                print("Couldn't load size or transform for video track")
-                return nil
-            }
-            
-            let size = naturalSize.applying(transform)
-            // transform could cause width or height to be negative.
-            let fixedSize = CGSize(width: abs(size.width), height: abs(size.height))
-            cachedSize = fixedSize
-            print("Caching size \(fixedSize)")
-            return fixedSize
-        }
-
-        func generateSlides() {
-            Task {
-                guard let url = assetUrl else {
-                    return
-                }
-                let asset = AVURLAsset(url: url)
-                guard let size = await getSize(of: asset)
-                else {
-                    print("Couldn't determine video size")
-                    return
-                }
-                
-                let slides = scoring.makeSlides(size: size)
-                let videoComposer = VideoComposer(asset: asset, slides: slides)
-                self.videoComposer = videoComposer
-                let playerItem = AVPlayerItem(asset: asset)
-                do {
-                    playerItem.videoComposition = try await videoComposer
-                        .setupComposition()
-                } catch {
-                    print("Video composer failed \(error)")
-                }
-                if let player {
-                    let currentTime = player.currentTime()
-                    player.replaceCurrentItem(with: playerItem)
-                    await player.seek(to: currentTime)
-                } else {
-                    player = AVPlayer(playerItem: playerItem)
-                }
-
-                // Create chunk queue for incremental rendering pipeline
-                let queue = chunkQueue ?? ChunkQueue(
-                    renderer: DefaultChunkRenderer(
-                        // A *second* AVURLAsset over the same file, deliberately: sharing one
-                        // instance with the player item makes the preview and the chunk export
-                        // contend for its decode/compositor state, which freezes the app mid-drag.
-                        // Do not re-merge them — `docs/HISTORY.md` → *Playhead freeze*.
-                        sourceAsset: AVURLAsset(url: url),
-                        outputDirectory: FileManager.default.temporaryDirectory
-                    ),
-                    transitionTime: CMTime(seconds: Metrics.transitionTime, preferredTimescale: 1000)
-                )
-                await queue
-                    .setProgressCallback { progress in
-                    Task { @MainActor in
-                        self.renderingProgress = progress
-                        self.queueStatus = progress.isRendering ? .processing : .idle
-                    }
-                }
-                self.chunkQueue = queue
-                self.queueStatus = .idle
-
-                // Pre-enqueue slides so the queue is ready for "Save Video"
-                let videoDuration = try? await asset.load(.duration)
-                if let videoDuration {
-                    await queue
-                        .enqueue(slides: slides, videoDuration: videoDuration)
-                }
-            }
-        }
-
-        /// Regenerates the slides after an overlay configuration change. The new slides carry a
-        /// different `TechnicalViewModel`, so the preview shows the new look and the chunk queue's
-        /// diff re-renders the chunks whose content changed.
-        func setShowsElementBox(_ showsElementBox: Bool) {
-            guard scoring.showsElementBox != showsElementBox else {
-                return
-            }
-            scoring.showsElementBox = showsElementBox
-            OverlayPreferences.showsElementBox = showsElementBox
-            generateSlides()
-        }
-
-        /// Resets the scoring data to an empty document. The existing `OverlayData` instance is
-        /// updated in place, so every view already holding it sees the reset; the emptied state is
-        /// saved, and the slides are regenerated so the preview and the chunk queue drop the
-        /// overlays.
-        func clearSlides() {
-            scoring.update(from: OverlayData())
-            scoring.clearCache()
-            scoring.save()
-            generateSlides()
-        }
-
-        /// Renders/stitches the scored video and writes it straight to `destinationURL`.
-        ///
-        /// The destination is chosen *before* any work happens (see the save panel in `body`), so
-        /// nothing has to be copied out of a temp file afterwards — the passthrough export writes
-        /// where the user asked for it.
-        func exportScoredVideo(to destinationURL: URL) async {
-            guard let queue = chunkQueue, let assetUrl else {
-                // The button is only enabled with a video loaded, so this is usually the window
-                // while generateSlides() is still building the queue.
-                failExport("The video is still being prepared — try again in a moment.", at: destinationURL)
-                return
-            }
-
-            let isScoped = destinationURL.startAccessingSecurityScopedResource()
-            defer {
-                if isScoped { destinationURL.stopAccessingSecurityScopedResource() }
-            }
-
-            // The save panel has already written our zero-byte placeholder at the destination, and
-            // AVAssetExportSession refuses to write over an existing file ("Cannot Save — the
-            // requested file name is already in use"), so clear it first.
-            try? FileManager.default.removeItem(at: destinationURL)
-
-            exportPhase = .rendering
-            renderingProgress = nil
-            stitchingProgress = nil
-
-            let asset = AVURLAsset(url: assetUrl)
-            guard let videoDuration = try? await asset.load(.duration) else {
-                failExport("Couldn't read the video's duration.", at: destinationURL)
-                return
-            }
-
-            // Wait for every chunk — including one a drain already has in flight.
-            await queue.waitForCompletion()
-
-            exportPhase = .stitching
-            let exportSession: VideoComposer.ExportSession
-            do {
-                guard let session = try await DefaultStitcher().stitch(
-                    chunks: queue.validChunks(),
-                    sourceAsset: asset,
-                    videoDuration: videoDuration,
-                    to: destinationURL
-                ) else {
-                    failExport("The rendered chunks don't cover the whole video, so there was nothing to save.", at: destinationURL)
-                    return
-                }
-                exportSession = session
-            } catch {
-                failExport("Stitching failed: \(error.localizedDescription)", at: destinationURL)
-                return
-            }
-
-            // Monitor stitching progress
-            Task {
-                for await stitchState in exportSession.exportState {
-                    switch stitchState {
-                    case .pending: print("pending stitch export")
-                    case .waiting: print("waiting stitch export")
-                    case let .exporting(progress: progress):
-                        print("stitch exporting \(progress)")
-                        stitchingProgress = progress
-                    @unknown default:
-                        print("unknown stitch state")
-                    }
-                }
-            }
-
-            do {
-                try await exportSession.performExport()
-                exportPhase = .done
-            } catch {
-                failExport("Export failed: \(error.localizedDescription)", at: destinationURL)
-            }
-        }
-
-        /// Leaves nothing half-written at the destination and reports what went wrong.
-        private func failExport(_ message: String, at destinationURL: URL) {
-            try? FileManager.default.removeItem(at: destinationURL)
-            print("Export failed: \(message)")
-            exportPhase = .failed(message)
-        }
-    }
 
     enum Destination {
         case editSlides
     }
 
-    @State private var state = ViewModel()
+    @State private var model = MainViewModel()
     @State private var fileSelectShowing = false
     @State private var saveFileShowing = false
     @State private var loadOverlayDataShowing = false
@@ -314,11 +30,11 @@ struct MainView: View {
     private var showProgressModal: Binding<Bool> {
         Binding(
             get: {
-                state.exportPhase != .idle
+                model.export.phase != .idle
             },
             set: {
                 if !$0 {
-                    state.exportPhase = .idle
+                    model.export.phase = .idle
                 }
             }
         )
@@ -333,9 +49,9 @@ struct MainView: View {
     private var queueStatusIndicator: some View {
         HStack(spacing: 6) {
             Circle()
-                .fill(state.queueStatus.indicatorColor)
+                .fill(model.pipeline.status.indicatorColor)
                 .frame(width: 10, height: 10)
-            Text(state.queueStatus.label)
+            Text(model.pipeline.status.label)
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }
@@ -344,7 +60,7 @@ struct MainView: View {
         // The video underneath is arbitrary, so the label needs its own ground.
         .background(.ultraThinMaterial, in: Capsule())
         .accessibilityElement(children: .combine)
-        .accessibilityLabel(state.queueStatus.accessibilityDescription)
+        .accessibilityLabel(model.pipeline.status.accessibilityDescription)
     }
 
     /// Overlay look toggle: the technical pane's element box row can be hidden, which moves the
@@ -353,8 +69,8 @@ struct MainView: View {
         Toggle(
             "Element boxes",
             isOn: Binding(
-                get: { state.scoring.showsElementBox },
-                set: { state.setShowsElementBox($0) }
+                get: { model.scoring.showsElementBox },
+                set: { model.setShowsElementBox($0) }
             )
         )
         .toggleStyle(.switch)
@@ -373,8 +89,8 @@ struct MainView: View {
                 case let .success(url):
                     do {
                         let newData = try OverlayDataDocument.read(url: url)
-                        state.scoring.update(from: newData)
-                        state.scoring.save()
+                        model.scoring.update(from: newData)
+                        model.scoring.save()
                     } catch {
                         print("data load error: \(error)")
                     }
@@ -391,9 +107,9 @@ struct MainView: View {
         .buttonStyle(.bordered)
         .fileExporter(
             isPresented: $saveOverlayDataShowing,
-            document: OverlayDataDocument(overlayDataForSave: state.scoring),
+            document: OverlayDataDocument(overlayDataForSave: model.scoring),
             contentType: OverlayDataDocument.fileType,
-            defaultFilename: state.scoring.skaterFullName) { result in
+            defaultFilename: model.scoring.skaterFullName) { result in
                 print("overlay data save: \(result)")
             }
     }
@@ -404,7 +120,7 @@ struct MainView: View {
             .navigationDestination(for: Destination.self) { destination in
                 switch destination {
                 case .editSlides:
-                    ScoringListView(state: state.scoring)
+                    ScoringListView(state: model.scoring)
                 }
             }
     }
@@ -415,14 +131,14 @@ struct MainView: View {
         }
         .buttonStyle(.bordered)
         .tint(.red)
-        .disabled(state.scoring.isEmpty)
+        .disabled(model.scoring.isEmpty)
         .confirmationDialog(
             "Clear all slides?",
             isPresented: $clearSlidesShowing,
             titleVisibility: .visible
         ) {
             Button("Clear Slides", role: .destructive) {
-                state.clearSlides()
+                model.clearSlides()
             }
             Button("Cancel", role: .cancel) {}
         } message: {
@@ -433,7 +149,7 @@ struct MainView: View {
     var body: some View {
         NavigationStack {
             VStack {
-                if let player = state.player {
+                if let player = model.player {
                     VideoPlayer(player: player)
                         .overlay(alignment: .bottomTrailing) {
                             queueStatusIndicator
@@ -453,7 +169,7 @@ struct MainView: View {
                         allowedContentTypes: [.movie]) { result in
                             switch result {
                             case let .success(fileUrl):
-                                state.assetUrl = fileUrl
+                                model.assetUrl = fileUrl
                             case let .failure(error):
                                 print(error)
                             }
@@ -466,29 +182,29 @@ struct MainView: View {
                         saveFileShowing = true
                     }
                     .buttonStyle(.bordered)
-                    .disabled(state.saveVideoDisabled)
+                    .disabled(model.saveVideoDisabled)
                     .fileExporter(
                         isPresented: $saveFileShowing,
                         document: SaveDestinationPlaceholder(),
                         contentType: .quickTimeMovie,
-                        defaultFilename: state.outputFilename
+                        defaultFilename: model.outputFilename
                     ) { result in
                         switch result {
                         case let .success(destinationURL):
-                            Task { await state.exportScoredVideo(to: destinationURL) }
+                            Task { await model.exportScoredVideo(to: destinationURL) }
                         case let .failure(error):
                             print("Save panel dismissed without a destination: \(error)")
                         }
                     }
                     .sheet(isPresented: showProgressModal, content: {
                         VStack {
-                            switch state.exportPhase {
+                            switch model.export.phase {
                             case .idle:
                                 // The sheet is only up when the phase isn't idle.
                                 EmptyView()
 
                             case .rendering:
-                                if let progress = state.renderingProgress {
+                                if let progress = model.pipeline.progress {
                                     ProgressView(
                                         "Rendering overlay chunks (\(progress.completed)/\(progress.total))",
                                         value: Double(progress.completed),
@@ -499,7 +215,7 @@ struct MainView: View {
                                 }
 
                             case .stitching:
-                                if let stitchProgress = state.stitchingProgress {
+                                if let stitchProgress = model.export.stitchingProgress {
                                     ProgressView(
                                         "Stitching final video...",
                                         value: stitchProgress.fractionCompleted
@@ -512,13 +228,13 @@ struct MainView: View {
                             case .done:
                                 Text("Export complete")
                                 Button("Close") {
-                                    state.exportPhase = .idle
+                                    model.export.phase = .idle
                                 }
 
                             case let .failed(message):
                                 Text(message)
                                 Button("Close") {
-                                    state.exportPhase = .idle
+                                    model.export.phase = .idle
                                 }
                             }
                         }.interactiveDismissDisabled()
@@ -526,11 +242,11 @@ struct MainView: View {
                 }
                 elementBoxToggle
                     .fixedSize()
-                if !state.scoring.isEmpty {
+                if !model.scoring.isEmpty {
                     ScrollView {
                         TimeSettingsView(
-                            state: state.scoring,
-                            playhead: state.player.map { player in
+                            state: model.scoring,
+                            playhead: model.player.map { player in
                                 Playhead(
                                     getTime: {
                                         let time = player.currentTime()
@@ -547,7 +263,7 @@ struct MainView: View {
                                 )
                             },
                             timeUpdated: {
-                                state.generateSlides()
+                                model.generateSlides()
                             }
                         ).padding(
                             .init(
@@ -582,7 +298,7 @@ struct MainView: View {
             }
         }
         .onAppear {
-            state.generateSlides()
+            model.generateSlides()
         }
     }
 }
@@ -619,7 +335,7 @@ struct SaveDestinationPlaceholder: FileDocument {
 
 // MARK: - Queue status presentation
 
-extension MainView.QueueStatus {
+extension RenderPipeline.Status {
 
     /// Yellow while the queue has work, green once it is fully rendered and idle. Grey when
     /// there's no video to render at all (nothing is "fully rendered" yet).

@@ -25,7 +25,7 @@ struct ClearSlidesTests {
             }
         }
 
-        let viewModel = MainView.ViewModel()
+        let viewModel = MainViewModel()
         let scoring = viewModel.scoring
         scoring.skaterFullName = "Alice"
         scoring.skaterAbbreviatedName = "ALI"
@@ -72,7 +72,7 @@ struct ClearSlidesTests {
         }
 
         OverlayPreferences.showsElementBox = false
-        let viewModel = MainView.ViewModel()
+        let viewModel = MainViewModel()
         #expect(!viewModel.scoring.showsElementBox)
 
         viewModel.clearSlides()

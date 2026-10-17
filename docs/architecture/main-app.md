@@ -12,7 +12,11 @@ A SwiftUI iOS app that creates video overlays for figure skating competitions. I
 
 | File | Role |
 |------|------|
-| `MainView.swift` | Primary UI. Contains inner `ViewModel` (`@Observable`) managing `AVPlayer`, `VideoComposer`, and `OverlayData`. Buttons: Load Video, Save Video (export), Load Slides, Save Slides, Edit Slides, Clear Slides (destructive, confirmed). Config row: element box toggle. Background render indicator overlays the video's bottom-right corner, clear of the scrubbing control. Embeds `TimeSettingsView`. |
+| `MainView.swift` | Primary UI. Holds the `MainViewModel` in `@State` and renders it: buttons Load Video, Save Video (export), Load Slides, Save Slides, Edit Slides, Clear Slides (destructive, confirmed); config row with the element box toggle; the background render indicator over the video's bottom-right corner, clear of the scrubbing control; the export progress sheet. Embeds `TimeSettingsView`. Also carries the SwiftUI presentation of `RenderPipeline.Status` (dot colour, label, accessibility text). |
+| `MainViewModel.swift` | The main screen's state: `AVPlayer`, `OverlayData`, and the two background jobs. Owns `AssetSession`, `RenderPipeline` and `ExportCoordinator`, keeps them pointed at the same file (`assetUrl`'s setter adopts the new file, drops the old plan and regenerates), and is what the views observe. |
+| `AssetSession.swift` | The loaded video's security scope and probed metadata: `adopt(_:)` starts the new scope and releases the previous one; `size(of:)` returns the track's natural size with its preferred transform applied, abs'ed, cached per file. |
+| `RenderPipeline.swift` | The preview and the chunk queue: `makePreviewItem(asset:slides:)` builds the `VideoComposer` and returns the `AVPlayerItem`; `enqueue(slides:asset:videoURL:)` plans the slides into the `ChunkQueue` (with the *second* `AVURLAsset` over the same file) and starts rendering; `waitForCompletion()` / `validChunks()` for the export. Publishes `status` (the indicator) and `progress`. |
+| `ExportCoordinator.swift` | "Save Video": `phase` (idle → rendering → stitching → done, or `failed(message)`), `stitchingProgress`, and `exportScoredVideo(videoURL:to:)` — wait for the chunks, stitch straight to the chosen destination, monitor and perform the passthrough export, clean up on failure. |
 | `OverlayData.swift` | Core data model. `OverlayData`, `IntroductionData`, `ElementData` types. Persistence (UserDefaults + `.tojson` files), slide generation, image caching, `renderingHash`. |
 | `OverlayPreferences.swift` | Device-level overlay settings in `UserDefaults` (`showsElementBox`, default `true`). Applied to `OverlayData` at launch; deliberately not part of the `.tojson` document. |
 | `OverlayDataDocument.swift` | SwiftUI `FileDocument` for `.tojson` file I/O. Versioned JSON via `VersionedOverlayData` (current version 1). |
@@ -57,7 +61,7 @@ MainView (root)
        │              │              │             └── OverlayDataDocument export (.tojson)
        │              │              └── OverlayDataDocument import (.tojson) → update + save
        │              └── save panel picks the destination → ExportSession.performExport → writes .mp4 there
-       └── fileImporter (.movie) → ViewModel.assetUrl → generateSlides() → new VideoComposer → replace player item
+       └── fileImporter (.movie) → MainViewModel.assetUrl → generateSlides() → new VideoComposer → replace player item
 ```
 
 **Two `AVURLAsset`s over the same file, deliberately** — one for the player item, a second for the
