@@ -7,10 +7,13 @@
 
 import SwiftUI
 
+struct Playhead {
+    var getTime: () -> TimeInterval?
+    var seekTo: (TimeInterval) -> Void
+}
 struct TimeSettingsView: View {
     @State var state: OverlayData
-    var getTime: () -> TimeInterval
-    var seekTo: (TimeInterval) -> Void
+    var playhead: Playhead?
     var timeUpdated: () -> Void
 
     var body: some View {
@@ -23,10 +26,18 @@ struct TimeSettingsView: View {
                     VStack {
                         displayTime(row.displayTime)
                         Button("Start Now") {
-                            state.setIntroTime(index: index, time: getTime())
-                            timeUpdated()
-                            state.save()
-                        }.buttonStyle(.bordered)
+                            if let playheadTime = playhead?.getTime() {
+                                state
+                                    .setIntroTime(
+                                        index: index,
+                                        time: playheadTime
+                                    )
+                                timeUpdated()
+                                state.save()
+                            }
+                        }
+                        .buttonStyle(.bordered)
+                        .disabled(playhead == nil)
                     }
                 }
                 Divider()
@@ -38,10 +49,18 @@ struct TimeSettingsView: View {
                     VStack {
                         displayTime(row.displayTime)
                         Button("Start Now") {
-                            state.setElementTime(index: index, time: getTime())
-                            timeUpdated()
-                            state.save()
-                        }.buttonStyle(.bordered)
+                            if let playheadTime = playhead?.getTime() {
+                                state
+                                    .setElementTime(
+                                        index: index,
+                                        time: playheadTime
+                                    )
+                                timeUpdated()
+                                state.save()
+                            }
+                        }
+                        .buttonStyle(.bordered)
+                        .disabled(playhead == nil)
                     }
                 }
                 Divider()
@@ -54,12 +73,16 @@ struct TimeSettingsView: View {
     @ViewBuilder
     func displayTime(_ time: TimeInterval?) -> some View {
         if let time {
-            Button(formatDisplayTime(time)) {
-                seekTo(time)
+            if let playhead {
+                Button(formatDisplayTime(time)) {
+                    playhead.seekTo(time)
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(.tint)
+                .accessibilityHint("Jumps the video to this time")
+            } else {
+                Text(formatDisplayTime(time))
             }
-            .buttonStyle(.plain)
-            .foregroundStyle(.tint)
-            .accessibilityHint("Jumps the video to this time")
         } else {
             Text(formatDisplayTime(nil))
         }
@@ -78,8 +101,10 @@ struct TimeSettingsView: View {
     let now = Date.now
     TimeSettingsView(
         state: unsetOverlayData,
-        getTime: { -now.timeIntervalSinceNow },
-        seekTo: { _ in },
+        playhead: Playhead(
+            getTime: { -now.timeIntervalSinceNow },
+            seekTo: { _ in }
+        ),
         timeUpdated: {}
     )
 }

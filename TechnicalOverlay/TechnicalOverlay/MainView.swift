@@ -448,33 +448,51 @@ struct MainView: View {
                 // given the full row width pushes them to opposite edges.
                 elementBoxToggle
                     .fixedSize()
-                if !state.scoring.isEmpty,
-                   let player = state.player {
+                if !state.scoring.isEmpty {
                     ScrollView {
-                        TimeSettingsView(
-                            state: state.scoring,
-                            getTime: {
-                                player.currentTime().seconds
-                            },
-                            seekTo: { time in
-                                player.seek(
-                                    to: CMTime(
-                                        seconds: time,
-                                        preferredTimescale: 600
-                                    )
+                        if let player = state.player {
+                            TimeSettingsView(
+                                state: state.scoring,
+                                playhead: Playhead(
+                                    getTime: {
+                                        player.currentTime().seconds
+                                    },
+                                    seekTo: { time in
+                                        player.seek(
+                                            to: CMTime(
+                                                seconds: time,
+                                                preferredTimescale: 600
+                                            )
+                                        )
+                                    }
+                                ),
+                                timeUpdated: {
+                                    state.generateSlides()
+                                }
+                            ).padding(
+                                .init(
+                                    top: 0.0,
+                                    leading: 10.0,
+                                    bottom: 0.0,
+                                    trailing: 10.0
                                 )
-                            },
-                            timeUpdated: {
-                                state.generateSlides()
-                            }
-                        ).padding(
-                            .init(
-                                top: 0.0,
-                                leading: 10.0,
-                                bottom: 0.0,
-                                trailing: 10.0
                             )
-                        )
+                        } else {
+                            TimeSettingsView(
+                                state: state.scoring,
+                                playhead: nil,
+                                timeUpdated: {
+                                    state.generateSlides()
+                                }
+                            ).padding(
+                                .init(
+                                    top: 0.0,
+                                    leading: 10.0,
+                                    bottom: 0.0,
+                                    trailing: 10.0
+                                )
+                            )
+                        }
                     }
                 }
                 HStack {
