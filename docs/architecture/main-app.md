@@ -17,7 +17,7 @@ A SwiftUI iOS app that creates video overlays for figure skating competitions. I
 | `OverlayPreferences.swift` | Device-level overlay settings in `UserDefaults` (`showsElementBox`, default `true`). Applied to `OverlayData` at launch; deliberately not part of the `.tojson` document. |
 | `OverlayDataDocument.swift` | SwiftUI `FileDocument` for `.tojson` file I/O. Versioned JSON via `VersionedOverlayData` (current version 1). |
 | `ScoringListView.swift` | Full-screen data entry via `NavigationStack` destination. Edits skater names, intro slide texts, element scores (name, base, GOE, bonus) in a grid. Add/remove buttons. Saves on `onDisappear`. |
-| `TimeSettingsView.swift` | Timeline editor showing all intro slides and elements with timestamps. Each row has a "Start Now" button capturing the current video playback time; a row whose time is set shows that time as a button that seeks the player to it. Cascading time propagation to subsequent items. |
+| `TimeSettingsView.swift` | Timeline editor showing all intro slides and elements with timestamps. Always shown when there is scoring data — a loaded video is not required, and without one the timeline is read-only. `Playhead` (defined here) is the playback seam: `getTime()` returns the current time, `seekTo(_:)` moves the video to a time. A set time renders as a button that seeks there; "Start Now" stamps the playhead time read at tap time, and is hidden (with its layout space kept) when there is no playhead. Cascading time propagation to subsequent items. |
 | `ElementBuilderView.swift` | Placeholder: discipline picker (Singles/Pairs/Ice Dance/Synchronized) and type picker (Jumps/Spins/Steps & Spirals). Not yet wired into the app. |
 | `ContentView.swift` | Legacy/prototype view with hardcoded test data (Scotty HSU example). Contains `UIViewRepresentable` wrappers for previewing LayoutEngine views. Not used in production. |
 
@@ -49,7 +49,7 @@ All display times are `TimeInterval` (seconds as `Double`). When a user timestam
 ```
 MainView (root)
 ├── VideoPlayer (if video loaded)   (+ render status dot, bottom-right, 72pt above the bottom edge)
-├── TimeSettingsView (if scoring data + video loaded)
+├── TimeSettingsView (if scoring data; read-only without a video)
 ├── Config row: Element boxes toggle
 └── Button row: Load Video | Save Video | Load Slides | Save Slides | Edit Slides
        │              │              │             │            └── ScoringListView (NavigationStack destination)

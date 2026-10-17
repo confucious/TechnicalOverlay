@@ -11,6 +11,7 @@ struct Playhead {
     var getTime: () -> TimeInterval?
     var seekTo: (TimeInterval) -> Void
 }
+
 struct TimeSettingsView: View {
     var state: OverlayData
     var playhead: Playhead?
@@ -25,18 +26,10 @@ struct TimeSettingsView: View {
                         .gridColumnAlignment(.leading)
                     VStack {
                         displayTime(row.displayTime)
-                        if let playhead {
-                            Button("Start Now") {
-                                if let time = playhead.getTime() {
-                                    state.setIntroTime(
-                                        index: index,
-                                        time: time
-                                    )
-                                    timeUpdated()
-                                    state.save()
-                                }
-                            }
-                            .buttonStyle(.bordered)
+                        startNowButton { time in
+                            state.setIntroTime(index: index, time: time)
+                            timeUpdated()
+                            state.save()
                         }
                     }
                 }
@@ -48,23 +41,33 @@ struct TimeSettingsView: View {
                         .gridColumnAlignment(.leading)
                     VStack {
                         displayTime(row.displayTime)
-                        if let playhead {
-                            Button("Start Now") {
-                                if let time = playhead.getTime() {
-                                    state.setElementTime(
-                                        index: index,
-                                        time: time
-                                    )
-                                    timeUpdated()
-                                    state.save()
-                                }
-                            }
-                            .buttonStyle(.bordered)
+                        startNowButton { time in
+                            state.setElementTime(index: index, time: time)
+                            timeUpdated()
+                            state.save()
                         }
                     }
                 }
                 Divider()
             }
+        }
+    }
+
+    /// Stamps the playhead's current time through `stamp`. With no playhead there is nothing to
+    /// stamp, so a hidden button holds the row's height in its place.
+    @ViewBuilder
+    func startNowButton(stamp: @escaping (TimeInterval) -> Void) -> some View {
+        if let playhead {
+            Button("Start Now") {
+                if let time = playhead.getTime() {
+                    stamp(time)
+                }
+            }
+            .buttonStyle(.bordered)
+        } else {
+            Button("Start Now") {}
+                .buttonStyle(.bordered)
+                .hidden()
         }
     }
 
@@ -97,7 +100,7 @@ struct TimeSettingsView: View {
     }
 }
 
-#Preview {
+#Preview("With a playhead") {
     let now = Date.now
     TimeSettingsView(
         state: unsetOverlayData,
@@ -105,6 +108,14 @@ struct TimeSettingsView: View {
             getTime: { -now.timeIntervalSinceNow },
             seekTo: { _ in }
         ),
+        timeUpdated: {}
+    )
+}
+
+#Preview("No video") {
+    TimeSettingsView(
+        state: unsetOverlayData,
+        playhead: nil,
         timeUpdated: {}
     )
 }

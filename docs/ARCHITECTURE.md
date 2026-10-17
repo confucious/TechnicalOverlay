@@ -242,8 +242,10 @@ Load Video (fileImporter, .movie) → ViewModel.assetUrl
   → AVPlayerItem.videoComposition → replaceCurrentItem (seek preserves position)
   → chunkQueue.enqueue(slides:) (pre-render for export)
 
-Edit timing (TimeSettingsView "Start Now" → setIntro/setElementTime, cascading)
-  → generateSlides() → new VideoComposer + re-enqueue
+Edit timing (TimeSettingsView "Start Now" → playhead time read at tap time → setIntro/setElementTime,
+  cascading) → generateSlides() → new VideoComposer + re-enqueue
+  (the timeline is listed whenever there is scoring data; with no video it is read-only, and
+  "Start Now" is a hidden placeholder that keeps the row's height)
 
 Jump to a set time (TimeSettingsView's time button → player.seek) — a seek, so no regeneration
 
@@ -263,7 +265,8 @@ scrubbing control lives in it); it is only on screen while a video is loaded, an
 (`allowsHitTesting(false)`). The dot is **yellow while the chunk queue has work queued or
 rendering**, **green once every renderable chunk is rendered and the queue is idle** (fed by
 `ChunkQueueProgress.isRendering`), with a label on a translucent capsule because the video
-underneath is arbitrary. Below the player: `TimeSettingsView`, a config row holding the
+underneath is arbitrary. Below the player: `TimeSettingsView` (shown with or without a video;
+read-only until one is loaded), a config row holding the
 **Element boxes** toggle (hides the technical pane's element box row, persisted in `UserDefaults`,
 then regenerates the slides), and a button row
 **Load Video | Save Video | Load Slides | Save Slides | Edit Slides** (→ `ScoringListView`
