@@ -44,7 +44,8 @@ abbreviation expansion) and is untouched by any of them.
 ## Prerequisites and known flakiness
 
 - `VideoProcessorTests`' integration tests need the **untracked 398 MB**
-  `TechnicalOverlay/TechnicalOverlay/Boston Open 2025.mov`. Without it `DefaultStitcherTests`
+  `TechnicalOverlay/TechnicalOverlay/Boston Open 2025.mov`, looked up in one place
+  (`VideoProcessorTests/TestSupport.swift`). Without it `DefaultStitcherTests`
   early-return and pass trivially. They render real chunks and perform real exports, so they are far
   slower than the pure-logic suites; the stitcher refuses a plan whose last chunk does not end
   exactly at `videoDuration` (defensive — `generateRegions` clips every region to it, so a plan built

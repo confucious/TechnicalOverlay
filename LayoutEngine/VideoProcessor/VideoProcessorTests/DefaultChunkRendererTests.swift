@@ -9,18 +9,6 @@ import CoreImage
 import Foundation
 @testable import VideoProcessor
 
-// MARK: - Test Asset
-
-/// Path to a real video file for integration tests.
-private let testVideoURL = URL(
-    fileURLWithPath: "/Users/jhsu/dev/TechnicalOverlay/TechnicalOverlay/TechnicalOverlay/Boston Open 2025.mov"
-)
-
-private func makeTestAsset() -> AVAsset? {
-    guard FileManager.default.fileExists(atPath: testVideoURL.path) else { return nil }
-    return AVURLAsset(url: testVideoURL)
-}
-
 // MARK: - Tests
 
 @Suite

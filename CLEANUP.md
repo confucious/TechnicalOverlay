@@ -5,8 +5,8 @@ repetition and readability**. Every item names the file and line it lives at and
 move or delete — no "consider refactoring".
 
 **How to use this file:** delete an item when it lands; this list should shrink, never accumulate.
-IDs are never reused, so a gap in the numbering is finished work (B1, M2, M3, R1, R2, R3, R4, R5, Y2,
-Y3, Y4 and Y5 are done). It is a backlog, not a design doc: rationale for anything that ships goes in `docs/HISTORY.md`
+IDs are never reused, so a gap in the numbering is finished work (B1, M2, M3, R1, R2, R3, R4, R5, R6,
+Y2, Y3, Y4 and Y5 are done). It is a backlog, not a design doc: rationale for anything that ships goes in `docs/HISTORY.md`
 per `AGENTS.md` → Documentation, and `docs/ARCHITECTURE.md` stays current-state only.
 
 **Tags**
@@ -88,17 +88,6 @@ render-state mutation invalidates views for nothing — it belongs in the factor
 which also nils `player` and drops the pipeline's queue mid-teardown.
 
 **Fix:** an explicit `close()`; leave `deinit` empty or asserting.
-
----
-
-## Repetition
-
-### R6. Test scaffolding duplicated across bundles' files
-
-`makeTestAsset()` is verbatim identical in `DefaultChunkRendererTests.swift:19` and
-`DefaultStitcherTests.swift:19`.
-
-**Fix:** a shared `TestSupport.swift` in the `VideoProcessorTests` bundle.
 
 ---
 

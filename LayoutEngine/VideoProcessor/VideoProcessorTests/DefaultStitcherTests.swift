@@ -11,16 +11,6 @@ import Foundation
 
 // MARK: - Test Helpers
 
-/// Path to a real video file for integration tests.
-private let testVideoURL = URL(
-    fileURLWithPath: "/Users/jhsu/dev/TechnicalOverlay/TechnicalOverlay/TechnicalOverlay/Boston Open 2025.mov"
-)
-
-private func makeTestAsset() -> AVAsset? {
-    guard FileManager.default.fileExists(atPath: testVideoURL.path) else { return nil }
-    return AVURLAsset(url: testVideoURL)
-}
-
 /// Renders a constant chunk to a real file for use in stitching tests.
 private func renderConstantChunk(
     asset: AVAsset,
