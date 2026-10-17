@@ -12,7 +12,7 @@ A SwiftUI iOS app that creates video overlays for figure skating competitions. I
 
 | File | Role |
 |------|------|
-| `MainView.swift` | Primary UI. Contains inner `ViewModel` (`@Observable`) managing `AVPlayer`, `VideoComposer`, and `OverlayData`. Buttons: Load Video, Save Video (export), Load Slides, Save Slides, Edit Slides. Config row: element box toggle. Background render indicator overlays the video's bottom-right corner, clear of the scrubbing control. Embeds `TimeSettingsView`. |
+| `MainView.swift` | Primary UI. Contains inner `ViewModel` (`@Observable`) managing `AVPlayer`, `VideoComposer`, and `OverlayData`. Buttons: Load Video, Save Video (export), Load Slides, Save Slides, Edit Slides, Clear Slides (destructive, confirmed). Config row: element box toggle. Background render indicator overlays the video's bottom-right corner, clear of the scrubbing control. Embeds `TimeSettingsView`. |
 | `OverlayData.swift` | Core data model. `OverlayData`, `IntroductionData`, `ElementData` types. Persistence (UserDefaults + `.tojson` files), slide generation, image caching, `renderingHash`. |
 | `OverlayPreferences.swift` | Device-level overlay settings in `UserDefaults` (`showsElementBox`, default `true`). Applied to `OverlayData` at launch; deliberately not part of the `.tojson` document. |
 | `OverlayDataDocument.swift` | SwiftUI `FileDocument` for `.tojson` file I/O. Versioned JSON via `VersionedOverlayData` (current version 1). |
@@ -51,7 +51,8 @@ MainView (root)
 ├── VideoPlayer (if video loaded)   (+ render status dot, bottom-right, 72pt above the bottom edge)
 ├── TimeSettingsView (if scoring data; read-only without a video)
 ├── Config row: Element boxes toggle
-└── Button row: Load Video | Save Video | Load Slides | Save Slides | Edit Slides
+└── Button row: Load Video | Save Video | Load Slides | Save Slides | Edit Slides | Clear Slides
+    (the slides buttons drop to two lines when four labels don't fit one)
        │              │              │             │            └── ScoringListView (NavigationStack destination)
        │              │              │             └── OverlayDataDocument export (.tojson)
        │              │              └── OverlayDataDocument import (.tojson) → update + save

@@ -254,6 +254,9 @@ Edit overlay look (Element boxes toggle → OverlayPreferences + showsElementBox
 
 Edit data (ScoringListView → onDisappear save() + clearCache())
 
+Clear Slides → confirmation dialog → clearSlides() invokes `OverlayData.update(from: OverlayData())` on
+  the same instance, saves the emptied state and regenerates the slides
+
 Save Video → save panel picks the destination → queue.waitForCompletion()
   → DefaultStitcher.stitch(to: destination)
   → ExportSession.performExport() writes .mp4 straight to the chosen file
@@ -269,8 +272,12 @@ underneath is arbitrary. Below the player: `TimeSettingsView` (shown with or wit
 read-only until one is loaded), a config row holding the
 **Element boxes** toggle (hides the technical pane's element box row, persisted in `UserDefaults`,
 then regenerates the slides), and a button row
-**Load Video | Save Video | Load Slides | Save Slides | Edit Slides** (→ `ScoringListView`
-NavigationStack destination). `ContentView.swift` is a **legacy prototype** (hardcoded Scotty HSU
+**Load Video | Save Video | Load Slides | Save Slides | Edit Slides | Clear Slides** (→ `ScoringListView`
+NavigationStack destination). **Clear Slides** is destructive: it asks for confirmation and then
+empties the model in place (`clearSlides()` — update from a fresh `OverlayData`, save, regenerate),
+and it is disabled when there is nothing to clear. The four slides buttons sit in a `ViewThatFits`:
+one row when the labels fit (iPad, landscape), two rows in a portrait phone, so no label wraps onto
+a second line. `ContentView.swift` is a **legacy prototype** (hardcoded Scotty HSU
 test data) and `ElementBuilderView.swift` is a **placeholder (not wired in)** — the real entry point
 is `MainView`.
 

@@ -205,6 +205,17 @@ struct MainView: View {
             generateSlides()
         }
 
+        /// Resets the scoring data to an empty document. The existing `OverlayData` instance is
+        /// updated in place, so every view already holding it sees the reset; the emptied state is
+        /// saved, and the slides are regenerated so the preview and the chunk queue drop the
+        /// overlays.
+        func clearSlides() {
+            scoring.update(from: OverlayData())
+            scoring.clearCache()
+            scoring.save()
+            generateSlides()
+        }
+
         /// Renders/stitches the scored video and writes it straight to `destinationURL`.
         ///
         /// The destination is chosen *before* any work happens (see the save panel in `body`), so
@@ -299,6 +310,7 @@ struct MainView: View {
     @State private var saveFileShowing = false
     @State private var loadOverlayDataShowing = false
     @State private var saveOverlayDataShowing = false
+    @State private var clearSlidesShowing = false
     private var showProgressModal: Binding<Bool> {
         Binding(
             get: {
@@ -347,6 +359,75 @@ struct MainView: View {
         )
         .toggleStyle(.switch)
         .font(.callout)
+    }
+
+    private var loadSlidesButton: some View {
+        Button("Load Slides") {
+            loadOverlayDataShowing.toggle()
+        }
+        .buttonStyle(.bordered)
+        .fileImporter(
+            isPresented: $loadOverlayDataShowing,
+            allowedContentTypes: [OverlayDataDocument.fileType]) { result in
+                switch result {
+                case let .success(url):
+                    do {
+                        let newData = try OverlayDataDocument.read(url: url)
+                        state.scoring.update(from: newData)
+                        state.scoring.save()
+                    } catch {
+                        print("data load error: \(error)")
+                    }
+                case let .failure(error):
+                    print("data load error: \(error)")
+                }
+            }
+    }
+
+    private var saveSlidesButton: some View {
+        Button("Save Slides") {
+            saveOverlayDataShowing.toggle()
+        }
+        .buttonStyle(.bordered)
+        .fileExporter(
+            isPresented: $saveOverlayDataShowing,
+            document: OverlayDataDocument(overlayDataForSave: state.scoring),
+            contentType: OverlayDataDocument.fileType,
+            defaultFilename: state.scoring.skaterFullName) { result in
+                print("overlay data save: \(result)")
+            }
+    }
+
+    private var editSlidesButton: some View {
+        NavigationLink("Edit Slides", value: Destination.editSlides)
+            .buttonStyle(.bordered)
+            .navigationDestination(for: Destination.self) { destination in
+                switch destination {
+                case .editSlides:
+                    ScoringListView(state: state.scoring)
+                }
+            }
+    }
+
+    private var clearSlidesButton: some View {
+        Button("Clear Slides") {
+            clearSlidesShowing = true
+        }
+        .buttonStyle(.bordered)
+        .tint(.red)
+        .disabled(state.scoring.isEmpty)
+        .confirmationDialog(
+            "Clear all slides?",
+            isPresented: $clearSlidesShowing,
+            titleVisibility: .visible
+        ) {
+            Button("Clear Slides", role: .destructive) {
+                state.clearSlides()
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("The skater names, intro slides and elements stored on this device are deleted. This can't be undone.")
+        }
     }
 
     var body: some View {
@@ -478,46 +559,25 @@ struct MainView: View {
                         )
                     }
                 }
-                HStack {
-                    Button("Load Slides") {
-                        loadOverlayDataShowing.toggle()
+                // Four labels don't fit one row on a phone in portrait, so the row drops to two
+                // when the single line would squeeze a label onto two.
+                ViewThatFits(in: .horizontal) {
+                    HStack(spacing: 8) {
+                        loadSlidesButton
+                        saveSlidesButton
+                        editSlidesButton
+                        clearSlidesButton
                     }
-                    .buttonStyle(.bordered)
-                    .fileImporter(
-                        isPresented: $loadOverlayDataShowing,
-                        allowedContentTypes: [OverlayDataDocument.fileType]) { result in
-                            switch result {
-                            case let .success(url):
-                                do {
-                                    let newData = try OverlayDataDocument.read(url: url)
-                                    state.scoring.update(from: newData)
-                                    state.scoring.save()
-                                } catch {
-                                    print("data load error: \(error)")
-                                }
-                            case let .failure(error):
-                                print("data load error: \(error)")
-                            }
+                    VStack(spacing: 8) {
+                        HStack(spacing: 8) {
+                            loadSlidesButton
+                            saveSlidesButton
                         }
-                    Button("Save Slides") {
-                        saveOverlayDataShowing.toggle()
+                        HStack(spacing: 8) {
+                            editSlidesButton
+                            clearSlidesButton
+                        }
                     }
-                    .buttonStyle(.bordered)
-                    .fileExporter(
-                        isPresented: $saveOverlayDataShowing,
-                        document: OverlayDataDocument(overlayDataForSave: state.scoring),
-                        contentType: OverlayDataDocument.fileType,
-                        defaultFilename: state.scoring.skaterFullName) { result in
-                            print("overlay data save: \(result)")
-                        }
-                    NavigationLink("Edit Slides", value: Destination.editSlides)
-                        .buttonStyle(.bordered)
-                        .navigationDestination(for: Destination.self) { destination in
-                            switch destination {
-                            case .editSlides:
-                                ScoringListView(state: state.scoring)
-                            }
-                        }
                 }
             }
         }

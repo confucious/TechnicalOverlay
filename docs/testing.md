@@ -32,10 +32,11 @@ documented in [`AGENTS.md`](../AGENTS.md) all apply when reading the output:
 | `LayoutEngine` | 3 tests (1 suite), ~0 s | The technical pane's element-box layout: the row is hidden and zero-sized when turned off, the remaining rows move up by its height at unchanged size, and the pane frame is untouched. |
 | `ProtocolParser` | 56 tests (7 suites), ~8 s | Page classification, judge-detail link extraction, segment parsing into hundredths, the `ProtocolFetching` seam, `ProtocolImporter`, and the singles element-abbreviation expansion — over the committed fixture pages. |
 | `VideoProcessor` | 66 tests (7 suites), ~15 s | Chunk diffing (`DiffAlgorithmTests`, the densest suite), region generation, `ChunkQueue` (reuse, staleness, `waitForCompletion`, progress), the composition builders, and the real chunk-render/stitch exports. |
-| `TechnicalOverlay` | 30 unit tests (5 suites) + 8 XCTest tests, ~1.5 min | Unit: the protocol merge (including the injected-translator seam), the import flow, and `OverlayConfigurationTests` (the element-box `UserDefaults` preference: absent = shown, written value survives a relaunch, a launch seeds the view model from it, a `.tojson` neither carries it nor overrides it, and it changes both `renderingHash` and the technical slide's mode). XCTest: `ScoringListImportButtonTests` (2), `TechnicalOverlayUITests` (2 — the Import Protocol button), `TechnicalOverlayUITestsLaunchTests` (4). |
+| `TechnicalOverlay` | 32 unit tests (6 suites) + 8 XCTest tests, ~1.5 min | Unit: the protocol merge (including the injected-translator seam), the import flow, `ClearSlidesTests` (clearing empties the model, keeps the instance identity, persists the emptied state and leaves the device preference alone), and `OverlayConfigurationTests` (the element-box `UserDefaults` preference: absent = shown, written value survives a relaunch, a launch seeds the view model from it, a `.tojson` neither carries it nor overrides it, and it changes both `renderingHash` and the technical slide's mode). XCTest: `ScoringListImportButtonTests` (2), `TechnicalOverlayUITests` (2 — the Import Protocol button), `TechnicalOverlayUITestsLaunchTests` (4). |
 
-`LayoutEngine` (3/3) and `TechnicalOverlay` (30 unit + 8 XCTest) re-verified 2026-10-17 with the
-element-box toggle and its `UserDefaults` preference, both ending `** TEST SUCCEEDED **`. `ProtocolParser` last re-verified
+`LayoutEngine` (3/3) and `TechnicalOverlay` (32 unit + 8 XCTest) re-verified 2026-10-17 with the
+element-box toggle, its `UserDefaults` preference and Clear Slides, both ending
+`** TEST SUCCEEDED **`. `ProtocolParser` last re-verified
 2026-10-15 (56/56 after the abbreviation expansion) and `VideoProcessor` 2026-10-16; neither
 bundle is touched by that change.
 
