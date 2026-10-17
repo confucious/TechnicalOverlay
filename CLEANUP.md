@@ -5,7 +5,7 @@ repetition and readability**. Every item names the file and line it lives at and
 move or delete — no "consider refactoring".
 
 **How to use this file:** delete an item when it lands; this list should shrink, never accumulate.
-IDs are never reused, so a gap in the numbering is finished work (B1, M2, M3, R1, R2, R3 and Y4
+IDs are never reused, so a gap in the numbering is finished work (B1, M2, M3, R1, R2, R3, Y2 and Y4
 are done). It is a backlog, not a design doc: rationale for anything that ships goes in `docs/HISTORY.md`
 per `AGENTS.md` → Documentation, and `docs/ARCHITECTURE.md` stays current-state only.
 
@@ -129,17 +129,6 @@ copies of `required init?(coder:) { fatalError }` as well.
 
 **Fix:** a case label that says what it means (`rendered` rather than `idle`).
 
-### Y2. Dead code the compiler still builds — delete, do not polish
-
-- `ContentView.swift` (193 lines, hardcoded Scotty HSU data, no production path).
-- `ElementBuilderView.swift` (37 lines, never wired in).
-- `WriterInputs` (`DefaultStitcher.swift:212-218`) — unused.
-- `ChunkRendererError` (`DefaultChunkRenderer.swift:27-45`) — never thrown; the renderer returns
-  `nil` and traces.
-- `ElementScoreView.GoeStyle` (`11-14`) — unused.
-- `IsuLowerThirdView.secondaryText` (`44-53`) — the getter returns `("", "", "")`.
-- `IsuLowerThirdView`'s seeded `"Scotty HSU"` label text (`113`).
-
 ### Y3. `print` is the logging channel
 
 24 `print`s in the app target alone (`"saved"`, `"loaded"`, `"Invalidating cachedSize"`), none
@@ -158,10 +147,11 @@ one fades out the *element* slides, not the intro slide.
 
 - `docs/ARCHITECTURE.md:291` and `:300` point at a `TODO.md` for the feature backlog; no such file is
   tracked. Either add it or retarget those lines at this file.
-- `AGENTS.md:281` names `MainView.ViewModel.assetUrl` (the pairing rule for security scopes) and the
-  source listing at `:124` omits `MainViewModel`/`AssetSession`/`RenderPipeline`/`ExportCoordinator`;
-  the type it names no longer exists. That file is a protected instruction file, so the correction
-  has to come from the user.
+- `AGENTS.md` names `MainView.ViewModel.assetUrl` (the pairing rule for security scopes, `:281`), and
+  its source listing at `:124` omits `MainViewModel`/`AssetSession`/`RenderPipeline`/
+  `ExportCoordinator`. Its Gotchas still describe `ContentView.swift` as a legacy prototype and
+  `ElementBuilderView.swift` as a placeholder; both files are deleted. That file is a protected
+  instruction file, so the corrections have to come from the user.
 
 ---
 

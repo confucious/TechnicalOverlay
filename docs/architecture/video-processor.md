@@ -10,7 +10,7 @@ Handles video composition with overlay slides and chunk-based rendering. Uses `A
 |------|------|
 | `OverlayCompositing.swift` | The overlay program and the chunk composition builder. `OverlayComposite` — `hold(_:over:)` and `dissolve(from:to:progress:over:)` — is how an image lands on a source frame, shared by the preview compositor and the chunk renderer. `ChunkComposition` turns a chunk's overlay(s) into an `AVVideoComposition` for `DefaultChunkRenderer`. |
 | `VideoProcessor.swift` | `Slide`, `Metrics`, the preview (`PreviewRecipe`, `PreviewVideoCompositor`), `VideoComposer` (preview composition + the slide-based export), `ExportSession`, `ContentIdentity`, `ChunkType`, `ChunkState`, `Chunk`, protocols (`ChunkRendererProtocol`, `StitcherProtocol`), `ChunkRegion`, `generateRegions()`, `diffRegionsIntoChunks()`, `ChunkQueue` actor. |
-| `DefaultChunkRenderer.swift` | Concrete `ChunkRendererProtocol` implementation. `VideoSettings` config, `ChunkRendererError` enum. Renders chunks via `ChunkComposition` + `AVAssetExportSession`. |
+| `DefaultChunkRenderer.swift` | Concrete `ChunkRendererProtocol` implementation. `VideoSettings` config. Renders chunks via `ChunkComposition` + `AVAssetExportSession`; failures are traced and return `nil`, not thrown. |
 | `DefaultStitcher.swift` | Concrete `StitcherProtocol` implementation. Assembles rendered chunks plus source-video ranges into one `AVMutableComposition` and hands back an `ExportSession` for the caller to perform. |
 
 ## Core Types
@@ -87,18 +87,6 @@ public struct VideoSettings: Sendable {
 
 Configuration for chunk export encoding.
 
-### ChunkRendererError
-
-```swift
-enum ChunkRendererError: Error, LocalizedError {
-    case cannotCreateExportSession
-    case exportFailed
-    case compositionFailed
-    case assetCompatibilityFailed
-}
-```
-
-Errors produced during chunk rendering. Note: `DefaultChunkRenderer` currently prints errors and returns `nil` rather than propagating these errors to callers.
 
 ### DefaultChunkRenderer
 

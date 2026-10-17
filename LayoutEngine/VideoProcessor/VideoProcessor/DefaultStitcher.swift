@@ -201,11 +201,3 @@ extension DefaultStitcher {
         return CMTimeRange(start: localStart, duration: localDuration)
     }
 }
-
-// MARK: - WriterInputs
-
-/// Holds references to the writer's video and audio inputs for sample buffer appending.
-private struct WriterInputs {
-    let videoInput: AVAssetWriterInput
-    let audioInput: AVAssetWriterInput?
-}

@@ -22,28 +22,6 @@ public struct VideoSettings: Sendable {
     )
 }
 
-// MARK: - Errors
-
-enum ChunkRendererError: Error, LocalizedError {
-    case cannotCreateExportSession
-    case exportFailed
-    case compositionFailed
-    case assetCompatibilityFailed
-
-    var errorDescription: String? {
-        switch self {
-        case .cannotCreateExportSession:
-            return "Cannot create AVAssetExportSession"
-        case .exportFailed:
-            return "Export failed"
-        case .compositionFailed:
-            return "Video composition setup failed"
-        case .assetCompatibilityFailed:
-            return "Preset is not compatible with asset and output type"
-        }
-    }
-}
-
 // MARK: - Renderer
 
 /// Renders individual chunks by exporting time-limited segments of the

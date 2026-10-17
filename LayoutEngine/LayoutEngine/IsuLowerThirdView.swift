@@ -40,17 +40,6 @@ public class IsuLowerThirdView: UIView {
             upperLine.nameLabel.text = newValue
         }
     }
-    
-    public var secondaryText: (center: String, left: String, right: String) {
-        get {
-            ("", "", "")
-        }
-        set {
-            lowerLine.centerLabel.text = newValue.center
-            lowerLine.leftLabel.text = newValue.left
-            lowerLine.rightLabel.text = newValue.right
-        }
-    }
 
     public init() {
         upperLine = UpperLineView()
@@ -67,11 +56,9 @@ public class IsuLowerThirdView: UIView {
     
     public func update(from viewModel: LowerThirdViewModel) {
         skaterName = viewModel.skaterName
-        secondaryText = (
-            viewModel.centerText,
-            viewModel.leftText,
-            viewModel.rightText
-        )
+        lowerLine.centerLabel.text = viewModel.centerText
+        lowerLine.leftLabel.text = viewModel.leftText
+        lowerLine.rightLabel.text = viewModel.rightText
     }
     
     public override func layoutSubviews() {
@@ -110,7 +97,6 @@ public class IsuLowerThirdView: UIView {
             nameLabel.textColor = .white
             nameLabel.textAlignment = .center
             backgroundView.backgroundColor = Color.nameBox
-            nameLabel.text = "Scotty HSU"
         }
         required init?(coder: NSCoder) {
             fatalError("init(coder:) has not been implemented")

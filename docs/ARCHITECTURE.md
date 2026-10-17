@@ -288,9 +288,7 @@ NavigationStack destination). **Clear Slides** is destructive: it asks for confi
 empties the model in place (`clearSlides()` — update from a fresh `OverlayData`, save, regenerate),
 and it is disabled when there is nothing to clear. The four slides buttons sit in a `ViewThatFits`:
 one row when the labels fit (iPad, landscape), two rows in a portrait phone, so no label wraps onto
-a second line. `ContentView.swift` is a **legacy prototype** (hardcoded Scotty HSU
-test data) and `ElementBuilderView.swift` is a **placeholder (not wired in)** — the real entry point
-is `MainView`.
+a second line. The real entry point is `MainView`.
 
 **Two `AVURLAsset`s over one file, deliberately.** `generateSlides()` builds the player item from
 one and hands `DefaultChunkRenderer` a second. Sharing a single instance makes the preview and the
@@ -308,8 +306,7 @@ drag. Do not re-merge them — `docs/HISTORY.md` → *Playhead freeze*.
   [`docs/architecture/abbreviation-expansion.md`](docs/architecture/abbreviation-expansion.md)).
   Remaining work: the **pairs and ice-dance** element vocabulary, and wiring the import into the
   edit flow beyond `ScoringListView`.
-- **Polish / "Make it look nicer"** (`TODO.md`): visual refinements to overlays + editing UI;
-  decide whether to delete legacy `ContentView` / stub `ElementBuilderView`.
+- **Polish / "Make it look nicer"** (`TODO.md`): visual refinements to overlays + editing UI.
 - **Incremental-export gains** are already designed into the chunk pipeline (reuse unchanged
   chunks when only one timestamp shifts) — the pieces exist; tuning/finishing is the work.
 

@@ -8,11 +8,7 @@
 import UIKit
 
 class ElementScoreView: UIView {
-    public enum GoeStyle {
-        case positive
-        case negative
-    }
-    
+
     public var baseValue: String = "" {
         didSet {
             configure()

@@ -22,8 +22,7 @@ A SwiftUI iOS app that creates video overlays for figure skating competitions. I
 | `OverlayDataDocument.swift` | SwiftUI `FileDocument` for `.tojson` file I/O. Versioned JSON via `VersionedOverlayData` (current version 1). |
 | `ScoringListView.swift` | Full-screen data entry via `NavigationStack` destination. Edits skater names, intro slide texts, element scores (name, base, GOE, bonus) in a grid. Add/remove buttons. Saves on `onDisappear`. |
 | `TimeSettingsView.swift` | Timeline editor showing all intro slides and elements with timestamps. Always shown when there is scoring data — a loaded video is not required, and without one the timeline is read-only. `Playhead` (defined here) is the playback seam: `getTime()` returns the current time, `seekTo(_:)` moves the video to a time. A set time renders as a button that seeks there; "Start Now" stamps the playhead time read at tap time, and is hidden (with its layout space kept) when there is no playhead. Cascading time propagation to subsequent items. |
-| `ElementBuilderView.swift` | Placeholder: discipline picker (Singles/Pairs/Ice Dance/Synchronized) and type picker (Jumps/Spins/Steps & Spirals). Not yet wired into the app. |
-| `ContentView.swift` | Legacy/prototype view with hardcoded test data (Scotty HSU example). Contains `UIViewRepresentable` wrappers for previewing LayoutEngine views. Not used in production. |
+| `PreviewData.swift` | Sample documents (`overlayData`, `unsetOverlayData`) for the `#Preview`s only — the app never reads them. |
 
 ## Data Model
 
