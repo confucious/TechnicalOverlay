@@ -12,7 +12,7 @@ struct Playhead {
     var seekTo: (TimeInterval) -> Void
 }
 struct TimeSettingsView: View {
-    @State var state: OverlayData
+    var state: OverlayData
     var playhead: Playhead?
     var timeUpdated: () -> Void
 
@@ -25,19 +25,17 @@ struct TimeSettingsView: View {
                         .gridColumnAlignment(.leading)
                     VStack {
                         displayTime(row.displayTime)
-                        Button("Start Now") {
-                            if let playheadTime = playhead?.getTime() {
-                                state
-                                    .setIntroTime(
-                                        index: index,
-                                        time: playheadTime
-                                    )
+                        if let playheadTime = playhead?.getTime() {
+                            Button("Start Now") {
+                                state.setIntroTime(
+                                    index: index,
+                                    time: playheadTime
+                                )
                                 timeUpdated()
                                 state.save()
                             }
+                            .buttonStyle(.bordered)
                         }
-                        .buttonStyle(.bordered)
-                        .disabled(playhead == nil)
                     }
                 }
                 Divider()
@@ -48,19 +46,17 @@ struct TimeSettingsView: View {
                         .gridColumnAlignment(.leading)
                     VStack {
                         displayTime(row.displayTime)
-                        Button("Start Now") {
-                            if let playheadTime = playhead?.getTime() {
-                                state
-                                    .setElementTime(
-                                        index: index,
-                                        time: playheadTime
-                                    )
+                        if let playheadTime = playhead?.getTime() {
+                            Button("Start Now") {
+                                state.setElementTime(
+                                    index: index,
+                                    time: playheadTime
+                                )
                                 timeUpdated()
                                 state.save()
                             }
+                            .buttonStyle(.bordered)
                         }
-                        .buttonStyle(.bordered)
-                        .disabled(playhead == nil)
                     }
                 }
                 Divider()

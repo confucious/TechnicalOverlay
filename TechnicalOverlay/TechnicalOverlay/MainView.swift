@@ -455,7 +455,8 @@ struct MainView: View {
                                 state: state.scoring,
                                 playhead: Playhead(
                                     getTime: {
-                                        player.currentTime().seconds
+                                        let time = player.currentTime()
+                                        return time.isNumeric ? time.seconds : nil
                                     },
                                     seekTo: { time in
                                         player.seek(
