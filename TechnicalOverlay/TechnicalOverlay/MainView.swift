@@ -43,6 +43,8 @@ struct MainView: View {
             self.assetUrl = assetUrl
             self.scoring = scoring
             scoring.load()
+            // The look is a device preference, so it is applied after the saved document state.
+            scoring.showsElementBox = OverlayPreferences.showsElementBox
         }
 
         var saveVideoDisabled: Bool {
@@ -191,6 +193,18 @@ struct MainView: View {
             }
         }
 
+        /// Regenerates the slides after an overlay configuration change. The new slides carry a
+        /// different `TechnicalViewModel`, so the preview shows the new look and the chunk queue's
+        /// diff re-renders the chunks whose content changed.
+        func setShowsElementBox(_ showsElementBox: Bool) {
+            guard scoring.showsElementBox != showsElementBox else {
+                return
+            }
+            scoring.showsElementBox = showsElementBox
+            OverlayPreferences.showsElementBox = showsElementBox
+            generateSlides()
+        }
+
         /// Renders/stitches the scored video and writes it straight to `destinationURL`.
         ///
         /// The destination is chosen *before* any work happens (see the save panel in `body`), so
@@ -298,7 +312,12 @@ struct MainView: View {
         )
     }
 
-    /// Dot + label for the background chunk queue.
+    /// Clearance between the render indicator and the bottom edge of the video, in points. AVKit's
+    /// control cluster — the scrubbing control included — sits in that band, so the indicator is
+    /// lifted clear of it rather than derived from the video's size.
+    private static let queueStatusBottomInset: CGFloat = 72
+
+    /// Dot + label for the background chunk queue, drawn over the video's bottom-right corner.
     private var queueStatusIndicator: some View {
         HStack(spacing: 6) {
             Circle()
@@ -308,8 +327,26 @@ struct MainView: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 4)
+        // The video underneath is arbitrary, so the label needs its own ground.
+        .background(.ultraThinMaterial, in: Capsule())
         .accessibilityElement(children: .combine)
         .accessibilityLabel(state.queueStatus.accessibilityDescription)
+    }
+
+    /// Overlay look toggle: the technical pane's element box row can be hidden, which moves the
+    /// name, score and total rows up.
+    private var elementBoxToggle: some View {
+        Toggle(
+            "Element boxes",
+            isOn: Binding(
+                get: { state.scoring.showsElementBox },
+                set: { state.setShowsElementBox($0) }
+            )
+        )
+        .toggleStyle(.switch)
+        .font(.callout)
     }
 
     var body: some View {
@@ -317,6 +354,13 @@ struct MainView: View {
             VStack {
                 if let player = state.player {
                     VideoPlayer(player: player)
+                        .overlay(alignment: .bottomTrailing) {
+                            queueStatusIndicator
+                                .padding(.trailing, 16)
+                                .padding(.bottom, Self.queueStatusBottomInset)
+                                // Status only — must not swallow taps meant for the player controls.
+                                .allowsHitTesting(false)
+                        }
                 }
                 HStack {
                     Button("Load Video") {
@@ -398,13 +442,12 @@ struct MainView: View {
                             }
                         }.interactiveDismissDisabled()
                     })
-
-                    // Background render state: yellow while the chunk queue has work, green once
-                    // everything is rendered and the queue is idle.
-                    Spacer()
-                    queueStatusIndicator
-
                 }
+                // Overlay configuration, in its own row so the video buttons stay a fixed pair.
+                // `.fixedSize()` keeps the label next to its switch — a switch-style `Toggle`
+                // given the full row width pushes them to opposite edges.
+                elementBoxToggle
+                    .fixedSize()
                 if !state.scoring.isEmpty,
                    let player = state.player {
                     ScrollView {

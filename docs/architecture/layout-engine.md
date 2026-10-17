@@ -11,7 +11,7 @@ A UIKit-based view library that renders figure skating scoring overlays, designe
 | `LayoutEngine.swift` | Shared constants: `Color` (named overlay colors), `Metrics` (layout proportions), `CornerDirection` enum, `UIView` extensions (`cornerRadius()`, `roundedCornerConfiguration(corners:)`, `fontSize()`). |
 | `VideoOverlay.swift` | Main overlay container `UIView` (1280x720 base). Holds `IsuTechnicalPaneView` (top-left) and `IsuLowerThirdView` (bottom-center). `Mode` enum (`none`, `technicalPane`, `lowerThirdPane`). `render(size:)` → `CIImage`. |
 | `IsuLowerThirdView.swift` | Skater introduction overlay with two lines: `UpperLineView` (skater name on blue) + `LowerLineView` (left/center/right text on dark gray). |
-| `IsuTechnicalPaneView.swift` | Technical scoring overlay with four subcomponents: `ElementRowView`, `ElementNameView`, `ElementScoreView`, `ProgramTotalView`. |
+| `IsuTechnicalPaneView.swift` | Technical scoring overlay with four subcomponents: `ElementRowView`, `ElementNameView`, `ElementScoreView`, `ProgramTotalView`. The box row is optional (`showsElementBox`). |
 | `TechnicalPaneComponents/ElementBoxView.swift` | Single colored box with modes: `unscored`, `positive`, `negative`, `neutral`. |
 | `TechnicalPaneComponents/ElementNameView.swift` | Element name label on black background. |
 | `TechnicalPaneComponents/ElementRowView.swift` | Dynamic container that creates `ElementBoxView` instances based on `boxModes` array. |
@@ -79,7 +79,20 @@ Both are `Hashable` value types passed into views via `update(from:)`.
 | ViewModel | View | Fields |
 |-----------|------|--------|
 | `LowerThirdViewModel` | `IsuLowerThirdView` | `skaterName`, `leftText`, `centerText`, `rightText` |
-| `TechnicalViewModel` | `IsuTechnicalPaneView` | `skaterName`, `elementName`, `baseValue`, `goeValue`, `totalValue`, `boxModes: [ElementBoxView.Mode]` |
+| `TechnicalViewModel` | `IsuTechnicalPaneView` | `skaterName`, `elementName`, `baseValue`, `goeValue`, `totalValue`, `boxModes: [ElementBoxView.Mode]`, `showsElementBox: Bool` |
+
+## Element box row
+
+`IsuTechnicalPaneView.showsElementBox` (set from `TechnicalViewModel.showsElementBox`) decides
+whether `ElementRowView` is drawn. When it is false the row's frame becomes zero and
+`ElementNameView`, `ElementScoreView` and `ProgramTotalView` stack from the top of the pane at their
+usual heights, so the pane keeps its frame and aspect and the scored rows sit one box row higher on
+screen. The name row takes over the box row's rounded top corners. `IsuTechnicalPaneView` draws no
+background of its own, so the space the row vacates is invisible.
+
+The setting lives in the view model, not on the view alone, because `VideoOverlay.Mode` equality is
+the slide cache key and a chunk's content identity: two modes differing only in `showsElementBox`
+have to compare different.
 
 ## ElementBoxView.Mode
 

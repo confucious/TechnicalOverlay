@@ -25,6 +25,10 @@ class OverlayData: Codable {
     var skaterAbbreviatedName: String
     var introductionTexts: [IntroductionData]
     var elementScores: [ElementData]
+    /// Whether the technical pane draws its element box row. A **device preference**, not document
+    /// data: `OverlayPreferences` owns it in UserDefaults, so it is deliberately absent from
+    /// `CodingKeys` and is not copied by `update(from:)` when a document is loaded.
+    var showsElementBox: Bool = true
 
     internal init(
         skaterFullName: String = "",
@@ -130,6 +134,7 @@ class OverlayData: Codable {
         var hasher = Hasher()
         skaterFullName.hash(into: &hasher)
         skaterAbbreviatedName.hash(into: &hasher)
+        showsElementBox.hash(into: &hasher)
         for intro in introductionTexts {
             intro.left.hash(into: &hasher)
             intro.center.hash(into: &hasher)
@@ -191,7 +196,8 @@ class OverlayData: Codable {
             let mode = element.makeMode(
                 skaterName: skaterAbbreviatedName,
                 runningTotal: cumulativeScore,
-                boxModes: cumulativeBoxModes
+                boxModes: cumulativeBoxModes,
+                showsElementBox: showsElementBox
             )
             if let displayTime = element.displayTime {
                 slides
@@ -320,7 +326,12 @@ class ElementData: Codable {
         self.displayTime = displayTime
     }
 
-    func makeMode(skaterName: String, runningTotal: Int, boxModes: [ElementBoxView.Mode]) -> VideoOverlay.Mode {
+    func makeMode(
+        skaterName: String,
+        runningTotal: Int,
+        boxModes: [ElementBoxView.Mode],
+        showsElementBox: Bool
+    ) -> VideoOverlay.Mode {
         return .technicalPane(TechnicalViewModel(
             skaterName: skaterName,
             elementName: name,
@@ -329,7 +340,8 @@ class ElementData: Codable {
             : formatValue(baseValue),
             goeValue: formatValue(goeValue),
             totalValue: formatValue(runningTotal),
-            boxModes: boxModes
+            boxModes: boxModes,
+            showsElementBox: showsElementBox
         ))
     }
 

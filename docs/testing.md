@@ -1,6 +1,6 @@
 # Test Health
 
-> **Status**: Living record · **Last verified**: 2026-10-16 — iOS Simulator, `iPhone 17`, Xcode 27.
+> **Status**: Living record · **Last verified**: 2026-10-17 — iOS Simulator, `iPhone 17`, Xcode 27.
 
 Per-scheme test counts, what each bundle covers, and when it was last verified. **Counts belong
 here, not in `AGENTS.md`**: that file is instructions, and a number written into it goes stale
@@ -29,13 +29,15 @@ documented in [`AGENTS.md`](../AGENTS.md) all apply when reading the output:
 
 | Scheme | Tests | Covers |
 |--------|-------|--------|
-| `LayoutEngine` | 1 test (1 suite), ~0 s | Boilerplate stub — the overlay views have no tests of their own yet. |
+| `LayoutEngine` | 3 tests (1 suite), ~0 s | The technical pane's element-box layout: the row is hidden and zero-sized when turned off, the remaining rows move up by its height at unchanged size, and the pane frame is untouched. |
 | `ProtocolParser` | 56 tests (7 suites), ~8 s | Page classification, judge-detail link extraction, segment parsing into hundredths, the `ProtocolFetching` seam, `ProtocolImporter`, and the singles element-abbreviation expansion — over the committed fixture pages. |
 | `VideoProcessor` | 66 tests (7 suites), ~15 s | Chunk diffing (`DiffAlgorithmTests`, the densest suite), region generation, `ChunkQueue` (reuse, staleness, `waitForCompletion`, progress), the composition builders, and the real chunk-render/stitch exports. |
-| `TechnicalOverlay` | 23 unit tests (4 suites) + 8 XCTest tests, ~1.5 min | Unit: the protocol merge (including the injected-translator seam) and the import flow. XCTest: `ScoringListImportButtonTests` (2), `TechnicalOverlayUITests` (2 — the Import Protocol button), `TechnicalOverlayUITestsLaunchTests` (4). |
+| `TechnicalOverlay` | 30 unit tests (5 suites) + 8 XCTest tests, ~1.5 min | Unit: the protocol merge (including the injected-translator seam), the import flow, and `OverlayConfigurationTests` (the element-box `UserDefaults` preference: absent = shown, written value survives a relaunch, a launch seeds the view model from it, a `.tojson` neither carries it nor overrides it, and it changes both `renderingHash` and the technical slide's mode). XCTest: `ScoringListImportButtonTests` (2), `TechnicalOverlayUITests` (2 — the Import Protocol button), `TechnicalOverlayUITestsLaunchTests` (4). |
 
-`ProtocolParser` re-verified 2026-10-15 (56/56 after the abbreviation expansion); the rest
-2026-10-16, all four schemes ending `** TEST SUCCEEDED **` with no failures.
+`LayoutEngine` (3/3) and `TechnicalOverlay` (30 unit + 8 XCTest) re-verified 2026-10-17 with the
+element-box toggle and its `UserDefaults` preference, both ending `** TEST SUCCEEDED **`. `ProtocolParser` last re-verified
+2026-10-15 (56/56 after the abbreviation expansion) and `VideoProcessor` 2026-10-16; neither
+bundle is touched by that change.
 
 ## Prerequisites and known flakiness
 

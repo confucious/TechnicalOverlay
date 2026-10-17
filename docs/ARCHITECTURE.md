@@ -116,7 +116,7 @@ All data uses Apple's `@Observable` macro (Observation framework). The core mode
 
 | Type | Purpose |
 |------|---------|
-| `OverlayData` | Top-level: `skaterFullName`, `skaterAbbreviatedName`, `introductionTexts: [IntroductionData]`, `elementScores: [ElementData]`. Methods: `save()`/`load()` (UserDefaults), `update(from:)`, `setIntroTime/setElementTime`, `makeSlides(size:)`, `makeSlide(size:mode:startTime:)`, `renderingHash`, `imageCache`, `clearCache()`. |
+| `OverlayData` | Top-level: `skaterFullName`, `skaterAbbreviatedName`, `introductionTexts: [IntroductionData]`, `elementScores: [ElementData]`. Its `showsElementBox` is the live overlay-look value, seeded from `OverlayPreferences` (not document data). Methods: `save()`/`load()` (UserDefaults), `update(from:)`, `setIntroTime/setElementTime`, `makeSlides(size:)`, `makeSlide(size:mode:startTime:)`, `renderingHash`, `imageCache`, `clearCache()`. |
 | `IntroductionData` | One intro slide: `left`/`center`/`right` + optional `displayTime`. `makeMode(skaterName:)` → `.lowerThirdPane`. |
 | `ElementData` | One scoring element: `name`, `baseValue`, `goeValue`, `bonusValue` (all `Int` hundredths), optional `displayTime`. String accessors `baseValueString`/`goeValueString`/`bonusValueString` round-trip through `toHundredthsInt()`. `makeMode(skaterName:runningTotal:boxModes:)` → `.technicalPane`. |
 
@@ -143,7 +143,7 @@ Element box color is derived per element: `baseValue == 0` → `.neutral`; `goeV
 ### 3.4 `renderingHash`
 
 `OverlayData.renderingHash` is a deterministic hash of all rendering-affecting fields (names,
-scores, times) — used for cache-invalidation decisions in the chunk pipeline.
+scores, times, `showsElementBox`) — used for cache-invalidation decisions in the chunk pipeline.
 
 ## 4. Persistence
 
@@ -159,6 +159,10 @@ scores, times) — used for cache-invalidation decisions in the chunk pipeline.
   type and the open panel greys every one of them out (`docs/HISTORY.md` → *Project
   infrastructure*).
   Adding a persisted-model field must bump the version or stay backward-compatible.
+- **Device preferences** — `OverlayPreferences` stores overlay-look settings in `UserDefaults`
+  (`showsElementBox`, key `"showsElementBox"`, absent = boxes shown). They survive a relaunch and
+  apply to every document, so they are **not** in `CodingKeys` and `update(from:)` does not copy
+  them: loading a `.tojson` never changes what the device shows.
 
 ## 5. Rendering & Composition
 
@@ -168,7 +172,9 @@ Overlay graphics are **pure UIKit `UIView` subclasses** in `LayoutEngine`, laid 
 percentage-based metrics so they scale to any output resolution. `VideoOverlay` (base frame
 **1280×720**, `alpha = 0.9`, clear background) hosts `IsuTechnicalPaneView` (top-left,
 16% height, 2.65 aspect) + `IsuLowerThirdView` (bottom-center, 15% height, 8.5 aspect); its
-`Mode` enum (`none | technicalPane | lowerThirdPane`) shows one pane at a time.
+`Mode` enum (`none | technicalPane | lowerThirdPane`) shows one pane at a time. The technical
+pane's element box row is optional (`TechnicalViewModel.showsElementBox`); hiding it moves the name,
+score and total rows up by the row's height (`docs/architecture/layout-engine.md` → *Element box row*).
 
 `VideoOverlay.render(size:)` sets bounds, lays out, and rasterizes the `CALayer` to a
 `CIImage` via `UIGraphicsImageRenderer` (`scale = 1`, `opaque = false`). Full view hierarchy and
@@ -239,6 +245,9 @@ Load Video (fileImporter, .movie) → ViewModel.assetUrl
 Edit timing (TimeSettingsView "Start Now" → setIntro/setElementTime, cascading)
   → generateSlides() → new VideoComposer + re-enqueue
 
+Edit overlay look (Element boxes toggle → OverlayPreferences + showsElementBox → generateSlides()
+  → new VideoComposer + re-enqueue; changed modes make the diff re-render the affected chunks)
+
 Edit data (ScoringListView → onDisappear save() + clearCache())
 
 Save Video → save panel picks the destination → queue.waitForCompletion()
@@ -246,14 +255,19 @@ Save Video → save panel picks the destination → queue.waitForCompletion()
   → ExportSession.performExport() writes .mp4 straight to the chosen file
 ```
 
-UI surface (`MainView`): `VideoPlayer`, `TimeSettingsView`, and a button row
+UI surface (`MainView`): `VideoPlayer` with the **background render indicator** overlaid on its
+bottom-right corner, raised by a fixed 72pt inset so it never covers AVKit's control cluster (the
+scrubbing control lives in it); it is only on screen while a video is loaded, and it takes no taps
+(`allowsHitTesting(false)`). The dot is **yellow while the chunk queue has work queued or
+rendering**, **green once every renderable chunk is rendered and the queue is idle** (fed by
+`ChunkQueueProgress.isRendering`), with a label on a translucent capsule because the video
+underneath is arbitrary. Below the player: `TimeSettingsView`, a config row holding the
+**Element boxes** toggle (hides the technical pane's element box row, persisted in `UserDefaults`,
+then regenerates the slides), and a button row
 **Load Video | Save Video | Load Slides | Save Slides | Edit Slides** (→ `ScoringListView`
-NavigationStack destination), with a **background render indicator** at the end of the video
-button row: a dot that is grey with no video loaded, **yellow while the chunk queue has work
-queued or rendering**, and **green once every renderable chunk is rendered and the queue is
-idle** (fed by `ChunkQueueProgress.isRendering`). `ContentView.swift` is a **legacy prototype**
-(hardcoded Scotty HSU test data) and `ElementBuilderView.swift` is a **placeholder (not wired
-in)** — the real entry point is `MainView`.
+NavigationStack destination). `ContentView.swift` is a **legacy prototype** (hardcoded Scotty HSU
+test data) and `ElementBuilderView.swift` is a **placeholder (not wired in)** — the real entry point
+is `MainView`.
 
 **Two `AVURLAsset`s over one file, deliberately.** `generateSlides()` builds the player item from
 one and hands `DefaultChunkRenderer` a second. Sharing a single instance makes the preview and the

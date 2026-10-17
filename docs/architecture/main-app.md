@@ -12,8 +12,9 @@ A SwiftUI iOS app that creates video overlays for figure skating competitions. I
 
 | File | Role |
 |------|------|
-| `MainView.swift` | Primary UI. Contains inner `ViewModel` (`@Observable`) managing `AVPlayer`, `VideoComposer`, and `OverlayData`. Buttons: Load Video, Save Video (export), Load Slides, Save Slides, Edit Slides. Embeds `TimeSettingsView`. |
+| `MainView.swift` | Primary UI. Contains inner `ViewModel` (`@Observable`) managing `AVPlayer`, `VideoComposer`, and `OverlayData`. Buttons: Load Video, Save Video (export), Load Slides, Save Slides, Edit Slides. Config row: element box toggle. Background render indicator overlays the video's bottom-right corner, clear of the scrubbing control. Embeds `TimeSettingsView`. |
 | `OverlayData.swift` | Core data model. `OverlayData`, `IntroductionData`, `ElementData` types. Persistence (UserDefaults + `.tojson` files), slide generation, image caching, `renderingHash`. |
+| `OverlayPreferences.swift` | Device-level overlay settings in `UserDefaults` (`showsElementBox`, default `true`). Applied to `OverlayData` at launch; deliberately not part of the `.tojson` document. |
 | `OverlayDataDocument.swift` | SwiftUI `FileDocument` for `.tojson` file I/O. Versioned JSON via `VersionedOverlayData` (current version 1). |
 | `ScoringListView.swift` | Full-screen data entry via `NavigationStack` destination. Edits skater names, intro slide texts, element scores (name, base, GOE, bonus) in a grid. Add/remove buttons. Saves on `onDisappear`. |
 | `TimeSettingsView.swift` | Timeline editor showing all intro slides and elements with timestamps. Each row has a "Start Now" button capturing the current video playback time. Cascading time propagation to subsequent items. |
@@ -26,7 +27,7 @@ All data uses Apple's `@Observable` macro (Swift Concurrency Observation framewo
 
 | Type | Purpose |
 |------|---------|
-| `OverlayData` | Top-level model: skater full name, abbreviated name, intro slides, element scores. Methods: `save()`/`load()` (UserDefaults), `update(from:)`, `setIntroTime(index:time:)`, `setElementTime(index:time:)`, `makeSlides(size:)`, `makeSlide(size:mode:startTime:)`, `renderingHash` (deterministic hash of all rendering-affecting fields). |
+| `OverlayData` | Top-level model: skater full name, abbreviated name, intro slides, element scores. `showsElementBox` is the live overlay-look value, seeded from `OverlayPreferences` rather than the document. Methods: `save()`/`load()` (UserDefaults), `update(from:)`, `setIntroTime(index:time:)`, `setElementTime(index:time:)`, `makeSlides(size:)`, `makeSlide(size:mode:startTime:)`, `renderingHash` (deterministic hash of all rendering-affecting fields). |
 | `IntroductionData` | One intro slide: `left`/`center`/`right` text strings + optional `displayTime`. `displayValue` joins non-empty texts with `" | "`. `makeMode(skaterName:)` → `VideoOverlay.Mode.lowerThirdPane`. |
 | `ElementData` | One scoring element: `name`, `baseValue`, `goeValue`, `bonusValue` (all stored as `Int` in hundredths), optional `displayTime`. Computed properties `baseValueString`, `goeValueString`, `bonusValueString` handle string↔hundredths conversion for UI text fields. `formatValue(_:)` converts hundredths to "X.XX" string. `makeMode(skaterName:runningTotal:boxModes:)` → `VideoOverlay.Mode.technicalPane`. |
 
@@ -47,9 +48,10 @@ All display times are `TimeInterval` (seconds as `Double`). When a user timestam
 
 ```
 MainView (root)
-├── VideoPlayer (if video loaded)
+├── VideoPlayer (if video loaded)   (+ render status dot, bottom-right, 72pt above the bottom edge)
 ├── TimeSettingsView (if scoring data + video loaded)
-└── Button row: Load Video | Save Video | Load Slides | Save Slides | Edit Slides   (+ render status dot)
+├── Config row: Element boxes toggle
+└── Button row: Load Video | Save Video | Load Slides | Save Slides | Edit Slides
        │              │              │             │            └── ScoringListView (NavigationStack destination)
        │              │              │             └── OverlayDataDocument export (.tojson)
        │              │              └── OverlayDataDocument import (.tojson) → update + save
@@ -67,6 +69,7 @@ mid-drag. **Do not re-merge them** — `docs/HISTORY.md` → *Playhead freeze*.
 | Format | Mechanism | Details |
 |--------|-----------|---------|
 | UserDefaults (JSON) | `OverlayData.save()` / `load()` | Auto-save under key `"state"`. |
+| UserDefaults (Bool) | `OverlayPreferences.showsElementBox` | Key `"showsElementBox"`; absent means boxes shown. Read once at launch, written on every toggle. |
 | `.tojson` files | `OverlayDataDocument` (SwiftUI `FileDocument`) | Versioned JSON (`VersionedOverlayData.version == 1`). Import via `fileImporter`, export via `fileExporter`. |
 | Video files | `MainView` | `.movie` import via `fileImporter`. Export: `fileExporter` with a zero-byte `SaveDestinationPlaceholder` picks the destination first, then the passthrough export writes `.mp4` straight to it (the placeholder file is deleted first — `AVAssetExportSession` won't overwrite). |
 
