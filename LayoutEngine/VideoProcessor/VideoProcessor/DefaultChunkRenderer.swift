@@ -115,20 +115,19 @@ public final class DefaultChunkRenderer: ChunkRendererProtocol {
         }
 
         // 3. Apply composition based on chunk type (direct CIImage, no slide conversion)
+        let composition = ChunkComposition(asset: sourceAsset)
         do {
             switch chunk.type {
             case .constant(let ciImage):
-                exportSession.videoComposition = try await VideoComposer(
-                    asset: sourceAsset,
-                    slides: []
-                ).setupComposition(overlay: ciImage)
+                exportSession.videoComposition = try await composition.overlay(ciImage)
                 Trace.log(.renderer, "\(chunk.traceID) composition: constant overlay \(Optional(ciImage).traceName)")
 
             case .transition(let from, let to):
-                exportSession.videoComposition = try await VideoComposer(
-                    asset: sourceAsset,
-                    slides: []
-                ).setupComposition(from: from, to: to, transitionStart: stitchingRange.start)
+                exportSession.videoComposition = try await composition.transition(
+                    from: from,
+                    to: to,
+                    startingAt: stitchingRange.start
+                )
                 Trace.log(.renderer, "\(chunk.traceID) composition: transition \(from.traceName) → \(to.traceName) starting \(stitchingRange.start.traceDescription)")
 
             case .noOverlay:

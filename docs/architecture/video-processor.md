@@ -8,8 +8,9 @@ Handles video composition with overlay slides and chunk-based rendering. Uses `A
 
 | File | Role |
 |------|------|
-| `VideoProcessor.swift` | Everything: `Slide`, `VideoComposer` (including CIImage-based composition/export methods), `ExportSession`, `ContentIdentity`, `ChunkType`, `ChunkState`, `Chunk`, protocols (`ChunkRendererProtocol`, `StitcherProtocol`), `ChunkRegion`, `generateRegions()`, `diffRegionsIntoChunks()`, `ChunkQueue` actor. |
-| `DefaultChunkRenderer.swift` | Concrete `ChunkRendererProtocol` implementation. `VideoSettings` config, `ChunkRendererError` enum. Renders chunks via `VideoComposer` CIImage-based composition + `AVAssetExportSession`. |
+| `OverlayCompositing.swift` | The overlay program and the chunk composition builder. `OverlayComposite` — `hold(_:over:)` and `dissolve(from:to:progress:over:)` — is how an image lands on a source frame, shared by the preview compositor and the chunk renderer. `ChunkComposition` turns a chunk's overlay(s) into an `AVVideoComposition` for `DefaultChunkRenderer`. |
+| `VideoProcessor.swift` | `Slide`, `Metrics`, the preview (`PreviewRecipe`, `PreviewVideoCompositor`), `VideoComposer` (preview composition + the slide-based export), `ExportSession`, `ContentIdentity`, `ChunkType`, `ChunkState`, `Chunk`, protocols (`ChunkRendererProtocol`, `StitcherProtocol`), `ChunkRegion`, `generateRegions()`, `diffRegionsIntoChunks()`, `ChunkQueue` actor. |
+| `DefaultChunkRenderer.swift` | Concrete `ChunkRendererProtocol` implementation. `VideoSettings` config, `ChunkRendererError` enum. Renders chunks via `ChunkComposition` + `AVAssetExportSession`. |
 | `DefaultStitcher.swift` | Concrete `StitcherProtocol` implementation. Assembles rendered chunks plus source-video ranges into one `AVMutableComposition` and hands back an `ExportSession` for the caller to perform. |
 
 ## Core Types
@@ -35,24 +36,25 @@ public class VideoComposer {
     // Slide-based composition (preview + full-video export)
     func setupComposition() async throws -> AVVideoComposition?
     func setupExport(...) async -> ExportSession?
-
-    // CIImage-based composition (chunk rendering)
-    func setupComposition(overlay: CIImage?) async throws -> AVVideoComposition
-    func setupComposition(from: CIImage?, to: CIImage?, transitionStart: CMTime) async throws -> AVVideoComposition
-
-    // CIImage-based export helpers
-    func setupExport(overlay: CIImage?, withPreset: String, toFileType: AVFileType, atURL: URL) async -> ExportSession?
-    func setupExport(from: CIImage?, to: CIImage?, transitionStart: CMTime, withPreset: String, toFileType: AVFileType, atURL: URL) async -> ExportSession?
 }
 ```
 
 **Slide-based path:** Creates `AVVideoComposition` with dissolve transitions between slides composited over source video. Used for both real-time preview and full-video export.
 
-**Composition API:** the three chunk-renderer builders use `AVVideoComposition(applyingFiltersTo:applier:)`; the frame handler returns an `AVCIImageFilteringResult(resultImage:ciContext: nil)`. (`setupComposition()` — the preview — is the exception; see below.) It replaces `videoComposition(with:applyingCIFiltersWithHandler:)`, deprecated in iOS/macOS 27.0, and the replacement is not a rename — the handler's return is the `AVCIImageFilteringResult` (`docs/HISTORY.md` → *Core Image filter API migration*).
+**Composition API:** `ChunkComposition` (in `OverlayCompositing.swift`) is the only builder that uses `AVVideoComposition(applyingFiltersTo:applier:)`; its frame handler returns `AVCIImageFilteringResult(resultImage:ciContext: nil)`. (`setupComposition()` — the preview — is the exception; see below.) It replaces `videoComposition(with:applyingCIFiltersWithHandler:)`, deprecated in iOS/macOS 27.0, and the replacement is not a rename — the handler's return is the `AVCIImageFilteringResult` (`docs/HISTORY.md` → *Core Image filter API migration*).
 
-**The preview has its own compositor.** `setupComposition()` — the only builder attached to an `AVPlayerItem` — is the one builder that does **not** use `AVVideoComposition(applyingFiltersTo:applier:)`. It builds a `Configuration` with `customVideoCompositorClass = PreviewVideoCompositor.self`: a Core Image `AVVideoCompositing` whose `cancelAllPendingVideoCompositionRequests()` deliberately waits for nothing, so a cancelled frame is simply never finished and a seek's cancel path can never block on it. AVFoundation's own Core Image compositor *does* block there, while AVKit polls `AVPlayerItem.currentTime` on the main thread on every scrub tick — that combination freezes the app mid-drag, which is the entire reason this compositor exists. It bakes in the track's `preferredTransform` (custom compositors receive raw frames) and runs the same slide/dissolve program as the chunk renderer, so preview and export stay in step. **Do not simplify it back** to the filter API, and do not share an `AVURLAsset` between the player item and the chunk exporter. Mechanism, repro harness and measurements: `docs/HISTORY.md` → *Playhead freeze*.
+**The preview has its own compositor.** `setupComposition()` — the only builder attached to an `AVPlayerItem` — is the one builder that does **not** use `AVVideoComposition(applyingFiltersTo:applier:)`. It builds a `Configuration` with `customVideoCompositorClass = PreviewVideoCompositor.self`: a Core Image `AVVideoCompositing` whose `cancelAllPendingVideoCompositionRequests()` deliberately waits for nothing, so a cancelled frame is simply never finished and a seek's cancel path can never block on it. AVFoundation's own Core Image compositor *does* block there, while AVKit polls `AVPlayerItem.currentTime` on the main thread on every scrub tick — that combination freezes the app mid-drag, which is the entire reason this compositor exists. It bakes in the track's `preferredTransform` (custom compositors receive raw frames). **Do not simplify it back** to the filter API, and do not share an `AVURLAsset` between the player item and the chunk exporter. Mechanism, repro harness and measurements: `docs/HISTORY.md` → *Playhead freeze*.
 
-**CIImage-based path (chunk rendering):** Direct `CIImage` → `AVVideoComposition` methods that bypass the `Slide[]` abstraction. Used by `DefaultChunkRenderer` to render individual time-limited chunks. Each frame handler composites the overlay image(s) over the source using `CIImage.composited(over:)`.
+**One overlay program.** The preview and the chunk renderer draw a frame through `OverlayComposite`
+(`OverlayCompositing.swift`): `hold(_:over:)` and `dissolve(from:to:progress:over:)`. The preview picks
+the slide by time; `ChunkComposition` is handed the endpoints. A nil image means **no overlay on that
+side** — a nil side of a dissolve is a fully transparent image, so a slide fades in from (and out to)
+the plain source frame — and `progress` is clamped to 0…1 there, once.
+
+**Chunk composition:** `ChunkComposition(asset:)` builds the export composition for one chunk —
+`overlay(_:)` for a held overlay, `transition(from:to:startingAt:)` for a dissolve. It covers the whole
+asset; the export session's `timeRange` selects the chunk, so the applier's `compositionTime` is on the
+asset's timeline and `transitionStart` is absolute.
 
 ### VideoComposer.ExportSession
 
@@ -119,7 +121,7 @@ Renders individual chunks by exporting time-limited segments of the source video
 3. Build output URL (`chunk_<uuid>.mov`).
 4. Check export compatibility (`AVAssetExportSession.compatibility(ofExportPreset:with:outputFileType:)`).
 5. Create `AVAssetExportSession` with the configured preset.
-6. Apply composition via `VideoComposer.setupComposition(overlay:)` or `setupComposition(from:to:transitionStart:)` depending on chunk type.
+6. Apply composition via `ChunkComposition.overlay(_:)` or `.transition(from:to:startingAt:)` depending on chunk type.
 7. Limit export to `chunk.stitchingTimeRange`.
 8. Export to file via `exportSession.export(to:as:)`.
 
@@ -151,7 +153,7 @@ chunks through `DefaultChunkRenderer`, and `DefaultStitcher` assembles them into
 [Chunk[]] ──ChunkQueue.drain()──→ [Chunk[] with URLs] ──StitcherProtocol.stitch()──→ Output video
 
                      ↓ DefaultChunkRenderer.render(chunk)
-              AVAssetExportSession + VideoComposer CIImage composition
+              AVAssetExportSession + ChunkComposition
               (time-limited segment export)
 ```
 
@@ -161,8 +163,8 @@ Each chunk is rendered as a time-limited `AVAssetExportSession` export with `AVV
 
 | Chunk Type | Composition Method | Behavior |
 |------------|-------------------|----------|
-| `.constant(CIImage)` | `setupComposition(overlay:)` | Single overlay image composited over source for every frame in the chunk's time range |
-| `.transition(from, to)` | `setupComposition(from:to:transitionStart:)` | `CIFilter.dissolveTransition` interpolating from `from` to `to`, then `to` composited over source for remaining frames. A **nil side means "no overlay"** and dissolves as a clear image — that's the noOverlay ↔ slide fade (rendering the bare source frame instead made slides pop in). Both sides nil → source frame only. |
+| `.constant(CIImage)` | `ChunkComposition.overlay(_:)` | Single overlay image composited over source for every frame in the chunk's time range |
+| `.transition(from, to)` | `ChunkComposition.transition(from:to:startingAt:)` | `CIFilter.dissolveTransition` interpolating from `from` to `to`, then `to` composited over source for remaining frames. A **nil side means "no overlay"** and dissolves as a clear image — that's the noOverlay ↔ slide fade (rendering the bare source frame instead made slides pop in). Both sides nil → source frame only. |
 | `.noOverlay` | — | Returns `nil` immediately (filtered by `ChunkQueue` before reaching renderer) |
 
 The CIImage-based composition methods operate directly on `CIImage` objects (unlike the slide-based path which works with `Slide[]` and finds slides by time lookup per frame). This is simpler and more direct for the chunk rendering use case where each chunk has a known, fixed overlay set.

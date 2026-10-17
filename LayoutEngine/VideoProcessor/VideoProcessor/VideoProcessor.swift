@@ -7,7 +7,6 @@
 
 import AVFoundation
 import CoreImage
-import CoreImage.CIFilterBuiltins
 
 public struct Slide: Sendable, Equatable {
     let image: CIImage?
@@ -21,13 +20,6 @@ public struct Slide: Sendable, Equatable {
 
 public enum Metrics {
     public static let transitionTime = 0.75
-}
-
-/// Wraps a composited frame for `AVVideoComposition(applyingFiltersTo:applier:)`, which replaces the
-/// deprecated `videoComposition(with:applyingCIFiltersWithHandler:)`. A nil `ciContext` asks the
-/// compositor to use its own context.
-nonisolated private func filteringResult(_ image: CIImage) -> AVCIImageFilteringResult {
-    AVCIImageFilteringResult(resultImage: image, ciContext: nil)
 }
 
 // MARK: - Preview compositor
@@ -120,8 +112,7 @@ public final class PreviewVideoCompositor: NSObject, AVVideoCompositing, @unchec
     }
 
     /// The slide that owns `time`, faded in from (or out to) the one before it while a transition
-    /// is in progress — the same program the chunk renderer runs, where a nil image means "no
-    /// overlay on that side", not "nothing to render".
+    /// is in progress — the same `OverlayComposite` program the chunk renderer runs.
     private nonisolated func composited(_ source: CIImage, at time: CMTime, recipe: PreviewRecipe) -> CIImage {
         let slides = recipe.slides
         let indexed = slides.enumerated().last { (_, slide) in time >= slide.startTime }
@@ -129,16 +120,16 @@ public final class PreviewVideoCompositor: NSObject, AVVideoCompositing, @unchec
 
         let index = indexed.offset
         let slide = indexed.element
-        let diff = time - slide.startTime
-        if diff <= recipe.transitionTime {
-            let dissolve = CIFilter.dissolveTransition()
-            dissolve.inputImage = (index > 0 ? slides[index - 1].image : nil) ?? CIImage.clear
-            dissolve.targetImage = slide.image ?? CIImage.clear
-            dissolve.time = Float(diff.seconds / recipe.transitionTime.seconds)
-            return dissolve.outputImage?.composited(over: source) ?? source
+        let elapsed = time - slide.startTime
+        if elapsed <= recipe.transitionTime {
+            return OverlayComposite.dissolve(
+                from: index > 0 ? slides[index - 1].image : nil,
+                to: slide.image,
+                progress: elapsed.seconds / recipe.transitionTime.seconds,
+                over: source
+            )
         }
-        guard let image = slide.image else { return source }
-        return image.composited(over: source)
+        return OverlayComposite.hold(slide.image, over: source)
     }
 }
 
@@ -245,145 +236,6 @@ public class VideoComposer {
         /// Writes the composition to `outputUrl`, throwing on failure so the caller can surface it.
         public func performExport() async throws {
             try await exportSession.export(to: outputUrl, as: outputFileType)
-        }
-    }
-
-    // MARK: - CIImage-based Composition (for chunk rendering)
-
-    /// Creates an `AVVideoComposition` that composites a single overlay image
-    /// over the source video for every frame. Mirrors the constant-overlay
-    /// path of `setupComposition()` but operates directly on `CIImage`.
-    public func setupComposition(overlay image: CIImage?) async throws -> AVVideoComposition {
-        return try await AVVideoComposition(applyingFiltersTo: asset) { request in
-            guard let image else {
-                return filteringResult(request.sourceImage)
-            }
-            return filteringResult(image.composited(over: request.sourceImage))
-        }
-    }
-
-    /// Creates an `AVVideoComposition` that applies a cross-dissolve transition
-    /// between `from` and `to` images, composited over the source video.
-    /// The transition begins at `transitionStart` and lasts `Metrics.transitionTime`.
-    /// After the transition, the `to` image is held for remaining frames.
-    ///
-    /// A `nil` side means "no overlay for this side", not "give up": the dissolve then runs into or
-    /// out of the plain source frame, which is what makes a slide fade in from (or out to) noOverlay —
-    /// the same way the slide-based preview treats a missing image.
-    public func setupComposition(
-        from: CIImage?,
-        to: CIImage?,
-        transitionStart: CMTime
-    ) async throws -> AVVideoComposition {
-        let transitionTime = CMTime(seconds: Metrics.transitionTime, preferredTimescale: 1000)
-        return try await AVVideoComposition(applyingFiltersTo: asset) { request in
-            guard from != nil || to != nil else {
-                // Neither side carries an overlay — nothing to dissolve.
-                return filteringResult(request.sourceImage)
-            }
-
-            let diff = request.compositionTime - transitionStart
-            if diff <= transitionTime {
-                let dissolve = CIFilter.dissolveTransition()
-                // A missing side dissolves as a fully transparent image, so the source frame shows
-                // through at progress 0 (and at 1 when fading out).
-                dissolve.inputImage = from ?? CIImage.clear
-                dissolve.targetImage = to ?? CIImage.clear
-                let progress = max(0.0, min(diff.seconds, transitionTime.seconds)) / transitionTime.seconds
-                dissolve.time = Float(progress)
-                return filteringResult(
-                    dissolve.outputImage?.composited(over: request.sourceImage)
-                        ?? request.sourceImage
-                )
-            } else if let to {
-                return filteringResult(to.composited(over: request.sourceImage))
-            } else {
-                return filteringResult(request.sourceImage)
-            }
-        }
-    }
-
-    // MARK: - CIImage-based Export
-
-    /// Creates an `ExportSession` for exporting the asset with a constant overlay.
-    /// Mirrors `setupExport()` but uses `setupComposition(overlay:)`.
-    public func setupExport(
-        overlay image: CIImage?,
-        withPreset preset: String = AVAssetExportPresetHighestQuality,
-        toFileType outputFileType: AVFileType = .mov,
-        atURL outputURL: URL
-    ) async -> ExportSession? {
-        guard await AVAssetExportSession.compatibility(
-            ofExportPreset: preset,
-            with: asset,
-            outputFileType: outputFileType
-        ) else {
-            print("The preset can't export the video to the output file type.")
-            return nil
-        }
-
-        guard let exportSession = AVAssetExportSession(
-            asset: asset,
-            presetName: preset
-        ) else {
-            print("Failed to create export session.")
-            return nil
-        }
-
-        do {
-            exportSession.videoComposition = try await setupComposition(overlay: image)
-            return ExportSession(
-                exportSession: exportSession,
-                outputUrl: outputURL,
-                outputFileType: outputFileType
-            )
-        } catch {
-            print("export failed \(error)")
-            return nil
-        }
-    }
-
-    /// Creates an `ExportSession` for exporting the asset with a transition overlay.
-    /// Mirrors `setupExport()` but uses `setupComposition(from:to:transitionStart:)`.
-    public func setupExport(
-        from: CIImage?,
-        to: CIImage?,
-        transitionStart: CMTime,
-        withPreset preset: String = AVAssetExportPresetHighestQuality,
-        toFileType outputFileType: AVFileType = .mov,
-        atURL outputURL: URL
-    ) async -> ExportSession? {
-        guard await AVAssetExportSession.compatibility(
-            ofExportPreset: preset,
-            with: asset,
-            outputFileType: outputFileType
-        ) else {
-            print("The preset can't export the video to the output file type.")
-            return nil
-        }
-
-        guard let exportSession = AVAssetExportSession(
-            asset: asset,
-            presetName: preset
-        ) else {
-            print("Failed to create export session.")
-            return nil
-        }
-
-        do {
-            exportSession.videoComposition = try await setupComposition(
-                from: from,
-                to: to,
-                transitionStart: transitionStart
-            )
-            return ExportSession(
-                exportSession: exportSession,
-                outputUrl: outputURL,
-                outputFileType: outputFileType
-            )
-        } catch {
-            print("export failed \(error)")
-            return nil
         }
     }
 }

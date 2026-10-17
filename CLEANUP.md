@@ -5,9 +5,9 @@ repetition and readability**. Every item names the file and line it lives at and
 move or delete — no "consider refactoring".
 
 **How to use this file:** delete an item when it lands; this list should shrink, never accumulate.
-IDs are never reused, so a gap in the numbering is finished work (B1, R3 and Y4 are done). It is a
-backlog, not a design doc: rationale for anything that ships goes in `docs/HISTORY.md` per
-`AGENTS.md` → Documentation, and `docs/ARCHITECTURE.md` stays current-state only.
+IDs are never reused, so a gap in the numbering is finished work (B1, M2, R1, R2, R3 and Y4 are
+done). It is a backlog, not a design doc: rationale for anything that ships goes in `docs/HISTORY.md`
+per `AGENTS.md` → Documentation, and `docs/ARCHITECTURE.md` stays current-state only.
 
 **Tags**
 
@@ -60,26 +60,16 @@ give the renderer a `chunks/<uuid>/` subdirectory so cleanup is one `removeItem`
 
 ## Modularity / isolation
 
-### M1. `VideoProcessor.swift` is one 908-line file holding ten public types [generate]
+### M1. `VideoProcessor.swift` is still one 760-line file holding nine public types [generate]
 
 `Slide`, `Metrics`, `PreviewRecipe`, `PreviewVideoCompositor`, `VideoComposer`, `ExportSession`,
 `ContentIdentity`, `ChunkType`, `ChunkState`, `Chunk`, both protocols, `ChunkRegion`,
-`generateRegions`, `diffRegionsIntoChunks`, `ChunkQueueProgress`, `ChunkQueue` — the module doc's
-own file map calls it "Everything" (`docs/architecture/video-processor.md:11`).
+`generateRegions`, `diffRegionsIntoChunks`, `ChunkQueueProgress`, `ChunkQueue`.
 
 **Fix:** split along the seams that already exist: `Slide`+`Metrics`, `VideoComposer` (preview),
 `Chunk`/`ChunkType`/`ChunkState`/`ContentIdentity`/`ChunkRegion`, `RegionPlan`
-(`generateRegions`, `diffRegionsIntoChunks`), `ChunkQueue`, `ExportSession`. Pure moves.
-
-### M2. `VideoComposer` is a preview-state holder *and* a stateless composition factory [generate]
-
-`DefaultChunkRenderer` builds `VideoComposer(asset:slides: [])` twice (`DefaultChunkRenderer.swift:121-131`)
-purely to reach `setupComposition(overlay:)` / `setupComposition(from:to:transitionStart:)`. The
-chunk path never uses `slides` — the export pipeline depends on the preview object for a static
-function.
-
-**Fix:** a `ChunkComposition` struct (asset in, `AVVideoComposition` out) owning the two CIImage
-builders; `DefaultChunkRenderer` depends on it, and `VideoComposer` keeps only the preview recipe.
+(`generateRegions`, `diffRegionsIntoChunks`), `ChunkQueue`, `ExportSession`. Pure moves. The
+composition half is already out (`OverlayCompositing.swift`), so this is smaller than it was.
 
 ### M3. `MainView.ViewModel` carries five responsibilities in a 649-line view file [generate]
 
@@ -111,21 +101,6 @@ also nils `player` and `chunkQueue` mid-teardown.
 ---
 
 ## Repetition
-
-### R1. Three near-identical `setupExport` overloads
-
-`VideoProcessor.swift:194`, `310`, `348` — ~90 lines of the same compatibility check → session
-creation → `try/catch { print("export failed") }`.
-
-**Fix:** one private `exportSession(composition:)` plus three-line wrappers.
-
-### R2. The dissolve program exists twice
-
-`PreviewVideoCompositor.composited` (`VideoProcessor.swift:125-142`) and
-`setupComposition(from:to:transitionStart:)` (`273-304`). The docs assert they match
-(`video-processor.md:53`); nothing enforces it, so they can drift silently.
-
-**Fix:** one `nonisolated func overlay(from:to:at:transitionTime:over:)`, used by both.
 
 ### R4. The timing cascade is written twice
 
@@ -197,11 +172,12 @@ tracked. Either add it or retarget those lines at this file.
 
 ## If you only do three things
 
-1. **M2 + R2** — pull the CIImage composition builders and the dissolve function out of
-   `VideoComposer`. One extraction removes the preview↔export coupling, the triple `setupExport`
-   and the drift risk together.
-2. **M3** — extract `MainViewModel`. It is the file that makes every other item here hard to test.
-3. **B2** — one slide-walk shared by the preview and the plan, which is the natural follow-on to M2.
+1. **M3** — extract `MainViewModel`. It is the file that makes every other item here hard to test.
+2. **B2** — one slide-walk shared by the preview and the plan. `OverlayComposite` unified how a frame
+   is *drawn*; this unifies *which* slide owns it, which is the remaining way the preview and the
+   export can disagree.
+3. **M4** — split `OverlayData`. The model carries persistence, caching and rendering for the app's
+   only document type.
 
 Everything left is a refactor with no user-visible behaviour; B2 is the only remaining one that can
 produce a wrong export.
