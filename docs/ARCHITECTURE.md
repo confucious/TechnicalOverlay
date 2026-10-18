@@ -234,8 +234,9 @@ enqueue(slides:, videoDuration:)
   export is **`.mp4`** via `AVAssetExportPresetPassthrough`.
 
 `MainViewModel.generateSlides()` pre-enqueues slides into the queue (`RenderPipeline.enqueue`) so it
-is ready when the user taps "Save Video"; `ExportCoordinator` sets `phase` (idle → rendering →
-stitching → done, or `failed(message)`) and drives a progress sheet.
+is ready when the user taps "Save Video"; each call supersedes the pass before it, so a stale pass
+cannot install its preview or its plan over a newer one. `ExportCoordinator` sets `phase` (idle →
+rendering → stitching → done, or `failed(message)`) and drives a progress sheet.
 
 The main screen is one observable view model with three collaborators:
 `AssetSession` (the security-scoped file and its size), `RenderPipeline` (the preview composition and

@@ -5,8 +5,8 @@ repetition and readability**. Every item names the file and line it lives at and
 move or delete — no "consider refactoring".
 
 **How to use this file:** delete an item when it lands; this list should shrink, never accumulate.
-IDs are never reused, so a gap in the numbering is finished work (B1, M1, M2, M3, M4, M5, R1, R2, R3,
-R4, R5, R6, Y2, Y3, Y4 and Y5 are done). It is a backlog, not a design doc: rationale for anything that ships goes in `docs/HISTORY.md`
+IDs are never reused, so a gap in the numbering is finished work (B1, B3, M1, M2, M3, M4, M5, R1, R2,
+R3, R4, R5, R6, Y2, Y3, Y4 and Y5 are done). It is a backlog, not a design doc: rationale for anything that ships goes in `docs/HISTORY.md`
 per `AGENTS.md` → Documentation, and `docs/ARCHITECTURE.md` stays current-state only.
 
 **Tags**
@@ -34,17 +34,6 @@ at 10.0 and 10.3 the preview dissolves at 10.3 while the export is still holding
 
 **Fix:** derive the region plan from the same slide-walk the compositor uses, so "which slide owns
 this frame" has one definition. At minimum, assert the invariant in a test both paths share.
-
-### B3. `generateSlides()` is an unguarded unstructured `Task` per call (read)
-
-`MainViewModel.swift:82-106`, called from `MainView.onAppear` (`MainView.swift:300-301`),
-`MainViewModel.load()` (`70`), the timeline's `timeUpdated` closure (`MainView.swift:266`),
-`clearSlides()` (`123`) and `setShowsElementBox` (`110`). Each call spawns a task that interleaves at
-every `await`; the last writer of the pipeline's preview and queue is whichever finishes last, not
-whichever was called last, and a superseded run can still `enqueue(slides:)` after a newer one.
-
-**Fix:** keep the handle (`renderTask?.cancel()`) or a generation counter checked after each
-`await`, keyed by `assetUrl`.
 
 ### B4. Swapping videos leaks the old pipeline and its chunk files (read)
 
@@ -98,8 +87,8 @@ give the renderer a `chunks/<uuid>/` subdirectory so cleanup is one `removeItem`
    export can disagree.
 2. **B4** — give the queue a `shutdown()` and its chunks a directory of their own. `RenderPipeline`
    is now the one place that owns the queue, so it is a small change.
-3. **B3** — cancel or supersede the `Task` in `generateSlides()`. The seams exist now: one owner for
-   the pipeline, one for the file.
+3. **Y1** — the one naming item left (`RenderPipeline.Status.idle` for "everything rendered"). Y6 is
+   the doc drift, which only you can fix in `AGENTS.md`.
 
-B2 is the only remaining item that can produce a wrong export; B3 and B4 are lifecycle leaks, and Y1
-and Y6 are naming and doc clean-up.
+B2 is the only remaining item that can produce a wrong export; B4 is a lifecycle leak; Y1 and Y6 are
+naming and doc clean-up.

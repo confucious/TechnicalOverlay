@@ -38,6 +38,9 @@ final class MainViewModel {
     /// Renders the overlay images a plan needs, keeping them for reuse.
     let slideFactory = SlideFactory()
 
+    /// Counts `generateSlides()` passes; see the method for what it guards.
+    private var generation = 0
+
     init(player: AVPlayer? = nil, assetUrl: URL? = nil, scoring: OverlayData = OverlayData()) {
         let pipeline = RenderPipeline()
         self.player = player
@@ -78,7 +81,15 @@ final class MainViewModel {
     }
 
     /// Rebuilds the preview and re-plans the export for the current document.
+    ///
+    /// Every call takes a new pass number, and each await is followed by a check that the pass is
+    /// still the latest: `assetUrl`, a timestamp edit and the overlay-look toggle can all start one
+    /// while an earlier pass is suspended, and a superseded pass must not install its preview or
+    /// enqueue its plan over the newer one's.
     func generateSlides() {
+        generation += 1
+        let pass = generation
+
         Task {
             guard let assetUrl else {
                 return
@@ -88,13 +99,17 @@ final class MainViewModel {
                 Log.media.error("Couldn't determine video size")
                 return
             }
+            guard pass == generation else { return }
 
             let slides = slideFactory.slides(from: scoring.slidePlan(), size: size)
             let playerItem = await pipeline.makePreviewItem(asset: asset, slides: slides)
+            guard pass == generation else { return }
+
             if let player {
                 let currentTime = player.currentTime()
                 player.replaceCurrentItem(with: playerItem)
                 await player.seek(to: currentTime)
+                guard pass == generation else { return }
             } else {
                 player = AVPlayer(playerItem: playerItem)
             }
