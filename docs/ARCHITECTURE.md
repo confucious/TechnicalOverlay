@@ -307,7 +307,10 @@ drag. Do not re-merge them — `docs/HISTORY.md` → *Playhead freeze*.
 
 ## 7. Future Development (Backlog)
 
-- **Data Entry Aid** (`TODO.md`): reduce manual element entry via the `ProtocolParser` module,
+Nothing here is tracked in a separate backlog file: this section is the list, and unfinished
+*structural* work (as opposed to features) is ranked in `CLEANUP.md` at the repo root.
+
+- **Data Entry Aid**: reduce manual element entry via the `ProtocolParser` module,
   which imports a skater's executed elements from a published ijsLive protocol page into
   `OverlayData.elementScores`. **Implemented** — spec:
   [`docs/architecture/protocol-parser.md`](docs/architecture/protocol-parser.md), including the
@@ -316,7 +319,7 @@ drag. Do not re-merge them — `docs/HISTORY.md` → *Playhead freeze*.
   [`docs/architecture/abbreviation-expansion.md`](docs/architecture/abbreviation-expansion.md)).
   Remaining work: the **pairs and ice-dance** element vocabulary, and wiring the import into the
   edit flow beyond `ScoringListView`.
-- **Polish / "Make it look nicer"** (`TODO.md`): visual refinements to overlays + editing UI.
+- **Polish / "Make it look nicer"**: visual refinements to overlays + editing UI.
 - **Incremental-export gains** are already designed into the chunk pipeline (reuse unchanged
   chunks when only one timestamp shifts) — the pieces exist; tuning/finishing is the work.
 
