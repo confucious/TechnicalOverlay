@@ -24,33 +24,92 @@ public struct ChunkRegion: Sendable {
     }
 }
 
-// MARK: - generateRegions
+// MARK: - Span
 
-public func generateRegions(
+/// One stretch of the video and what is drawn over it.
+///
+/// This is the plan before it is keyed for the diff: `generateRegions` turns each span into a
+/// `ChunkRegion` by adding the content identity the chunk diff compares, and the preview compositor
+/// reads the spans directly. **Which slide owns a frame therefore has one definition**, shared by the
+/// preview and the export.
+public struct OverlaySpan: Sendable {
+    public let type: ChunkType
+    public let timeRange: CMTimeRange
+
+    public init(type: ChunkType, timeRange: CMTimeRange) {
+        self.type = type
+        self.timeRange = timeRange
+    }
+}
+
+/// What is drawn over a source frame at one moment.
+public enum OverlayContent {
+    /// The source frame passes through.
+    case none
+    /// `image` held (nil also passes the source through).
+    case hold(CIImage?)
+    /// Mid-dissolve, `progress` in 0…1.
+    case dissolve(from: CIImage?, to: CIImage?, progress: Double)
+}
+
+extension Array where Element == OverlaySpan {
+
+    /// What is drawn at `time`.
+    ///
+    /// The spans are contiguous and sorted, so the one containing `time` is the answer: a
+    /// `.transition` span resolves to a dissolve whose progress is how far into the span `time` is.
+    public func content(at time: CMTime, transitionTime: CMTime) -> OverlayContent {
+        guard let span = first(where: { time >= $0.timeRange.start && time < $0.timeRange.end }) else {
+            return .none
+        }
+        switch span.type {
+        case .noOverlay:
+            return .none
+        case .constant(let image):
+            return .hold(image)
+        case .transition(let from, let to):
+            let elapsed = time - span.timeRange.start
+            return .dissolve(
+                from: from,
+                to: to,
+                progress: elapsed.seconds / transitionTime.seconds
+            )
+        }
+    }
+}
+
+// MARK: - overlaySpans
+
+/// The video's timeline swept into the stretches that carry an overlay, and the stretches that do not.
+///
+/// The spans are sorted, contiguous, and cover the whole video. **A transition always runs its full
+/// `transitionTime`.** When slides are closer together than that, the next dissolve starts where the
+/// previous one ended rather than being shortened or overlapped, so every slide is faded in over the
+/// full length — the later slide's dissolve simply begins after its own start time.
+public func overlaySpans(
     slides: [Slide],
     videoDuration: CMTime,
     transitionTime: CMTime
-) -> [ChunkRegion] {
+) -> [OverlaySpan] {
     let wholeVideo = CMTimeRange(start: .zero, duration: videoDuration)
     guard !slides.isEmpty else {
-        return [ChunkRegion(identity: .noOverlay(), timeRange: wholeVideo, type: .noOverlay)]
+        return [OverlaySpan(type: .noOverlay, timeRange: wholeVideo)]
     }
 
     let sorted = slides.sorted { $0.startTime < $1.startTime }
-    var regions: [ChunkRegion] = []
+    var spans: [OverlaySpan] = []
 
-    /// Appends the region covering `start..<end`, clipped to the video. A transition that begins
+    /// Appends the span covering `start..<end`, clipped to the video. A transition that begins
     /// within `transitionTime` of the end would otherwise run past `videoDuration`, and the plan is
     /// what the stitcher checks against the video's exact length (`DefaultStitcher.stitch`), so an
-    /// overrun aborts the export. An entirely empty region adds nothing.
+    /// overrun aborts the export. An entirely empty span adds nothing.
     func append(_ type: ChunkType, from start: CMTime, to end: CMTime) {
         let clippedStart = max(start, .zero)
         let clippedEnd = min(end, videoDuration)
         guard clippedEnd > clippedStart else { return }
-        regions.append(ChunkRegion(
-            identity: type.contentIdentity,
-            timeRange: CMTimeRange(start: clippedStart, end: clippedEnd),
-            type: type
+        spans.append(OverlaySpan(
+            type: type,
+            timeRange: CMTimeRange(start: clippedStart, end: clippedEnd)
         ))
     }
 
@@ -64,8 +123,8 @@ public func generateRegions(
             append(.noOverlay, from: cursor, to: slideStart)
         }
 
-        // Transition region, starting at the slide — or where the previous transition left off,
-        // when the slides are closer together than `transitionTime`.
+        // Transition span, starting at the slide — or where the previous transition left off, when
+        // the slides are closer together than `transitionTime`.
         let transitionStart = max(cursor, slideStart)
         let transitionEnd = transitionStart + transitionTime
         append(
@@ -75,7 +134,7 @@ public func generateRegions(
         )
         cursor = transitionEnd
 
-        // Constant region: from end of transition to next slide start (or video end)
+        // Constant span: from end of transition to next slide start (or video end)
         let nextSlideStart = (index + 1 < sorted.count) ? sorted[index + 1].startTime : videoDuration
         if cursor < nextSlideStart {
             append(slide.image.map { .constant($0) } ?? .noOverlay, from: cursor, to: nextSlideStart)
@@ -83,11 +142,31 @@ public func generateRegions(
         }
     }
 
-    if regions.isEmpty {
-        return [ChunkRegion(identity: .noOverlay(), timeRange: wholeVideo, type: .noOverlay)]
+    if spans.isEmpty {
+        return [OverlaySpan(type: .noOverlay, timeRange: wholeVideo)]
     }
 
-    return regions
+    return spans
+}
+
+// MARK: - generateRegions
+
+public func generateRegions(
+    slides: [Slide],
+    videoDuration: CMTime,
+    transitionTime: CMTime
+) -> [ChunkRegion] {
+    overlaySpans(
+        slides: slides,
+        videoDuration: videoDuration,
+        transitionTime: transitionTime
+    ).map { span in
+        ChunkRegion(
+            identity: span.type.contentIdentity,
+            timeRange: span.timeRange,
+            type: span.type
+        )
+    }
 }
 
 // MARK: - diffRegionsIntoChunks

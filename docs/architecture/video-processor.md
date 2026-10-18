@@ -46,15 +46,18 @@ public class VideoComposer {
 }
 ```
 
-**Slide-based path:** Creates `AVVideoComposition` with dissolve transitions between slides composited over source video. Used for both real-time preview and full-video export.
+**Slide-based path:** Creates `AVVideoComposition` whose compositor knows the slide plan (the spans
+`generateRegions` keys the export from); dissolves and holds are resolved per frame from it. Used for
+both real-time preview and full-video export.
 
 **Composition API:** `ChunkComposition` (in `OverlayCompositing.swift`) is the only builder that uses `AVVideoComposition(applyingFiltersTo:applier:)`; its frame handler returns `AVCIImageFilteringResult(resultImage:ciContext: nil)`. (`setupComposition()` — the preview — is the exception; see below.) It replaces `videoComposition(with:applyingCIFiltersWithHandler:)`, deprecated in iOS/macOS 27.0, and the replacement is not a rename — the handler's return is the `AVCIImageFilteringResult` (`docs/HISTORY.md` → *Core Image filter API migration*).
 
 **The preview has its own compositor.** `setupComposition()` — the only builder attached to an `AVPlayerItem` — is the one builder that does **not** use `AVVideoComposition(applyingFiltersTo:applier:)`. It builds a `Configuration` with `customVideoCompositorClass = PreviewVideoCompositor.self`: a Core Image `AVVideoCompositing` whose `cancelAllPendingVideoCompositionRequests()` deliberately waits for nothing, so a cancelled frame is simply never finished and a seek's cancel path can never block on it. AVFoundation's own Core Image compositor *does* block there, while AVKit polls `AVPlayerItem.currentTime` on the main thread on every scrub tick — that combination freezes the app mid-drag, which is the entire reason this compositor exists. It bakes in the track's `preferredTransform` (custom compositors receive raw frames). **Do not simplify it back** to the filter API, and do not share an `AVURLAsset` between the player item and the chunk exporter. Mechanism, repro harness and measurements: `docs/HISTORY.md` → *Playhead freeze*.
 
 **One overlay program.** The preview and the chunk renderer draw a frame through `OverlayComposite`
-(`OverlayCompositing.swift`): `hold(_:over:)` and `dissolve(from:to:progress:over:)`. The preview picks
-the slide by time; `ChunkComposition` is handed the endpoints. A nil image means **no overlay on that
+(`OverlayCompositing.swift`): `hold(_:over:)` and `dissolve(from:to:progress:over:)`. The preview
+resolves the frame against the plan's spans and hands the endpoints to `OverlayComposite`;
+`ChunkComposition` is handed the endpoints directly. A nil image means **no overlay on that
 side** — a nil side of a dissolve is a fully transparent image, so a slide fades in from (and out to)
 the plain source frame — and `progress` is clamped to 0…1 there, once.
 
@@ -126,16 +129,26 @@ directory so the whole set can be deleted in one go).
 `setupComposition()` → `AVVideoComposition?`:
 
 1. Sorts slides by `startTime`.
-2. For each pixel request, finds the **last** slide whose `startTime <= compositionTime`.
-3. If within `transitionTime` (0.75s) of the slide's start, performs a Core Image `CIFilter.dissolveTransition` from the previous slide to the current one, with `time` parameter interpolating from 0→1. A nil image on either side is treated as **no overlay** and dissolves as a clear image, so a slide fades in from (and out to) the plain source frame.
-4. Otherwise, composites the current slide's image over the source frame.
-5. If no slide matches (before first slide or all nil), passes through the source unchanged.
+2. Sweeps them into the plan: `overlaySpans(slides:videoDuration:transitionTime:)` — the same walk
+   `generateRegions` keys the export from, published in the preview recipe.
+3. For each pixel request, resolves `compositionTime` against those spans
+   (`[OverlaySpan].content(at:transitionTime:)`) — the span containing the time decides.
+4. A `.transition` span dissolves from its `from` to its `to` at `(time - span.start) / transitionTime`
+   with `CIFilter.dissolveTransition`; a `.constant` span holds its image; `.noOverlay` passes the
+   source through. A nil image on either side is **no overlay** and dissolves as a clear image, so a
+   slide fades in from (and out to) the plain source frame.
 
 ```
-compositionTime ──┬─ before first slide ──→ source unchanged
-                  ├─ between slides ────────→ dissolve or composite
-                  └─ past last slide ────────→ source unchanged (or nil slide)
+compositionTime ──┬─ inside a .noOverlay span ──→ source unchanged
+                  ├─ inside a .transition span ─→ dissolve, progress = elapsed / transitionTime
+                  └─ inside a .constant span ───→ image held over source
 ```
+
+**The preview is the export's plan, resolved per frame.** The compositor does not search the slides
+itself: a slide list walked from the playhead answers a different question than the export's forward
+sweep, and the two disagree as soon as two slides are closer than `transitionTime` (the preview
+dissolved into the second slide while the export was still fading the first one in).
+`docs/HISTORY.md` → *One walk for the preview and the plan*.
 
 ## Chunk-based Rendering Pipeline
 
@@ -168,13 +181,23 @@ The CIImage-based composition methods operate directly on `CIImage` objects (unl
 
 ### Region generation
 
-`generateRegions(slides:videoDuration:transitionTime:)` → `[ChunkRegion]`:
+`overlaySpans(slides:videoDuration:transitionTime:)` → `[OverlaySpan]`, and
+`generateRegions(slides:videoDuration:transitionTime:)` → `[ChunkRegion]`, which is the same spans
+with each one's `ContentIdentity` added (`generateRegions` is a map over `overlaySpans`, so the two
+cannot be walked differently).
 
-Sweeps the video timeline from start to end, producing contiguous regions:
+Sweeps the video timeline from start to end, producing contiguous spans:
 
-1. **Gap regions** (before each slide's transition): `.noOverlay` — the source video plays without overlays.
-2. **Transition regions** (0.75s starting at each slide time): `.transition(from, to)` — dissolve from previous slide to current.
-3. **Constant regions** (end of one transition to start of next): `.constant(CIImage)` or `.noOverlay` — the slide image is held static over the source.
+1. **Gap spans** (before each slide's transition): `.noOverlay` — the source video plays without overlays.
+2. **Transition spans** (`transitionTime` starting at each slide time, or where the previous transition
+   ended when the slides are closer than that): `.transition(from, to)` — dissolve from previous slide to current.
+3. **Constant spans** (end of one transition to start of next): `.constant(CIImage)` or `.noOverlay` — the slide image is held static over the source.
+
+**A transition always runs its full `transitionTime`.** Slides closer together than that do not
+shorten it and do not overlap: the sweep advances a cursor to the end of the transition it just
+emitted, and the next slide's dissolve starts there — later than that slide's own `startTime`, never
+truncated. The preview resolves frames against the same spans, so both paths show the same frame for
+the same time.
 
 Every region is **clipped to `[0, videoDuration]`**, and a region left empty by the clip is dropped.
 A transition that starts within `transitionTime` of the end (the last slide's, typically) would

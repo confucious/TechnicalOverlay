@@ -189,11 +189,12 @@ modes the current plan uses, so a timing edit re-renders nothing and an editing 
 the cache without bound.
 
 **Path 1 — `VideoComposer` (live preview + full-video export).**
-`AVVideoComposition` with a per-frame handler that finds the last `Slide` with
-`startTime <= compositionTime`, cross-dissolves (0.75s `CIFilter.dissolveTransition`) from the
-previous slide, and composites `slide.image.composited(over: request.sourceImage)`. Before the
-first slide / for nil slides it passes the source through unchanged. `setupExport` →
-`AVAssetExportSession` (highest-quality preset, `.mov`).
+`AVVideoComposition` whose compositor resolves each frame against **the same span walk the export
+plan is keyed from** (`overlaySpans` → `[OverlaySpan].content(at:transitionTime:)`), so the preview
+cannot disagree with the export about which overlay owns a frame — including when slides are closer
+together than `transitionTime` (docs/architecture/video-processor.md §Preview). Drawing is
+`OverlayComposite`; before the first slide / for nil slides the source passes through unchanged.
+`setupExport` → `AVAssetExportSession` (highest-quality preset, `.mov`).
 
 **Path 2 — Chunk pipeline (`ChunkQueue` → `DefaultChunkRenderer` → `DefaultStitcher`), wired
 into the main app's "Save Video".**
@@ -201,9 +202,11 @@ Designed for incremental/reusable rendering:
 
 ```
 enqueue(slides:, videoDuration:)
-  → generateRegions()        → [ChunkRegion]   (contiguous sweep, clipped to the video's
+  → overlaySpans()           → [OverlaySpan]    (contiguous sweep, clipped to the video's
                                                  duration: noOverlay gaps, transition
-                                                 windows, constant holds)
+                                                 windows of the full transitionTime,
+                                                 constant holds)
+  → generateRegions()        → [ChunkRegion]    (the same spans + content identity)
   → diffRegionsIntoChunks()  → [Chunk]          (reuse unchanged content, mark rest stale)
   → ChunkQueue.drain()       (actor; dequeue pending → renderer → rendered(URL)/stale)
   → waitForCompletion()      (waits for the drain enqueue() started too — a chunk in the
@@ -223,8 +226,10 @@ enqueue(slides:, videoDuration:)
 - **Renderer**: `DefaultChunkRenderer` (implements `ChunkRendererProtocol`) exports each chunk
   as a time-limited `AVAssetExportSession` segment whose composition comes from `ChunkComposition`
   (`chunk_<uuid>.mov`, into a per-queue directory). `ChunkComposition` and the preview compositor
-  share one overlay program (`OverlayComposite`: hold / dissolve), so the two paths cannot drift
-  apart. `ChunkQueue` is an actor so `render(chunk:)` calls are serialized, and `shutdown()` cancels
+  share one overlay program (`OverlayComposite`: hold / dissolve) **and one plan**
+  (`overlaySpans`, which `generateRegions` keys the export from), so the two paths cannot drift
+  apart. A transition always runs its full `transitionTime`: when slides are closer together than
+  that, the next dissolve starts where the previous one ended. `ChunkQueue` is an actor so `render(chunk:)` calls are serialized, and `shutdown()` cancels
   the drain and deletes what the queue rendered — `RenderPipeline.reset()` calls it when the video is
   replaced.
 - **Stitcher**: `DefaultStitcher` (implements `StitcherProtocol`) builds a single

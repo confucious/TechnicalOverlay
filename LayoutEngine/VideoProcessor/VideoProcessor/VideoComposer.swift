@@ -19,7 +19,7 @@ import os
 /// by `setupComposition()` rather than handed to the instance. The app keeps exactly one preview
 /// composition — and therefore one live compositor — at a time.
 nonisolated struct PreviewRecipe: Sendable {
-    var slides: [Slide] = []
+    var spans: [OverlaySpan] = []
     var preferredTransform: CGAffineTransform = .identity
     /// Supplied by `setupComposition()`: `Metrics` is main-actor isolated, and the recipe is read
     /// from the compositor's own thread.
@@ -100,25 +100,21 @@ public final class PreviewVideoCompositor: NSObject, AVVideoCompositing, @unchec
         request.finish(withComposedVideoFrame: destination)
     }
 
-    /// The slide that owns `time`, faded in from (or out to) the one before it while a transition
-    /// is in progress — the same `OverlayComposite` program the chunk renderer runs.
+    /// What the plan says is drawn at `time`, drawn by the same `OverlayComposite` program the chunk
+    /// renderer runs.
+    ///
+    /// The recipe carries the spans `generateRegions` keys its plan from, so the preview and the
+    /// export answer "which overlay owns this frame" identically — including when slides are closer
+    /// together than `transitionTime`, where each dissolve still runs its full length.
     private nonisolated func composited(_ source: CIImage, at time: CMTime, recipe: PreviewRecipe) -> CIImage {
-        let slides = recipe.slides
-        let indexed = slides.enumerated().last { (_, slide) in time >= slide.startTime }
-        guard let indexed else { return source }
-
-        let index = indexed.offset
-        let slide = indexed.element
-        let elapsed = time - slide.startTime
-        if elapsed <= recipe.transitionTime {
-            return OverlayComposite.dissolve(
-                from: index > 0 ? slides[index - 1].image : nil,
-                to: slide.image,
-                progress: elapsed.seconds / recipe.transitionTime.seconds,
-                over: source
-            )
+        switch recipe.spans.content(at: time, transitionTime: recipe.transitionTime) {
+        case .none:
+            return source
+        case .hold(let image):
+            return OverlayComposite.hold(image, over: source)
+        case .dissolve(let from, let to, let progress):
+            return OverlayComposite.dissolve(from: from, to: to, progress: progress, over: source)
         }
-        return OverlayComposite.hold(slide.image, over: source)
     }
 }
 
@@ -157,10 +153,15 @@ public class VideoComposer {
             return nil
         }
         let duration = try await asset.load(.duration)
+        let transitionTime = CMTime(seconds: Metrics.transitionTime, preferredTimescale: 1000)
         previewRecipe.current = PreviewRecipe(
-            slides: slides,
+            spans: overlaySpans(
+                slides: slides,
+                videoDuration: duration,
+                transitionTime: transitionTime
+            ),
             preferredTransform: (try? await videoTrack.load(.preferredTransform)) ?? .identity,
-            transitionTime: CMTime(seconds: Metrics.transitionTime, preferredTimescale: 1000)
+            transitionTime: transitionTime
         )
 
         var configuration = try await AVVideoComposition.Configuration(for: asset)

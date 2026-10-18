@@ -5,8 +5,8 @@ repetition and readability**. Every item names the file and line it lives at and
 move or delete — no "consider refactoring".
 
 **How to use this file:** delete an item when it lands; this list should shrink, never accumulate.
-IDs are never reused, so a gap in the numbering is finished work (B1, B3, B4, M1, M2, M3, M4, M5, R1,
-R2, R3, R4, R5, R6, Y2, Y3, Y4 and Y5 are done). It is a backlog, not a design doc: rationale for anything that ships goes in `docs/HISTORY.md`
+IDs are never reused, so a gap in the numbering is finished work (B1, B2, B3, B4, M1, M2, M3, M4, M5,
+R1, R2, R3, R4, R5, R6, Y2, Y3, Y4 and Y5 are done). It is a backlog, not a design doc: rationale for anything that ships goes in `docs/HISTORY.md`
 per `AGENTS.md` → Documentation, and `docs/ARCHITECTURE.md` stays current-state only.
 
 **Tags**
@@ -20,20 +20,6 @@ Accepted as designed, not to be re-litigated: two `AVURLAsset`s over one file, t
 `PreviewVideoCompositor`, and `Metrics.transitionTime = 0.75` — `docs/HISTORY.md` → *Playhead
 freeze*. The `ProtocolParser` module is the model the rest of the tree should follow: pure parsing
 behind a `ProtocolFetching` IO seam, an injectable `ElementNameTranslating`, value types only.
-
----
-
-## Blocking
-
-### B2. Preview and export disagree when two slides are closer than `transitionTime` (read)
-
-The preview walks back from the playhead — last slide with `startTime <= time`, dissolve if
-`diff <= transitionTime` (`VideoProcessor.swift:125-142`). `generateRegions` instead advances
-`cursor` to `slideStart + transitionTime` before considering the next slide (`581-588`). For slides
-at 10.0 and 10.3 the preview dissolves at 10.3 while the export is still holding slide 1.
-
-**Fix:** derive the region plan from the same slide-walk the compositor uses, so "which slide owns
-this frame" has one definition. At minimum, assert the invariant in a test both paths share.
 
 ---
 
@@ -65,10 +51,11 @@ this frame" has one definition. At minimum, assert the invariant in a test both 
 
 ---
 
-## If you only do three things
+## What is left
 
-1. **B2** — one slide-walk shared by the preview and the plan. `OverlayComposite` unified how a frame
-   is *drawn*; this unifies *which* slide owns it, which is the only way left for the preview and the
-   export to disagree.
-2. **Y1** — the one naming item left (`RenderPipeline.Status.idle` for "everything rendered").
-3. **Y6** — the doc drift, which only you can fix: `AGENTS.md` is a protected file.
+Two items, both cosmetic — nothing here can change what the app renders:
+
+1. **Y1** — `RenderPipeline.Status.idle` reading as "nothing loaded" when it means "everything
+   rendered".
+2. **Y6** — `docs/ARCHITECTURE.md` points at an untracked `TODO.md`, and `AGENTS.md` is stale in six
+   places. `AGENTS.md` is a protected instruction file, so that half has to come from you.
