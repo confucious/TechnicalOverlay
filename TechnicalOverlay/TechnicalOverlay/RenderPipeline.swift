@@ -27,9 +27,6 @@ final class RenderPipeline {
         /// Work queued or rendering. **Yellow.**
         case processing
         /// Every renderable chunk is rendered, so the queue has nothing left to do. **Green.**
-        ///
-        /// Not `idle`: the queue *is* idle in this state, but the label sits next to `noVideo`, where
-        /// "idle" reads as "nothing to show" — the opposite of what it means.
         case rendered
     }
 
