@@ -287,7 +287,7 @@ UI surface (`MainView`): `VideoPlayer` with the **background render indicator** 
 bottom-right corner, raised by a fixed 72pt inset so it never covers AVKit's control cluster (the
 scrubbing control lives in it); it is only on screen while a video is loaded, and it takes no taps
 (`allowsHitTesting(false)`). The dot is **yellow while the chunk queue has work queued or
-rendering**, **green once every renderable chunk is rendered and the queue is idle** (fed by
+rendering**, **green once every renderable chunk is rendered** (`Status.rendered`, fed by
 `ChunkQueueProgress.isRendering`), with a label on a translucent capsule because the video
 underneath is arbitrary. Below the player: `TimeSettingsView` (shown with or without a video;
 read-only until one is loaded), a config row holding the

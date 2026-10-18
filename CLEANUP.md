@@ -6,7 +6,7 @@ move or delete — no "consider refactoring".
 
 **How to use this file:** delete an item when it lands; this list should shrink, never accumulate.
 IDs are never reused, so a gap in the numbering is finished work (B1, B2, B3, B4, M1, M2, M3, M4, M5,
-R1, R2, R3, R4, R5, R6, Y2, Y3, Y4 and Y5 are done). It is a backlog, not a design doc: rationale for anything that ships goes in `docs/HISTORY.md`
+R1, R2, R3, R4, R5, R6, Y1, Y2, Y3, Y4 and Y5 are done). It is a backlog, not a design doc: rationale for anything that ships goes in `docs/HISTORY.md`
 per `AGENTS.md` → Documentation, and `docs/ARCHITECTURE.md` stays current-state only.
 
 **Tags**
@@ -24,13 +24,6 @@ behind a `ProtocolFetching` IO seam, an injectable `ElementNameTranslating`, val
 ---
 
 ## Readability
-
-### Y1. Names that mislead
-
-- `RenderPipeline.Status` (`RenderPipeline.swift:20-28`) uses `idle` for "everything rendered" next to a
-  separate `noVideo`, so the two states read as opposites of nothing.
-
-**Fix:** a case label that says what it means (`rendered` rather than `idle`).
 
 ### Y6. Doc drift
 
@@ -53,9 +46,6 @@ behind a `ProtocolFetching` IO seam, an injectable `ElementNameTranslating`, val
 
 ## What is left
 
-Two items, both cosmetic — nothing here can change what the app renders:
-
-1. **Y1** — `RenderPipeline.Status.idle` reading as "nothing loaded" when it means "everything
-   rendered".
-2. **Y6** — `docs/ARCHITECTURE.md` points at an untracked `TODO.md`, and `AGENTS.md` is stale in six
-   places. `AGENTS.md` is a protected instruction file, so that half has to come from you.
+One item, and it is yours: **Y6** — `AGENTS.md` is stale in six places (recorded under *Readability*
+above). It is a protected instruction file, so those corrections have to come from you; everything
+else from the audit has landed.

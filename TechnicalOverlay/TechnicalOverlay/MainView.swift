@@ -338,13 +338,13 @@ struct SaveDestinationPlaceholder: FileDocument {
 
 extension RenderPipeline.Status {
 
-    /// Yellow while the queue has work, green once it is fully rendered and idle. Grey when
-    /// there's no video to render at all (nothing is "fully rendered" yet).
+    /// Yellow while the queue has work, green once everything renderable is rendered. Grey when
+    /// there's no video to render at all (nothing is rendered then, either).
     var indicatorColor: Color {
         switch self {
         case .noVideo: return .gray
         case .processing: return .yellow
-        case .idle: return .green
+        case .rendered: return .green
         }
     }
 
@@ -352,7 +352,7 @@ extension RenderPipeline.Status {
         switch self {
         case .noVideo: return "No video"
         case .processing: return "Rendering"
-        case .idle: return "Rendered"
+        case .rendered: return "Rendered"
         }
     }
 
@@ -360,7 +360,7 @@ extension RenderPipeline.Status {
         switch self {
         case .noVideo: return "No video loaded, nothing to render"
         case .processing: return "Rendering overlay chunks in the background"
-        case .idle: return "All overlay chunks are rendered"
+        case .rendered: return "All overlay chunks are rendered"
         }
     }
 }

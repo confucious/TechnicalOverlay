@@ -26,8 +26,11 @@ final class RenderPipeline {
         case noVideo
         /// Work queued or rendering. **Yellow.**
         case processing
-        /// Every renderable chunk is rendered and the queue is idle. **Green.**
-        case idle
+        /// Every renderable chunk is rendered, so the queue has nothing left to do. **Green.**
+        ///
+        /// Not `idle`: the queue *is* idle in this state, but the label sits next to `noVideo`, where
+        /// "idle" reads as "nothing to show" — the opposite of what it means.
+        case rendered
     }
 
     var status: Status = .noVideo
@@ -117,11 +120,11 @@ final class RenderPipeline {
                       ObjectIdentifier(current) == queueID
                 else { return }
                 self.progress = progress
-                self.status = progress.isRendering ? .processing : .idle
+                self.status = progress.isRendering ? .processing : .rendered
             }
         }
         self.queue = queue
-        status = .idle
+        status = .rendered
 
         guard let videoDuration = try? await asset.load(.duration) else { return }
         await queue.enqueue(slides: slides, videoDuration: videoDuration)
