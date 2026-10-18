@@ -85,8 +85,10 @@ for `ProtocolParser` — and another may be added when it clearly earns its plac
 
 ## Tracing the chunk pipeline
 
-`VideoProcessor` traces the chunk pipeline with plain `print` (like the rest of the module),
-prefixed by stage, so one export can be followed end to end in Xcode's console:
+`VideoProcessor` traces the chunk pipeline through `os.Logger` (`VideoProcessorLog.swift`: subsystem
+`org.cjas.technical-overlay.video-processor`, category `chunk-pipeline`, `.debug`, not persisted),
+prefixed by stage, so one export can be followed end to end in Xcode's console or in Console.app
+(filter on that subsystem):
 
 | Prefix | Reports |
 |--------|---------|
@@ -97,15 +99,16 @@ prefixed by stage, so one export can be followed end to end in Xcode's console:
 Chunk ids print as their first 8 UUID characters and ranges as `start–end` seconds
 (`12.500–24.000`), so grepping an id (`[ChunkQueue] 51CF6DFC`) correlates a chunk across all
 three stages. `ChunkPipelineTrace.swift` holds the shared helpers (`Trace.log`, `TraceTimer`,
-`traceDescription`, `traceFileSize`). `print` output only shows when the app runs from Xcode or
-a terminal — it does not reach Console.app.
+`traceDescription`, `traceFileSize`), and `Trace.isEnabled = false` silences the whole pipeline
+without touching a call site. Trace lines are `.debug` and are not persisted, so Console.app only
+shows them with *Include Info/Debug Messages* on.
 
 The main interface also shows the queue's state as a dot + label over the video's bottom-right
 corner, lifted 72pt off the bottom edge so it clears AVKit's scrubbing control, driven by
 `ChunkQueueProgress.isRendering` (reported on enqueue, drain start, after each chunk, and drain
-end): **yellow** while any renderable chunk is queued or rendering, **green** once everything is
-rendered and the queue is idle. Chunks left stale by a failed render don't count as work, so the
-dot settles instead of sitting yellow forever.
+end): **yellow** while any renderable chunk is queued or rendering, **green** once everything
+renderable is rendered (`RenderPipeline.Status.rendered`). Chunks left stale by a failed render don't
+count as work, so the dot settles instead of sitting yellow forever.
 
 Known artifact in that output: `enqueue` starts a detached drain task and `waitForCompletion`
 also calls `drain()`, and `drain()` suspends on each render, so two drains can interleave and
@@ -121,36 +124,54 @@ One Tuist project (`Project.swift` at repo root) generating a single workspace w
 TechnicalOverlay/                          # Main app (iOS)
 └── TechnicalOverlay/
     ├── TechnicalOverlayApp.swift      # @main → MainView
-    ├── MainView.swift                 # Primary UI + export orchestration
-    ├── OverlayData.swift              # Core data model (@Observable)
+    ├── MainView.swift                 # Primary UI: buttons, indicator, progress sheet
+    ├── MainViewModel.swift            # The main screen's state; owns the collaborators below
+    ├── AssetSession.swift             # Security-scoped file, its size, the scope's release
+    ├── RenderPipeline.swift           # Preview composition, chunk queue, indicator status
+    ├── ExportCoordinator.swift        # Stitch-and-write phases for "Save Video"
+    ├── OverlayData.swift              # The document model (@Observable)
+    ├── OverlayTimeline.swift          # setIntroTime/setElementTime + the shiftTimes cascade
+    ├── OverlayStore.swift             # Autosave: the document as JSON in UserDefaults
+    ├── SlideFactory.swift             # The document as overlays, and the (size, mode) image cache
+    ├── ScoreFormatting.swift          # Hundredths ↔ text
     ├── OverlayDataDocument.swift      # .tojson file I/O (versioned JSON)
     ├── ScoringListView.swift          # Full-screen data entry (NavigationLink destination)
     ├── TimeSettingsView.swift         # Timeline editor: "Start Now" / time button seeks there
-    ├── ElementBuilderView.swift       # Placeholder — not wired in
-    └── ContentView.swift              # Legacy/prototype — not used
+    ├── PreviewData.swift              # Fixtures for the #Preview blocks
+    └── Log.swift                      # The app's os.Logger (data / media / export)
 TechnicalOverlayTests/                  # App unit tests
 TechnicalOverlayUITests/                # UI tests
 
 LayoutEngine/                           # Shared library sources (one Tuist project)
 ├── LayoutEngine/LayoutEngine/          # UIKit overlay views
 │   ├── LayoutEngine.swift             # Color, Metrics, UIView extensions
+│   ├── OverlayView.swift              # Base class (init(coder:) unavailable)
+│   ├── LabelBoxView.swift             # Boxed-label rig: lower third, name box, score rows
 │   ├── VideoOverlay.swift             # Main overlay container (1280×720)
 │   ├── IsuLowerThirdView.swift        # Skater intro overlay
 │   ├── IsuTechnicalPaneView.swift     # Technical scoring overlay
 │   └── TechnicalPaneComponents/       # 5 subviews (ElementBoxView, etc.)
 ├── LayoutEngine/VideoProcessor/VideoProcessor/   # AVFoundation pipeline
-│   ├── VideoProcessor.swift           # Slide, VideoComposer, ExportSession, PreviewVideoCompositor
+│   ├── Slide.swift, VideoComposer.swift, ExportSession.swift   # Preview + full-video export
+│   ├── Chunk.swift, RegionPlan.swift, ChunkQueue.swift         # The export plan and its queue
+│   ├── OverlayCompositing.swift       # The overlay program, shared by preview and chunks
 │   ├── DefaultChunkRenderer.swift     # ChunkRendererProtocol impl
-│   └── DefaultStitcher.swift          # StitcherProtocol impl
+│   ├── DefaultStitcher.swift          # StitcherProtocol impl
+│   ├── ChunkPipelineTrace.swift       # Trace helpers (Trace.log and friends)
+│   └── VideoProcessorLog.swift        # os.Logger (chunk-pipeline, composition)
 ├── LayoutEngine/LayoutEngineTests/
-└── LayoutEngine/VideoProcessor/VideoProcessorTests/   # 7 test files — best coverage here
+└── LayoutEngine/VideoProcessor/VideoProcessorTests/   # 10 files — best coverage here
     ├── DiffAlgorithmTests.swift           # Most comprehensive tests
+    │                                      # (this file also declares ChunkValidityTests)
+    ├── RegionGenerationTests.swift
+    ├── OverlaySpanTests.swift             # The walk the preview and the export share
     ├── ChunkQueueTests.swift
+    ├── ChunkQueueShutdownTests.swift
     ├── DefaultChunkRendererTests.swift
     ├── DefaultStitcherTests.swift
-    ├── RegionGenerationTests.swift
     ├── OverlayDataChangeTests.swift
-    └── VideoProcessorTests.swift
+    ├── VideoProcessorTests.swift
+    └── TestSupport.swift                  # Shared fixtures and renderer fakes
 
 ProtocolParser/                            # Protocol importer + element-name expansion (implemented and wired into the import)
 ```
@@ -196,7 +217,7 @@ opens with a chronological decision ledger and then one section per topic.
 
 `OverlayData` is marked `@Observable` (Observation framework). Scores are stored as `Int` in **hundredths** (3.40 → 340, -1.19 → -119). All `ElementData` fields (`baseValue`, `goeValue`, `bonusValue`) use this. String ↔ hundredths conversion via `String.toHundredthsInt()` and `ElementData.formatValue()`.
 
-**Cascading timing** — `setIntroTime(index:time:)` and `setElementTime(index:time:)` propagate the delta to all subsequent items, preserving relative spacing. Recursive implementation.
+**Cascading timing** — `setIntroTime(index:time:)` and `setElementTime(index:time:)` propagate the delta to all subsequent items, preserving relative spacing. Both call one forward-walking `shiftTimes` helper.
 
 Persistence: `OverlayData.save()`/`load()` writes JSON to UserDefaults under key `"state"`. `.tojson` files are versioned JSON (current version 1) via SwiftUI `FileDocument`.
 
@@ -212,8 +233,9 @@ Two rendering paths:
 
 2. **ChunkQueue → DefaultChunkRenderer → DefaultStitcher** — export pipeline. `ChunkQueue.enqueue(slides:)` generates regions, diffs against existing chunks, renders pending ones sequentially. `DefaultStitcher` assembles rendered chunks + source video segments into final output via `AVMutableComposition` track appending.
 
-Export flow in `MainView` — **the destination is chosen before any work happens** (the save panel
-is handed a zero-byte `SaveDestinationPlaceholder` and returns the chosen URL), so the passthrough
+Export flow (`ExportCoordinator`, driven by `MainViewModel.exportScoredVideo()`) — **the destination is
+chosen before any work happens** (the save panel is handed a zero-byte
+`SaveDestinationPlaceholder` and returns the chosen URL), so the passthrough
 export writes straight there:
 ```
 fileExporter (pick destination) → waitForCompletion() → stitch(chunks:sourceAsset:videoDuration:to: destination) → ExportSession.performExport()
@@ -233,11 +255,11 @@ User loads video (MainView → fileImporter)
     │
     ▼
 ViewModel.assetUrl = fileUrl
-    │  (startAccessingSecurityScopedResource, generateSlides())
+    │  (MainViewModel → session.adopt: security scope, generateSlides())
     ▼
 generateSlides()
-    │  scoring.makeSlides(size:) → VideoOverlay.Mode → VideoOverlay.render() → CIImage → Slide[]
-    │  (imageCache keyed by (size, mode) in OverlayData)
+    │  scoring.slidePlan() → SlideFactory.slides(from:size:)
+    │  (VideoOverlay.Mode → render() → CIImage, cached per (size, mode) in SlideFactory)
     ▼
 VideoComposer(asset:slides:) → setupComposition() → AVVideoComposition
     │  AVPlayerItem.videoComposition = composition
@@ -263,28 +285,26 @@ Tests live in separate Xcode test targets alongside each framework. The most com
 
 ## Gotchas
 
-- The three **chunk-renderer** builders in `VideoComposer` use
+- The three **chunk-renderer** composition builders in `ChunkComposition` (`OverlayCompositing.swift`) use
   `AVVideoComposition(applyingFiltersTo:applier:)`, whose handler returns
   `AVCIImageFilteringResult(resultImage:ciContext: nil)`. The older
   `videoComposition(with:applyingCIFiltersWithHandler:)` factory is deprecated as of iOS/macOS 27.0.
-  A nil image on either side of `setupComposition(from:to:transitionStart:)` means "no overlay on
+  A nil image on either side of `transition(from:to:startingAt:)` means "no overlay on
   that side" (dissolve against `CIImage.clear`) — that is the noOverlay ↔ slide fade.
 - `setupComposition()` — the **preview** composition, the only one attached to an `AVPlayerItem` — is
   deliberately *not* one of those: it sets `customVideoCompositorClass` to `PreviewVideoCompositor`,
   our own `AVVideoCompositing`, because the filter API's compositor deadlocks a playhead drag. Do not
   "simplify" it back, and do not share one `AVURLAsset` between the player item and the chunk
   exporter (`docs/HISTORY.md` → *Playhead freeze*).
-- `ContentView.swift` is a **legacy prototype** with hardcoded test data. Main entry point is `MainView`.
-- `ElementBuilderView.swift` is a **placeholder** — not wired into the app.
 - `Metrics.transitionTime = 0.75` in `VideoProcessor` — the dissolve duration, used everywhere in video composition.
 - Overlay views render at **1280×720** (hardcoded in `VideoOverlay` init frame).
-- Security-scoped URLs: `startAccessingSecurityScopedResource()` / `stopAccessingSecurityScopedResource()` must be paired (see `MainView.ViewModel.assetUrl` setter with `willSet`/`didSet`). Also used in `OverlayDataDocument.read()`.
-- `OverlayData` clears its `imageCache` on data changes. Cache is keyed by `(size, mode)`.
-- `ScoringListView` saves data and clears cache on `onDisappear`.
+- Security-scoped URLs: `startAccessingSecurityScopedResource()` / `stopAccessingSecurityScopedResource()` must be paired — `AssetSession.adopt(_:)` releases the previous file and `AssetSession.deinit` releases the one still held. Also used in `OverlayDataDocument.read()`.
+- `SlideFactory` caches rendered `CIImage`s keyed by `(size, mode)` and keeps only the modes the current plan uses, so a timing edit re-renders nothing and an editing session cannot grow it.
+- `ScoringListView` saves the document on `onDisappear`.
 - Test bundle identifiers are `org.cjas.jhsu.*` for frameworks, `org.cjas.technical-overlay` for the app.
 - `ChunkQueue` is an `actor` — all calls to `render(chunk:)` are serialized. No additional synchronization needed in `DefaultChunkRenderer`.
 - `DefaultStitcher` is **not `Sendable`** — `AVAssetReader`/`AVAssetWriter` are not thread-safe.
 - The stitcher creates a single `AVMutableComposition` with one video track and one audio track, appending chunks sequentially.
 - Export output is `.mov` for chunk rendering, `.mp4` for final stitch.
-- `VideoComposer.setupComposition()` (async) returns `AVVideoComposition?` — errors are caught and printed in `generateSlides()`.
+- `VideoComposer.setupComposition()` (async) returns `AVVideoComposition?` — errors are caught and logged in `generateSlides()`.
 - `OverlayData.renderingHash` computes a deterministic hash of all rendering-affecting fields (names, scores, times) — used for cache invalidation decisions.
