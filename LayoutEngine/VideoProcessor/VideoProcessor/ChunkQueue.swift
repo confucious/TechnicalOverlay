@@ -127,6 +127,24 @@ public actor ChunkQueue {
         return valid
     }
 
+    /// Stops rendering and deletes what this queue has rendered.
+    ///
+    /// The queue owns those files: the renderer writes them, but only the queue knows which ones it
+    /// asked for. A cancelled drain is awaited before the files go, so nothing is still exporting
+    /// into one when it is removed.
+    public func shutdown() async {
+        drainTask?.cancel()
+        await drainTask?.value
+        drainTask = nil
+
+        let renderedFiles = chunks.compactMap(\.outputURL)
+        chunks = []
+        for file in renderedFiles {
+            try? FileManager.default.removeItem(at: file)
+        }
+        reportProgress()
+    }
+
     // MARK: - Internal
 
     private func reportProgress() {

@@ -5,8 +5,8 @@ repetition and readability**. Every item names the file and line it lives at and
 move or delete — no "consider refactoring".
 
 **How to use this file:** delete an item when it lands; this list should shrink, never accumulate.
-IDs are never reused, so a gap in the numbering is finished work (B1, B3, M1, M2, M3, M4, M5, R1, R2,
-R3, R4, R5, R6, Y2, Y3, Y4 and Y5 are done). It is a backlog, not a design doc: rationale for anything that ships goes in `docs/HISTORY.md`
+IDs are never reused, so a gap in the numbering is finished work (B1, B3, B4, M1, M2, M3, M4, M5, R1,
+R2, R3, R4, R5, R6, Y2, Y3, Y4 and Y5 are done). It is a backlog, not a design doc: rationale for anything that ships goes in `docs/HISTORY.md`
 per `AGENTS.md` → Documentation, and `docs/ARCHITECTURE.md` stays current-state only.
 
 **Tags**
@@ -34,21 +34,6 @@ at 10.0 and 10.3 the preview dissolves at 10.3 while the export is still holding
 
 **Fix:** derive the region plan from the same slide-walk the compositor uses, so "which slide owns
 this frame" has one definition. At minimum, assert the invariant in a test both paths share.
-
-### B4. Swapping videos leaks the old pipeline and its chunk files (read)
-
-`MainViewModel.load()` (`MainViewModel.swift:70`) replaces the file, and `RenderPipeline.reset()`
-(`RenderPipeline.swift:44`) drops the queue — but the old queue's `drainTask` keeps exporting the old
-asset and nothing deletes its output. `DefaultChunkRenderer` writes `chunk_<uuid>.mov` straight into
-`FileManager.default.temporaryDirectory` (`RenderPipeline.swift:73`), with no directory of its own and
-no cleanup path.
-
-**Fix:** `ChunkQueue.shutdown()` — cancel the drain, delete its outputs — called from `willSet`;
-give the renderer a `chunks/<uuid>/` subdirectory so cleanup is one `removeItem`.
-
----
-
-## Modularity / isolation
 
 ---
 
@@ -83,12 +68,7 @@ give the renderer a `chunks/<uuid>/` subdirectory so cleanup is one `removeItem`
 ## If you only do three things
 
 1. **B2** — one slide-walk shared by the preview and the plan. `OverlayComposite` unified how a frame
-   is *drawn*; this unifies *which* slide owns it, which is the remaining way the preview and the
-   export can disagree.
-2. **B4** — give the queue a `shutdown()` and its chunks a directory of their own. `RenderPipeline`
-   is now the one place that owns the queue, so it is a small change.
-3. **Y1** — the one naming item left (`RenderPipeline.Status.idle` for "everything rendered"). Y6 is
-   the doc drift, which only you can fix in `AGENTS.md`.
-
-B2 is the only remaining item that can produce a wrong export; B4 is a lifecycle leak; Y1 and Y6 are
-naming and doc clean-up.
+   is *drawn*; this unifies *which* slide owns it, which is the only way left for the preview and the
+   export to disagree.
+2. **Y1** — the one naming item left (`RenderPipeline.Status.idle` for "everything rendered").
+3. **Y6** — the doc drift, which only you can fix: `AGENTS.md` is a protected file.

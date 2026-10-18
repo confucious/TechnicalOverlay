@@ -222,9 +222,11 @@ enqueue(slides:, videoDuration:)
   the queue, the renderer and the stitcher.
 - **Renderer**: `DefaultChunkRenderer` (implements `ChunkRendererProtocol`) exports each chunk
   as a time-limited `AVAssetExportSession` segment whose composition comes from `ChunkComposition`
-  (`chunk_<uuid>.mov`). `ChunkComposition` and the preview compositor share one overlay program
-  (`OverlayComposite`: hold / dissolve), so the two paths cannot drift apart. `ChunkQueue` is an
-  actor so `render(chunk:)` calls are serialized.
+  (`chunk_<uuid>.mov`, into a per-queue directory). `ChunkComposition` and the preview compositor
+  share one overlay program (`OverlayComposite`: hold / dissolve), so the two paths cannot drift
+  apart. `ChunkQueue` is an actor so `render(chunk:)` calls are serialized, and `shutdown()` cancels
+  the drain and deletes what the queue rendered — `RenderPipeline.reset()` calls it when the video is
+  replaced.
 - **Stitcher**: `DefaultStitcher` (implements `StitcherProtocol`) builds a single
   `AVMutableComposition` with one video + one audio track and appends chunks sequentially,
   mapping absolute stitching ranges to local chunk times (`localTimeRange`) and advancing the

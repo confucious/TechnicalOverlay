@@ -113,7 +113,8 @@ Renders individual chunks by exporting time-limited segments of the source video
 **Render flow:**
 1. Staleness check — returns `nil` if `chunk.stitchingTimeRange` is `nil`.
 2. `noOverlay` guard — returns `nil` for `.noOverlay` chunks (defensive; `ChunkQueue` already filters these).
-3. Build output URL (`chunk_<uuid>.mov`).
+3. Build output URL (`chunk_<uuid>.mov`, in the directory it was given — the app passes a per-queue
+directory so the whole set can be deleted in one go).
 4. Check export compatibility (`AVAssetExportSession.compatibility(ofExportPreset:with:outputFileType:)`).
 5. Create `AVAssetExportSession` with the configured preset.
 6. Apply composition via `ChunkComposition.overlay(_:)` or `.transition(from:to:startingAt:)` depending on chunk type.
@@ -224,6 +225,9 @@ Manages the rendering pipeline:
 2. `drain()` loops: dequeue next pending chunk → mark rendering → call renderer → mark rendered or stale.
 3. `waitForCompletion()` awaits the drain task — including the one `enqueue()` started — so it never
    returns while a chunk is in the `.rendering` state.
+4. `shutdown()` cancels the drain, **awaits it** (nothing is still exporting when the files go), then
+   deletes every file the queue's chunks point at and empties the plan. The queue owns those files:
+   the renderer writes them, but only the queue knows which ones it asked for.
 
 ### Why the diff exists
 
