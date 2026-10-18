@@ -325,9 +325,8 @@ Nothing here is tracked in a separate backlog file: this section is the list, an
   **Import Protocol** button on `ScoringListView`; the display-name expansion for the imported
   abbreviations is wired into that import (`ElementNameExpander` — spec:
   [`docs/architecture/abbreviation-expansion.md`](docs/architecture/abbreviation-expansion.md)).
-  Remaining work: **implementing** the pairs and ice-dance vocabulary (specified in that document,
-  §4.10–§4.12, not yet in the module), and wiring the import into the edit flow beyond
-  `ScoringListView`.
+  The expansion covers singles, pairs and ice dance. Remaining work: wiring the import into the edit
+  flow beyond `ScoringListView`.
 - **Polish / "Make it look nicer"**: visual refinements to overlays + editing UI.
 - **Incremental-export gains** are already designed into the chunk pipeline (reuse unchanged
   chunks when only one timestamp shifts) — the pieces exist; tuning/finishing is the work.

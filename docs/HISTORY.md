@@ -70,6 +70,7 @@ hundredths, SwiftSoup — carries a pointer to the section here that explains wh
 
 | 2026-10-18 | **The abbreviation spec now covers pairs and ice dance, and the two expansion documents are one.** The rules for the 66 pairs and 121 ice-dance abbreviations were designed the way the singles were — census the fixtures first, prototype the classifier, freeze the numbers — over 182 pairs rows (the five committed pairs pages) and 247 dance rows (thirteen Challenge Cup 2026 pages): `Throw 3 Salchow`, `1 Lift 4`, `3 Twist Lift 3`, death spirals, pivot figures, pair and dance spins, dance lifts, twizzle sets, dance step sequences, `CDE`, and the three published pattern-dance shapes. Two findings decide how those codes are read: `RPD<n>` is a dance with *n sequences*, not a dance number (IJS Parameters), and `1WW`/`2WW` are slot codes whose ISU labels still read "Rhumba/Quickstep 1st Sequence" — so they render `Pattern Dance <n>` instead of claiming the Westminster Waltz. The eight naming decisions are §8 of the document. `abbreviation-expansion-pairs-dance.md` is deleted and `abbreviation-expansion.md` is no longer titled "(Singles)"; the singles sections kept their numbers, so every `§` citation in the Swift comments and the other docs still resolves. Status: singles implemented, pairs and ice dance specified only. Verified: a prototype of the new rules classifies 429/429 pairs and dance rows with zero passthrough and still 535/535 singles rows (all 24 singles examples byte-identical), and every count in the document and all 68 worked examples are that run's output; the shipped `ElementNameExpander` was run over the same 429 rows first, to show that it mangles nothing today. |
 
+| 2026-10-18 | **Pairs and ice-dance expansion implemented** (`ElementNameExpander+Pairs.swift`, `ElementNameExpander+Dance.swift`). The tables from the spec's §4.10–§4.12 — throws, twist lifts, pair lifts (groups 1–5), death spirals, pivot figures, the pairs and dance spins folded into the spin table, dance lifts, twizzle sets, step sequences, one-foot turns, the solo-dance and senior codes, and the three pattern-dance shapes — plus the partner-half recombination in `displayName(for:)`. Two implementation points the spec did not anticipate: the dance branch must be offered the token **with and without** the shared trailing-marker strip, because `SpEe`/`CrEe`/`IBEe` end in `e` and the singles rule eats it before anything looks at them; and the recombined name is built in `displayName` rather than per token, since it needs the neighbouring token. Thirteen Challenge Cup 2026 dance pages committed as fixtures (`ChallengeCup-SEGMnnn.html`). Tests: `ElementNameExpanderTests` 17 → 31, **ProtocolParser 70/70 in 7 suites**, with a zero-passthrough sweep per vocabulary (535 / 182 / 247 rows, and the distinct-abbreviation counts 187 / 66 / 121 asserted). App builds and its suite passes unchanged (38 unit + 8 XCTest), since singles names did not move. |
 ## Compiler warnings (2026-10-17)
 
 A clean `build-for-testing` of `TechnicalOverlay-Workspace` emitted **73 unique warnings** (140 log
@@ -203,6 +204,18 @@ numbers were **kept exactly** (§4.2–§4.9 singles, §4.10–§4.12 pairs and 
 comments and three other documents cite them by number — a renumbering would have silently re-pointed
 dozens of citations at the wrong rule.
 
+**Implementation (2026-10-18).** `ElementNameExpander+Pairs.swift` and `ElementNameExpander+Dance.swift`
+hold the tables; `displayName(for:)` recombines partner halves before joining, because that needs the
+neighbouring token and a per-token function cannot see it. The classifier order is the spec's: sequence
+and choreographic, spins (now including `PSp`/`PCoSp`/`DSp`), pairs, dance, pattern dance, and the jump
+rule last, which is what keeps `3STh` a throw and `3Tw3` a twist lift rather than a Salchow and a
+Toeloop. `ElementNameExpanderTests` went from 17 tests to 31 and **ProtocolParser from 56/56 to 70/70
+in 7 suites**; each vocabulary has its own sweep (535 / 182 / 247 rows, zero passthrough) and its
+distinct-abbreviation count asserted, so a future code that falls out of the classifier fails a test
+instead of importing silently as its own abbreviation. The app's suite did not change: singles names
+did not move, which is the evidence that the new branches are additive. No compiler warnings, and the
+two new files needed `tuist generate` because sources are globbed (`AGENTS.md`).
+
 **Left unverified.** The dance-only markers `S`, `>` and `ExEI`, and a reduced level on a
 pattern-dance code, appear in no page of this event; `PSt`, `SoTw` and the four solo-dance edge
 elements have no page at all, so their shapes and names are the ISU list's; and the on-screen fit of
@@ -241,11 +254,10 @@ code; the translator is a parameter defaulted to `ElementNameExpander()`. The ap
 followed: its five existing expectations now assert display names, and a sixth merges with the
 identity default to pin the seam.
 
-**Not verified.** Pairs and ice-dance rules (the pairs codes are inventoried in
-`protocol-parser.md` §9 but no rules were designed for them); the `q`/`V` semantics (taken from ISU
-communications, not measured — they only decide what gets ignored, never the values); and the
-on-screen fit of the longest expansions, which the module doc computes from `Metrics` rather than
-measuring on a rendered overlay.
+**Not verified.** Pairs and ice-dance rules — *superseded 2026-10-18, above: those rules and their
+sweeps now exist*; the `q`/`V` semantics (taken from ISU communications, not measured — they only
+decide what gets ignored, never the values); and the on-screen fit of the longest expansions, which
+the module doc computes from `Metrics` rather than measuring on a rendered overlay.
 
 ## Protocol parser
 

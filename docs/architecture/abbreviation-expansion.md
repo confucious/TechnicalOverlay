@@ -3,13 +3,12 @@
 **Source:** `LayoutEngine/ProtocolParser/ProtocolParser/ElementNameExpander.swift`, tests in
 `LayoutEngine/ProtocolParser/ProtocolParserTests/ElementNameExpanderTests.swift`
 
-Status: **singles implemented and wired into the app; pairs and ice dance specified only.** The
-singles rules (§4.2–§4.9) are in the module and the import writes display names into
-`ElementData.name` (§7); test counts are in [`docs/testing.md`](../testing.md). The pairs and
-ice-dance rules (§4.10–§4.12) are specified and decided (§8) but not implemented — those codes still
-pass through verbatim. This document is the authoritative specification for the component, and is the
-translator `docs/architecture/protocol-parser.md` §9 specifies (an abbreviation → display-name
-component with an identity default). **§4 is the specification and §5 the worked examples; earlier
+Status: **implemented and wired into the app, for all three vocabularies.** The rules in §4.2–§4.12
+are in `ProtocolParser` — `ElementNameExpander.swift` plus the `+Pairs` and `+Dance` extensions — and
+the import writes display names into `ElementData.name` (§7). Test counts are in
+[`docs/testing.md`](../testing.md). This document is the authoritative specification for the
+component, and is the translator `docs/architecture/protocol-parser.md` §9 specifies (an
+abbreviation → display-name component with an identity default). **§4 is the specification and §5 the worked examples; earlier
 drafts are superseded** (`docs/HISTORY.md` → *Element abbreviation expansion*).
 
 ## 1. Purpose
@@ -90,7 +89,7 @@ twizzle set's or step sequence's halves are one element and are rejoined.
 | 4 | **A jump letter alone is not a jump.** `S` is also the tail of `SSp`/`FSSp`/`CSSp`, `F` of `FSSp`, `T` of `StSq`(no) but `Tw`/`Th` in pairs. Jump matching may only run on a token that did not match the spin/step/choreographic table, and the remainder after the jump code must be **markers only** — otherwise `3STh` (a throw) would expand as a Salchow. | `3STh` in the pairs fixtures |
 | 5 | **A jump token can have no rotation number.** `A`, `T`, `A*`, `Lo*`, `Lz*` — the requirement's rule assumes a number exists. | 5 tokens / 11 rows |
 | 6 | **`Eu` carries no number.** Only the bare `Eu` appears (4 tokens); the rule below is stated so a hypothetical `1Eu` still renders `Euler`. | `Eu` ×4, no `1Eu` |
-| 7 | **`S` is a dance marker and the Salchow code**; `e` is a dance error marker and the singles wrong-edge marker; `>` only ever marks an extended lift. Markers therefore belong to the branch that owns the token, never to a shared character set (§4.6). | `SqTw…S` on a dance page; `3S` on any singles page |
+| 7 | **`S` is a dance marker and the Salchow code**; `e` is a dance error marker, the singles wrong-edge marker **and the last letter of `SpEe`/`CrEe`/`IBEe`**; `>` only ever marks an extended lift. Markers therefore belong to the branch that owns the token, never to a shared character set (§4.6) — and a dance code must be offered to the dance rules with and without the shared trailing strip, or those three edge elements lose their final letter before anything looks at them. | `SqTw…S` on a dance page; `3S` on any singles page; `SpEe` |
 | 8 | **`Sq` means two things**: *sequential* in `SqTw` (a twizzle set) and *sequence* in a pattern-dance code (`FO1Sq4`). Position decides; never unify them. | `SqTwW4+SqTwM4` and `FO1Sq4+kpYYYY` |
 
 ### 2.5 What pairs and ice dance add
@@ -139,7 +138,7 @@ is why §4.6 ignores markers rather than rejecting a row.
 
 **Ice dance:** thirteen pages from the Challenge Cup 2026 protocol set
 (`https://ijs.usfigureskating.org/leaderboard/results/2026/37064/`, detail pages `SEGM001`–`SEGM009`
-and `SEGM018`–`SEGM021`), to be committed beside the existing pages as
+and `SEGM018`–`SEGM021`), committed beside the existing pages as
 `ProtocolParserTests/Fixtures/ChallengeCup-SEGMnnn.html`. They cover juvenile, novice, intermediate,
 junior and senior partnered dance: six pattern-dance pages and seven rhythm/free-dance pages. Nine
 further pages in that event (the solo pattern dances and the solo/adult free dances) carry **no
@@ -156,8 +155,8 @@ element table at all**; they are not part of this set (§7.2).
 | Abbreviation length → expansion length | mean 4.9 → 14.4; max 11 → 31 | mean 10.1 → 20.7; max 15 → 40 |
 
 The last two rows of each table are the numbers the sweeps freeze: a row that falls back to verbatim
-is otherwise silent, because the output still looks like a name. The pairs and dance counts come from
-a prototype of §4.10–§4.12, not from shipped code (§10).
+is otherwise silent, because the output still looks like a name. The pairs and dance counts are what
+the sweeps assert (§9).
 
 ## 4. Expansion model
 
@@ -430,6 +429,9 @@ Behaviour:
   `Synchronized Twizzles W 4 / M 4`, `pChSt1` → `Choreo Step Sequence 1`.
 - **A lift combination is not recombined** (§4.8): `StaLi4+RoLi4` → `Stationary Lift 4 + Rotational
   Lift 4`.
+- **The three edge-element codes end in `e`**, which is also a marker (trap 7): `SpEe`, `CrEe` and
+  `IBEe` therefore classify on the token *before* the shared marker strip, and on the stripped token
+  when the `e` really is a marker.
 - The dance spin is a spin (§4.3); the creative dance element and the dance choreographic codes are
   §4.4; the pattern-dance element codes are §4.12.
 
@@ -464,9 +466,7 @@ Three published shapes, all carrying key points:
 
 ## 5. Worked examples
 
-The singles rows are the shipped expander's output over the real fixture strings; the pairs and
-dance rows are the §4.10–§4.12 prototype's output over the real fixture strings. Every row is
-pinned by a test (§9).
+Every row is a real fixture string and the expander's actual output; each is pinned by a test (§9).
 
 | Abbreviation       | Expansion                                            |
 | ------------------ | ---------------------------------------------------- |
@@ -577,8 +577,8 @@ extension, so a conformer that implements nothing is valid — the identity test
 
 **The pairs and ice-dance rules change neither the protocol nor the type** — they are tables and
 branches — so `ElementData.init(_:translator:)` and `OverlayData.merge(_:translator:)` pick them up
-unchanged. The tables go in two new source files, `ElementNameExpander+Pairs.swift` and
-`ElementNameExpander+Dance.swift` (§8 Q8), which needs `tuist generate` (`AGENTS.md` → Build & Run).
+unchanged. The tables live in two source files beside it — `ElementNameExpander+Pairs.swift` and
+`ElementNameExpander+Dance.swift` (§8 Q8).
 
 **No failure mode.** An unclassifiable token is not an error — it is returned verbatim (§4.9), so
 this component cannot fail an import and needs no error type.
@@ -614,7 +614,7 @@ in the identity default — the seam §6 specifies.
 - **` + ` keeps one meaning.** A two-partner element is recombined into a single name (§4.8), so the
   separator only ever separates elements: a jump combination, or the halves of a lift combination.
 - **Manifest:** none — the component lives in a target the app already links (no new target, no new
-  package); the pairs and ice-dance tables add two source files and need `tuist generate`.
+  package); the pairs and ice-dance tables are two source files in that target.
 
 ### 7.2 Adjacent gaps this specification does not close
 
@@ -682,11 +682,11 @@ Pure string tests — no fixtures needed for a table; the sweeps use the committ
 | 28 | Well-formedness sweep | no empty part, no doubled separator, no `kp…` in the output, over all 429 pairs and dance rows |
 | 29 | Singles regression | the 535/535 singles sweep and every singles test above stay green — the spin and choreographic tables are shared, so this is what catches a table addition that reclassifies a singles token |
 
-**Implemented as `ElementNameExpanderTests.swift`** — one `@Suite("Element name expansion")`, tests 1–14
-in order, all passing (counts: [`docs/testing.md`](../testing.md)). Tests 13 and its neighbour are the
-two sweeps: 535/535 singles rows with zero passthrough, and every row of all eleven detail pages (825)
-well formed. Tests 15–29 are the pairs and ice-dance plan: they land with the implementation, and the
-`ProtocolParser` total in `docs/testing.md` is updated in that change.
+**Implemented as `ElementNameExpanderTests.swift`** — one `@Suite("Element name expansion")`, the rows
+above as 31 tests, all passing: **ProtocolParser is 70/70 in 7 suites**. Three of them are sweeps
+(tests 13, 26 and 27): 535/535 singles rows, 182/182 pairs rows and 247/247 dance rows, each with
+zero verbatim passthrough and the exact distinct-abbreviation count §3 froze; test 12's neighbour
+checks all 825 static plus 247 dance rows for a well-formed name.
 
 ## 10. Verification and known gaps
 
@@ -696,15 +696,15 @@ well formed. Tests 15–29 are the pairs and ice-dance plan: they land with the 
   detail pages for a well-formed name (no empty part, no dangling separator, no `kp…` leaking
   through). Each spin code in §4.3 was checked against the ISU singles abbreviation list: the ✅
   column is what occurs in these pages, the "—" rows are codes from that list that do not.
-- **Pairs and ice dance are specified, not implemented.** A prototype of §4.10–§4.12 run over all 429
-  rows of the five pairs and thirteen dance pages classifies **0 unclassified tokens**, 182/182 and
-  247/247 rows, and every count in §3.2 and every row of §5.1–§5.2 is that run's output. The shipped
-  `ElementNameExpander` was compiled standalone and run over the same 429 rows for the baseline: it
-  changes 58 pairs and 153 dance rows, and **every** one of those changes is shared vocabulary (solo
-  jumps, `+SEQ`, `ChSq1`, `ChSp1`) or the separator around a dropped `kp…` token — no pairs or dance
-  code is mangled today, so those tests pin existing behaviour rather than fix a defect. The same
-  extended prototype still classifies 535/535 singles rows and reproduces all 24 singles examples in
-  §5 exactly, including the `V` spin suffix — the new branches are additive.
+- **Pairs and ice dance are implemented and measured the same way.** The sweeps classify all **429**
+  rows of the five pairs and thirteen dance pages — 182/182 and 247/247, 0 unclassified tokens, with
+  the distinct-abbreviation counts §3.2 froze — and every row of §5.1–§5.2 is a test. The rules were
+  built as a prototype first and run over the same rows before any Swift was written; the same
+  prototype classified 535/535 singles rows and reproduced all 24 singles examples, which is why the
+  new branches are provably additive rather than a rewrite. For the record, the pre-pairs expander
+  was also run over those 429 rows: it changed 58 pairs and 153 dance rows, and every one of those
+  changes was shared vocabulary (solo jumps, `+SEQ`, `ChSq1`, `ChSp1`) or the separator around a
+  dropped `kp…` token — so nothing was mangled before this change either.
 - **Not verified:** the `q` and `V` semantics (taken from ISU communications, not measured — they only
   decide what gets ignored, never a value); the dance-only markers `S`, `>` and `ExEI`, which no
   fixture page uses (§7.2); `PSt`, `SoTw` and the four solo-dance edge elements (§8 Q7); and the

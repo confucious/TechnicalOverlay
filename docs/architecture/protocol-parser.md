@@ -595,12 +595,11 @@ it presents the address prompt.
 `ElementData.name` receives the abbreviation's **display name**, because the app's import calls the
 translator (§8). The translator is a single component with an **identity default**, so its absence is
 not a failure mode.
-**The rules are implemented for singles in this module's `ElementNameExpander.swift`, and specified
-for singles, pairs and ice dance in
+**The rules are implemented in this module — `ElementNameExpander.swift` plus its `+Pairs` and
+`+Dance` extensions — and specified in
 [`docs/architecture/abbreviation-expansion.md`](abbreviation-expansion.md)** — that document owns the
 jump / spin / step-sequence / choreographic / throw / lift / twizzle / pattern-dance vocabulary and
-the marker handling; this section keeps only the seam and the token inventory. The pairs and
-dance rules are specified there and not yet in the module.
+the marker handling; this section keeps only the seam and the token inventory.
 
 ```swift
 public protocol ElementNameTranslating: Sendable {

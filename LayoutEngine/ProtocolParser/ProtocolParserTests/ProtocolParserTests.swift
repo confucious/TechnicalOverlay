@@ -41,9 +41,26 @@ enum Fixture {
     static let leaderboardPages = ["CAT022SEG033.html", "CAT022SEG034.html"]
 
     /// The five **singles** segment pages of the set above — the ones the abbreviation expansion's
-    /// census was measured over (`abbreviation-expansion.md` §3): 535 element rows.
+    /// census was measured over (`abbreviation-expansion.md` §3.1): 535 element rows.
     /// `SEGM033` is singles too, but it is the sibling page the link test needs; the rest are pairs.
     static let singlesDetailPages = [
         "SEGM001.html", "SEGM011.html", "SEGM015.html", "SEGM021.html", "SEGM034.html",
+    ]
+
+    /// The five **pairs** segment pages of the set above (`abbreviation-expansion.md` §3.2):
+    /// 182 element rows, 66 distinct abbreviations.
+    static let pairsDetailPages = [
+        "SEGM026.html", "SEGM028.html", "SEGM030.html", "SEGM031.html", "SEGM032.html",
+    ]
+
+    /// Thirteen **ice-dance** pages from the Challenge Cup 2026 protocol set
+    /// (`abbreviation-expansion.md` §3.2): juvenile through senior partnered dance, 247 element
+    /// rows, 121 distinct abbreviations.
+    static let danceDetailPages = [
+        "ChallengeCup-SEGM001.html", "ChallengeCup-SEGM002.html", "ChallengeCup-SEGM003.html",
+        "ChallengeCup-SEGM004.html", "ChallengeCup-SEGM005.html", "ChallengeCup-SEGM006.html",
+        "ChallengeCup-SEGM007.html", "ChallengeCup-SEGM008.html", "ChallengeCup-SEGM009.html",
+        "ChallengeCup-SEGM018.html", "ChallengeCup-SEGM019.html", "ChallengeCup-SEGM020.html",
+        "ChallengeCup-SEGM021.html",
     ]
 }

@@ -2,9 +2,12 @@
 //  ElementNameExpander.swift
 //  ProtocolParser
 //
-//  Abbreviation → display name for the singles vocabulary
-//  (`docs/architecture/abbreviation-expansion.md` §4). Pure, `nonisolated`, no I/O and no state;
-//  a token these rules do not know is returned verbatim (abbreviation-expansion.md §4.9).
+//  Abbreviation → display name for the singles vocabulary, plus the shared machinery the pairs and
+//  ice-dance rules use (`docs/architecture/abbreviation-expansion.md` §4). Pure, `nonisolated`, no
+//  I/O and no state; a token these rules do not know is returned verbatim (§4.9).
+//
+//  The pairs rules are ElementNameExpander+Pairs.swift, the ice-dance ones
+//  ElementNameExpander+Dance.swift.
 //
 
 import Foundation
@@ -27,25 +30,51 @@ public extension ElementNameTranslating {
     nonisolated func displayName(for abbreviation: String) -> String { abbreviation }
 }
 
-/// The singles implementation: jumps, spin, step-sequence and choreographic codes, the protocol's
-/// markers, and the call tokens (abbreviation-expansion.md §4.1–§4.9).
+/// The implementation: singles jumps, spins, step sequences and choreographic codes, the pairs
+/// family and the ice-dance family, the protocol's markers, and the call tokens
+/// (abbreviation-expansion.md §4.1–§4.12).
 public struct ElementNameExpander: ElementNameTranslating {
 
     public nonisolated init() {}
 
-    /// Expands a whole abbreviation — `3Tb1+2T` → `3 Toeloop + 2 Toeloop`. Tokens are split on `+`
-    /// and joined back with ` + `; dropped tokens leave neither a separator nor an empty part
+    /// Expands a whole abbreviation — `3Tb1+2T` → `3 Toeloop + 2 Toeloop`. Tokens are split on `+`;
+    /// the two halves of a two-partner element are recombined into one name, then the surviving
+    /// parts are joined with ` + `, so a dropped token leaves neither a separator nor an empty part
     /// (abbreviation-expansion.md §4.8).
     public nonisolated func displayName(for abbreviation: String) -> String {
-        abbreviation
-            .split(separator: "+", omittingEmptySubsequences: false)
-            .compactMap(part(of:))
-            .joined(separator: " + ")
+        let tokens = abbreviation.split(separator: "+", omittingEmptySubsequences: false)
+        var parts: [String] = []
+        var index = tokens.startIndex
+
+        while index < tokens.endIndex {
+            let next = tokens.index(after: index)
+
+            // One element, two partners: same code, the two partner letters (abbreviation-expansion.md
+            // §4.8). Recombining here — rather than per token — is what stops a twizzle set or a step
+            // sequence reading as two elements.
+            if next < tokens.endIndex,
+               let first = Self.partnerHalf(tokens[index]),
+               let second = Self.partnerHalf(tokens[next]),
+               first.code == second.code,
+               first.partner != second.partner {
+                parts.append(Self.recombined(first, second))
+                index = tokens.index(after: next)
+                continue
+            }
+
+            if let part = part(of: tokens[index]) { parts.append(part) }
+            index = next
+        }
+        return parts.joined(separator: " + ")
     }
 
     // MARK: - One token
 
     /// One `+`-separated token → its part of the name, or `nil` when the token is dropped entirely.
+    ///
+    /// Classification is ordered: the families first, the jump rule last, because the jump rule
+    /// accepts a single letter with an optional leading number and must not read a throw, a twist or
+    /// a lift as a jump (abbreviation-expansion.md §4.1, §2.4 traps 4, 7 and 8).
     nonisolated private func part(of token: Substring) -> String? {
         let raw = String(token)
         guard !raw.isEmpty else { return nil }
@@ -54,18 +83,29 @@ public struct ElementNameExpander: ElementNameTranslating {
         let core = Self.withoutIgnoredMarkers(raw)
         guard !core.isEmpty else { return invalid ? "(Invalid)" : nil }
 
-        switch core {
-        case "SEQ", "COMBO", "REP":                           // call tokens, shown as published (§4.5)
-            return core
-        default:
-            break
-        }
-        if core.hasPrefix("kp") { return nil }               // step-sequence key points (§4.6)
+        if Self.callTokens.contains(core) { return core }     // §4.5 — shown as published
+        if core.hasPrefix("kp") { return nil }                // §4.6 — key points, dropped
 
-        let name = Self.sequence(core) ?? Self.spin(core) ?? Self.jump(core)
-        guard let name else { return raw }                   // unknown → verbatim (§4.9)
-        return invalid ? "\(name) (Invalid)" : name          // §4.7 — per token, after the element
+        // `markerFree` keeps a trailing `e`, which the dance edge elements end with (`SpEe`,
+        // `CrEe`, `IBEe`); the dance rules strip the markers they own themselves (§4.6).
+        let markerFree = Self.removingBonusMarker(from: raw.replacingOccurrences(of: "*", with: ""))
+
+        let name = Self.sequence(core)
+            ?? Self.spin(core)
+            ?? Self.pairs(core)
+            ?? Self.dance(core)
+            ?? Self.dance(markerFree)
+            ?? Self.patternDance(core)
+            ?? Self.jump(core)
+        guard let name else { return raw }                    // unknown → verbatim (§4.9)
+        return invalid ? "\(name) (Invalid)" : name           // §4.7 — per token, after the element
     }
+
+    // MARK: - Call tokens
+
+    /// Calls the technical panel made rather than elements, plus the dance extra-element token
+    /// (abbreviation-expansion.md §4.5). All are shown as published.
+    nonisolated static let callTokens: Set<String> = ["SEQ", "COMBO", "REP", "ExEI"]
 
     // MARK: - Ignored markers
 
@@ -111,33 +151,59 @@ public struct ElementNameExpander: ElementNameTranslating {
         return String(characters)
     }
 
+    // MARK: - Levels
+
+    /// The level alphabet every vocabulary shares: `B`, `1`–`4`.
+    nonisolated static let levels: Set<Character> = ["B", "1", "2", "3", "4"]
+
+    /// The level a pairs or dance code carries — `""` when the panel levelled nothing, `nil` when
+    /// the tail is not a level at all. `V` is a singles spin suffix and is never one of these.
+    nonisolated static func singleLevel(_ tail: Substring) -> String? {
+        if tail.isEmpty { return "" }
+        guard tail.count == 1, let level = tail.first, levels.contains(level) else { return nil }
+        return String(level)
+    }
+
     // MARK: - Step sequences and choreographic elements
 
-    nonisolated private static let levels: Set<Character> = ["B", "1", "2", "3", "4"]
-
-    /// `StSq<level>` → `Step Sequence <level>`; a choreographic code → `<name> <digit>`.
+    /// `StSq<level>` → `Step Sequence <level>`; a choreographic code → `<name> <digit>`; `CDE` →
+    /// `Creative Dance Element <level>`.
     ///
     /// A choreographic code's trailing digit is part of the code rather than a level, and **is**
-    /// shown; only `pChSq1`'s prefix is dropped (abbreviation-expansion.md §4.4).
+    /// shown; only a `p` prefix is dropped (abbreviation-expansion.md §4.4). `ChSt1` and `pChSt1`
+    /// are different elements with different names.
     nonisolated static func sequence(_ core: String) -> String? {
         if core.hasPrefix("StSq") {
             let level = core.dropFirst("StSq".count)
             guard level.isEmpty || (level.count == 1 && level.allSatisfy(levels.contains)) else { return nil }
             return level.isEmpty ? "Step Sequence" : "Step Sequence \(level)"
         }
+        if core.hasPrefix("CDE") {
+            guard let level = singleLevel(core.dropFirst("CDE".count)) else { return nil }
+            return level.isEmpty ? "Creative Dance Element" : "Creative Dance Element \(level)"
+        }
         for entry in choreographic where core.hasPrefix(entry.code) {
             let trailing = core.dropFirst(entry.code.count)
-            guard trailing.allSatisfy(\.isNumber) else { return nil }
+            guard trailing.allSatisfy(\.isNumber) else { continue }
             return trailing.isEmpty ? entry.name : "\(entry.name) \(trailing)"
         }
         return nil
     }
 
+    /// Longest code first: the entries share their first three letters (`ChSq`, `ChSp`, `ChSt`,
+    /// `ChSl`), so a first-match walk over an unordered table would read `ChSt1` as a sequence.
     nonisolated private static let choreographic: [(code: String, name: String)] = [
         ("pChSq", "Choreo Sequence"),
+        ("pChSt", "Choreo Step Sequence"),
+        ("ChPSp", "Choreo Pair Spin"),
+        ("ChPLi", "Choreo Pair Lift"),
+        ("ChAJ", "Choreo Assisted Jumps"),
         ("ChSq", "Choreo Sequence"),
         ("ChSp", "Choreo Spin"),
-    ]
+        ("ChSt", "Choreo Char Step Sequence"),
+        ("ChSl", "Choreo Slide"),
+        ("ChLi", "Choreo Lift"),
+    ].sorted { $0.code.count > $1.code.count }
 
     // MARK: - Spins
 
@@ -145,6 +211,8 @@ public struct ElementNameExpander: ElementNameTranslating {
     /// requirement was not fulfilled) separated from the level by a space: `CCoSp1V` →
     /// `Change Combo Spin 1 V`, `CCoSpBV` → `Change Combo Spin B V`
     /// (abbreviation-expansion.md §4.3). A spin the panel called with no level gets the name alone.
+    ///
+    /// The pairs and dance spins (`PSp`, `PCoSp`, `DSp`) are spins by the same rules.
     nonisolated private static let spins: [(code: String, name: String)] = [
         ("USp", "Upright Spin"),
         ("LSp", "Layback Spin"),
@@ -166,6 +234,9 @@ public struct ElementNameExpander: ElementNameTranslating {
         ("CCoSp", "Change Combo Spin"),
         ("FCoSp", "Flying Combo Spin"),
         ("FCCoSp", "Flying Change Combo Spin"),
+        ("PCoSp", "Pair Combo Spin"),
+        ("PSp", "Pair Spin"),
+        ("DSp", "Dance Spin"),
     ]
 
     /// Longest code first: the codes are prefixes of one another and all end in `Sp` — `CSp` ⊂
@@ -207,7 +278,7 @@ public struct ElementNameExpander: ElementNameTranslating {
     /// `<revolutions> <jump name>`, the number always shown — `Euler` excepted, which never takes
     /// one (abbreviation-expansion.md §4.2). The remainder after the code must be empty: `3STh` must
     /// not become a Salchow (abbreviation-expansion.md §2.4 trap 4).
-    nonisolated private static let jumps: [(code: String, name: String)] = [
+    nonisolated static let jumps: [(code: String, name: String)] = [
         ("Eu", "Euler"),
         ("Lo", "Loop"),
         ("Lz", "Lutz"),

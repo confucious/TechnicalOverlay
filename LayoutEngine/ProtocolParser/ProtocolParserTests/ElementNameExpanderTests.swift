@@ -2,8 +2,8 @@
 //  ElementNameExpanderTests.swift
 //  ProtocolParserTests
 //
-//  The singles expansion rules, the frozen worked examples and the whole-fixture sweep
-//  (`docs/architecture/abbreviation-expansion.md` §4, §5, §9).
+//  The expansion rules, the frozen worked examples and the whole-fixture sweeps for singles, pairs
+//  and ice dance (`docs/architecture/abbreviation-expansion.md` §4, §5, §9).
 //
 
 import Foundation
@@ -59,6 +59,9 @@ struct ElementNameExpanderTests {
         #expect(expanded("3Tb1+2T") == "3 Toeloop + 2 Toeloop")
         #expect(expanded("3Lz<b1") == "3 Lutz")           // bonus after the marker
         #expect(expanded("3S<b1") == "3 Salchow")
+        // A pairs twist and a pair throw carry the same bonus.
+        #expect(expanded("3Tw3b1") == "3 Twist Lift 3")
+        #expect(expanded("3SThb1") == "Throw 3 Salchow")
     }
 
     @Test("under-rotation, downgrade and edge markers are ignored")
@@ -80,11 +83,13 @@ struct ElementNameExpanderTests {
         #expect(expanded("A*") == "Axel (Invalid)")
         // Both tokens flagged, each on its own part.
         #expect(expanded("2Lz+SEQ+1A*+2Lo*") == "2 Lutz + SEQ + 1 Axel (Invalid) + 2 Loop (Invalid)")
+        // The flag works on a dance element too.
+        #expect(expanded("RoLi4*") == "Rotational Lift 4 (Invalid)")
     }
 
     // MARK: - Call tokens
 
-    @Test("the call tokens SEQ, COMBO and REP are shown as published")
+    @Test("the call tokens are shown as published")
     func callTokens() {
         #expect(expanded("2Lz+COMBO") == "2 Lutz + COMBO")
         #expect(expanded("3Lo+REP") == "3 Loop + REP")
@@ -93,6 +98,8 @@ struct ElementNameExpanderTests {
         #expect(expanded("SEQ") == "SEQ")
         #expect(expanded("COMBO") == "COMBO")
         #expect(expanded("REP") == "REP")
+        // The dance extra-element token is a call token, not an element.
+        #expect(expanded("RoLi4+ExEI") == "Rotational Lift 4 + ExEI")
         // A call token keeps its place rather than moving to the end.
         #expect(expanded("2Lz+SEQ+1A+2Lo") == "2 Lutz + SEQ + 1 Axel + 2 Loop")
     }
@@ -109,11 +116,21 @@ struct ElementNameExpanderTests {
         #expect(expanded("StSq4b0.5+kpYYYY") == "Step Sequence 4")   // bonus ignored, no dangling +
     }
 
-    @Test("the choreographic codes keep their digit; only pChSq's prefix is dropped")
+    @Test("the choreographic codes keep their digit; only a p prefix is dropped")
     func choreographic() {
         #expect(expanded("ChSq1") == "Choreo Sequence 1")
         #expect(expanded("ChSp1") == "Choreo Spin 1")
         #expect(expanded("pChSq1") == "Choreo Sequence 1")
+        // The dance and pairs members of the family, each a different name.
+        #expect(expanded("ChSt1") == "Choreo Char Step Sequence 1")
+        #expect(expanded("pChSt1") == "Choreo Step Sequence 1")
+        #expect(expanded("ChSl1") == "Choreo Slide 1")
+        #expect(expanded("ChLi1") == "Choreo Lift 1")
+        #expect(expanded("ChAJ1") == "Choreo Assisted Jumps 1")
+        #expect(expanded("ChPSp1") == "Choreo Pair Spin 1")
+        #expect(expanded("ChPLi1") == "Choreo Pair Lift 1")
+        #expect(expanded("CDE4") == "Creative Dance Element 4")
+        #expect(expanded("CDEB") == "Creative Dance Element B")
     }
 
     // MARK: - Spins
@@ -150,43 +167,147 @@ struct ElementNameExpanderTests {
         #expect(expanded("FSSp3") == "Flying Sit Spin 3")
         #expect(expanded("SSp2") == "Sit Spin 2")
         #expect(expanded("FCSSp4") == "Flying Change Sit Spin 4")
+        // The pairs and dance spins are spins by the same rules, and `PCoSp` beats `PSp`.
+        #expect(expanded("PSpB") == "Pair Spin B")
+        #expect(expanded("PCoSp3") == "Pair Combo Spin 3")
+        #expect(expanded("DSp2") == "Dance Spin 2")
     }
 
-    // MARK: - Out of scope
+    // MARK: - Pairs
 
-    @Test("pairs codes pass through untouched")
-    func pairsCodesVerbatim() throws {
-        // Frozen examples from the pairs vocabulary (`protocol-parser.md` §9).
-        #expect(expanded("3STh") == "3STh")
-        #expect(expanded("1LoTh") == "1LoTh")
-        #expect(expanded("3Tw3") == "3Tw3")
-        #expect(expanded("2Tw4") == "2Tw4")
-        #expect(expanded("5ALi4") == "5ALi4")
-        #expect(expanded("1Li3") == "1Li3")
-        #expect(expanded("1LiB") == "1LiB")
-        #expect(expanded("BoDs2") == "BoDs2")
-        #expect(expanded("FiDs3") == "FiDs3")
-        #expect(expanded("ChPLi1") == "ChPLi1")
-        #expect(expanded("ChPSp1") == "ChPSp1")
-        #expect(expanded("PSp3") == "PSp3")
-        #expect(expanded("PiF1") == "PiF1")
+    @Test("a throw puts the word first and keeps the jump's number and name")
+    func pairsThrows() {
+        #expect(expanded("3STh") == "Throw 3 Salchow")
+        #expect(expanded("2LoTh") == "Throw 2 Loop")
+        #expect(expanded("1LoTh") == "Throw 1 Loop")
+        #expect(expanded("2LzTh") == "Throw 2 Lutz")
+        #expect(expanded("4STh") == "Throw 4 Salchow")
+    }
 
-        // And the same holds for every such token on the committed pairs pages.
-        var checked = 0
-        for page in ["SEGM026.html", "SEGM028.html", "SEGM030.html", "SEGM031.html", "SEGM032.html"] {
-            let segment = try ProtocolHTMLParser.parseSegment(html: try Fixture.html(page))
-            for skater in segment.skaters {
-                for element in skater.elements {
-                    for token in element.abbreviation.components(separatedBy: "+") {
-                        let isPairs = ["Th", "Tw", "Li", "Ds", "PSp", "PiF"].contains { token.contains($0) }
-                        guard isPairs else { continue }
-                        checked += 1
-                        #expect(expanded(token) == token, "\(token) should pass through unchanged")
-                    }
-                }
-            }
-        }
-        #expect(checked > 20, "expected the pairs fixtures to contribute pairs tokens, got \(checked)")
+    @Test("a twist lift keeps both numbers apart")
+    func pairsTwists() {
+        #expect(expanded("3Tw3") == "3 Twist Lift 3")
+        #expect(expanded("2Tw4") == "2 Twist Lift 4")
+        #expect(expanded("1TwB") == "1 Twist Lift B")
+    }
+
+    @Test("a pair lift is the group number, the word, the level")
+    func pairsLifts() {
+        #expect(expanded("1Li4") == "1 Lift 4")
+        #expect(expanded("4LiB") == "4 Lift B")
+        #expect(expanded("1Li3") == "1 Lift 3")
+        #expect(expanded("2LiB") == "2 Lift B")
+        #expect(expanded("5ALi4") == "5 Axel Lasso Lift 4")
+        #expect(expanded("5TLi3") == "5 Toe Lasso Lift 3")
+        // `4Li3` is a group 4 lift at level 3, not a level-3 reading of something else.
+        #expect(expanded("4Li3") == "4 Lift 3")
+    }
+
+    @Test("death spirals and pivot figures carry a direction and a level")
+    func pairsSpiralsAndPivot() {
+        #expect(expanded("BoDs3") == "Backward Outside Death Spiral 3")
+        #expect(expanded("FiDsB") == "Forward Inside Death Spiral B")
+        #expect(expanded("FoDs2") == "Forward Outside Death Spiral 2")
+        #expect(expanded("BiDs1") == "Backward Inside Death Spiral 1")
+        #expect(expanded("PiF1") == "Pivot Figure 1")
+    }
+
+    @Test("the pairs solo vocabulary keeps the singles rules")
+    func pairsSoloVocabulary() {
+        #expect(expanded("3Tb1+2A+SEQ") == "3 Toeloop + 2 Axel + SEQ")
+        #expect(expanded("2F<") == "2 Flip")
+        #expect(expanded("ChSq1") == "Choreo Sequence 1")
+        #expect(expanded("2A+1A+SEQ") == "2 Axel + 1 Axel + SEQ")
+    }
+
+    // MARK: - Ice dance
+
+    @Test("a dance lift is the kind, the word, the level")
+    func danceLifts() {
+        #expect(expanded("StaLi4") == "Stationary Lift 4")
+        #expect(expanded("SlLi3") == "Straight Line Lift 3")
+        #expect(expanded("CuLi4") == "Curve Lift 4")
+        #expect(expanded("RoLi2") == "Rotational Lift 2")
+        // The ISU list spells the straight-line lift `SiLi`; the pages write `SlLi`.
+        #expect(expanded("SiLi4") == "Straight Line Lift 4")
+    }
+
+    @Test("a two-partner element is one name, with each level on its own letter")
+    func recombinedHalves() {
+        #expect(expanded("SqTwW4+SqTwM4") == "Sequential Twizzles W 4 / M 4")
+        #expect(expanded("SyTwW3+SyTwM4") == "Synchronized Twizzles W 3 / M 4")
+        #expect(expanded("pSTwW4+pSTwM1") == "Synchronized Twizzles W 4 / M 1")
+        #expect(expanded("MiStW1+MiStM2") == "Midline Steps W 1 / M 2")
+        #expect(expanded("CiStW2+CiStM2") == "Circular Steps W 2 / M 2")
+        #expect(expanded("DiStW1+DiStM1") == "Diagonal Steps W 1 / M 1")
+        #expect(expanded("SeStW1+SeStM1") == "Serpentine Steps W 1 / M 1")
+        #expect(expanded("OFTW2+OFTM3") == "One Foot Turns W 2 / M 3")
+        // A half the panel did not level keeps its letter and no number.
+        #expect(expanded("SqTwW2+SqTwM") == "Sequential Twizzles W 2 / M")
+        #expect(expanded("MiStW1+MiStMB") == "Midline Steps W 1 / M B")
+    }
+
+    @Test("a half with no partner half keeps the singular form")
+    func singleHalves() {
+        #expect(expanded("SqTwW4") == "Sequential Twizzle W 4")
+        #expect(expanded("SyTwM3") == "Synchronized Twizzle M 3")
+        #expect(expanded("MiStW2") == "Midline Step W 2")
+        #expect(expanded("OFTM1") == "One Foot Turn M 1")
+    }
+
+    @Test("recombination is narrow: same code, one W and one M")
+    func recombinationIsNarrow() {
+        // Two different lifts are two names, joined.
+        #expect(expanded("StaLi4+RoLi4") == "Stationary Lift 4 + Rotational Lift 4")
+        #expect(expanded("SlLi3+RoLi3") == "Straight Line Lift 3 + Rotational Lift 3")
+        // Two different step sequences are not one element either.
+        #expect(expanded("MiStW1+DiStM2") == "Midline Step W 1 + Diagonal Step M 2")
+        // The same partner letter twice is not a pair.
+        #expect(expanded("SqTwW4+SqTwW4") == "Sequential Twizzle W 4 + Sequential Twizzle W 4")
+    }
+
+    @Test("the dance-only markers are stripped inside the dance rules")
+    func danceMarkers() {
+        #expect(expanded("SqTwW4S+SqTwM4S") == "Sequential Twizzles W 4 / M 4")   // separation
+        #expect(expanded("MiStW1S+MiStM1S") == "Midline Steps W 1 / M 1")
+        #expect(expanded("StaLi4>") == "Stationary Lift 4")                      // extended lift
+        #expect(expanded("OFTW1S") == "One Foot Turn W 1")
+    }
+
+    @Test("the marker collisions stay resolved")
+    func markerCollisions() {
+        #expect(expanded("3S") == "3 Salchow")            // S is the marker and the jump code
+        #expect(expanded("S") == "Salchow")
+        #expect(expanded("StSq2") == "Step Sequence 2")   // q is a marker and a letter of StSq
+        #expect(expanded("ChSq1") == "Choreo Sequence 1")
+        #expect(expanded("ChSp1e") == "Choreo Spin 1")    // e is a marker on a choreographic code
+        // And a code that ends in `e` is not eaten by the marker strip.
+        #expect(expanded("SpEe") == "Spiral Edge Element")
+        #expect(expanded("CrEe") == "Crouch Edge Element")
+    }
+
+    @Test("the pattern-dance elements follow their own two grammars")
+    func patternDances() {
+        #expect(expanded("FO1Sq4+kpYYYY") == "Fourteenstep Seq 1 4")
+        #expect(expanded("TA2Sq1+kpNYNN") == "Tango Seq 2 1")
+        #expect(expanded("TA1SqB+kpNNNN") == "Tango Seq 1 B")
+        // The slot form: the first number is the element's place, the last the level.
+        #expect(expanded("1GW2+kpYNNY") == "Golden Waltz 1 2")
+        #expect(expanded("1WW1+kpNNNY") == "Pattern Dance 1 1")
+        #expect(expanded("2WWB+kpNNNN") == "Pattern Dance 2 B")
+        // The generic code carries no dance identity: RPD's digit is a sequence count.
+        #expect(expanded("RPD41Sq4+kpYYYY") == "Pattern Dance Seq 1 4")
+        #expect(expanded("RPD22Sq1+kpNYNN") == "Pattern Dance Seq 2 1")
+    }
+
+    @Test("the ISU codes with no page in the set still classify")
+    func unmeasuredCodes() {
+        #expect(expanded("PSt4") == "Pattern Dance Type Step Sequence Style D 4")
+        #expect(expanded("SoTw3") == "Solo Twizzles 3")
+        #expect(expanded("SpEe2") == "Spiral Edge Element 2")
+        #expect(expanded("CrEe1") == "Crouch Edge Element 1")
+        #expect(expanded("SeEs2") == "Spread Eagle Edge Element 2")
+        #expect(expanded("IBEe1") == "Ina Bauer Type Edge Element 1")
     }
 
     @Test("a translator that implements nothing returns the abbreviation unchanged")
@@ -201,39 +322,41 @@ struct ElementNameExpanderTests {
 
     @Test("every row of the five singles fixtures is classified, with nothing passed through")
     func singlesSweep() throws {
-        var rows = 0
-        for page in Fixture.singlesDetailPages {
-            let segment = try ProtocolHTMLParser.parseSegment(html: try Fixture.html(page))
-            for skater in segment.skaters {
-                for element in skater.elements {
-                    rows += 1
-                    let abbreviation = element.abbreviation
-                    let parts = expanded(abbreviation).components(separatedBy: " + ")
+        try sweep(
+            pages: Fixture.singlesDetailPages,
+            expectedRows: 535,
+            expectedAbbreviations: 187,
+            callTokens: ["SEQ", "COMBO", "REP", "ExEI"],
+            recombines: false
+        )
+    }
 
-                    // A token the rules do not know comes back verbatim
-                    // (abbreviation-expansion.md §4.9), and no row on these pages may: the surviving
-                    // parts must line up one-for-one with the tokens that are not dropped. Call
-                    // tokens are the exception — a call token's expansion *is* itself.
-                    let callTokens: Set<String> = ["SEQ", "COMBO", "REP"]
-                    let survivors = abbreviation
-                        .components(separatedBy: "+")
-                        .filter { !$0.hasPrefix("kp") }
-                    #expect(parts.count == survivors.count,
-                            "\(page) #\(element.index) \(abbreviation) → \(parts)")
-                    for part in parts where !callTokens.contains(part) {
-                        #expect(!survivors.contains(part),
-                                "verbatim passthrough: \(page) #\(element.index) \(abbreviation) → \(part)")
-                    }
-                }
-            }
-        }
-        #expect(rows == 535, "the five singles pages hold 535 element rows")
+    @Test("every row of the five pairs fixtures is classified, with nothing passed through")
+    func pairsSweep() throws {
+        try sweep(
+            pages: Fixture.pairsDetailPages,
+            expectedRows: 182,
+            expectedAbbreviations: 66,
+            callTokens: ["SEQ", "COMBO", "REP", "ExEI"],
+            recombines: false
+        )
+    }
+
+    @Test("every row of the thirteen ice-dance fixtures is classified, with nothing passed through")
+    func danceSweep() throws {
+        try sweep(
+            pages: Fixture.danceDetailPages,
+            expectedRows: 247,
+            expectedAbbreviations: 121,
+            callTokens: ["SEQ", "COMBO", "REP", "ExEI"],
+            recombines: true
+        )
     }
 
     @Test("no row on any committed page expands to something malformed")
     func everyPageStaysWellFormed() throws {
         var rows = 0
-        for page in Fixture.detailPages {
+        for page in Fixture.detailPages + Fixture.danceDetailPages {
             let segment = try ProtocolHTMLParser.parseSegment(html: try Fixture.html(page))
             for skater in segment.skaters {
                 for element in skater.elements {
@@ -242,10 +365,55 @@ struct ElementNameExpanderTests {
                     #expect(!name.isEmpty, "\(page) #\(element.index) \(element.abbreviation)")
                     #expect(!name.hasPrefix(" + ") && !name.hasSuffix(" + "))
                     #expect(!name.contains("+ +"))
+                    #expect(!name.contains("  "), "\(page) \(element.abbreviation) → \(name)")
                     #expect(!name.lowercased().contains("kp"))
                 }
             }
         }
-        #expect(rows == 825, "the eleven committed detail pages hold 825 element rows")
+        #expect(rows == 825 + 247, "the committed pages hold 825 static and 247 dance element rows")
+    }
+
+    /// The whole-page check: every abbreviation is classified, no token comes back verbatim, and no
+    /// row is left malformed (`abbreviation-expansion.md` §4.9, §9).
+    private func sweep(
+        pages: [String],
+        expectedRows: Int,
+        expectedAbbreviations: Int,
+        callTokens: Set<String>,
+        recombines: Bool
+    ) throws {
+        var rows = 0
+        var abbreviations: Set<String> = []
+
+        for page in pages {
+            let segment = try ProtocolHTMLParser.parseSegment(html: try Fixture.html(page))
+            for skater in segment.skaters {
+                for element in skater.elements {
+                    rows += 1
+                    let abbreviation = element.abbreviation
+                    abbreviations.insert(abbreviation)
+                    let parts = expanded(abbreviation).components(separatedBy: " + ")
+
+                    // A token the rules do not know comes back verbatim, and no row on these pages
+                    // may: the surviving parts must line up one-for-one with the tokens that are not
+                    // dropped — except that a recombined two-partner element is two tokens and one
+                    // part. Call tokens are the other exception: their expansion *is* themselves.
+                    let survivors = abbreviation
+                        .components(separatedBy: "+")
+                        .filter { !$0.hasPrefix("kp") }
+                    let recombined = recombines && parts.count == survivors.count - 1
+                    #expect(parts.count == survivors.count || recombined,
+                            "\(page) #\(element.index) \(abbreviation) → \(parts)")
+                    for part in parts where !callTokens.contains(part) {
+                        #expect(!survivors.contains(part),
+                                "verbatim passthrough: \(page) #\(element.index) \(abbreviation) → \(part)")
+                    }
+                }
+            }
+        }
+
+        #expect(rows == expectedRows, "\(pages.count) pages hold \(expectedRows) element rows")
+        #expect(abbreviations.count == expectedAbbreviations,
+                "expected \(expectedAbbreviations) distinct abbreviations, got \(abbreviations.count)")
     }
 }
