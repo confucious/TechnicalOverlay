@@ -68,6 +68,8 @@ hundredths, SwiftSoup — carries a pointer to the section here that explains wh
 | 2026-10-17 | **One walk for the preview and the plan.** The preview compositor answered "which overlay owns this frame" by walking *back* from the playhead (last slide with `startTime <= time`, dissolve for `transitionTime`); `generateRegions` answered it by sweeping *forward* with a cursor that jumps to the end of each transition. Those agree only while slides are at least `transitionTime` apart. At 10.0 and 10.3 with 0.75 s dissolves, the preview was already dissolving slide 1 → 2 at 10.31 while the export was still fading slide 1 in — the same frame, two different pictures, and only the export's reached the file. Resolved by making the export's sweep the single definition: `overlaySpans()` produces the contiguous plan (sorted, clipped to the video, noOverlay gaps / transition windows / constant holds), `generateRegions()` is now a map over it that adds `ContentIdentity`, and the preview recipe carries the same spans, resolved per frame by `[OverlaySpan].content(at:transitionTime:)`. Decided, on the user's direction, that **a transition always runs its full `transitionTime`**: crowded slides do not shorten a dissolve that is already running — the next one starts when it ends, later than that slide's own start time. The alternative (compressing dissolves into the gap) was rejected because it would make an overlay's timing depend on how close its neighbour happens to be. Drawing still goes through `OverlayComposite`, so the preview and the chunk renderer run one program on one plan. Tests: `OverlaySpanTests` (+5) — the two paths' time ranges and identities come from the same walk, crowded slides get full-length transitions and stay contiguous, and the 2.6 s frame resolves to the first slide's dissolve at 0.8 rather than the second slide — **VideoProcessor 77/77 in 10 suites**. |
 | 2026-10-17 | **All compiler warnings resolved (73 → 0 in a clean build).** The bulk were `main actor-isolated … nonisolated context` diagnostics inside `ChunkQueue`: every target is MainActor by default, so the plan's value types, the pure transforms and the trace/log helpers were MainActor-only and the queue's `actor` could not read them without a hop. Fixed with `nonisolated` on those declarations — and on their extensions, which need their own marker — while `SWIFT_DEFAULT_ACTOR_ISOLATION` stays. Also gone: an unused `guard` binding, a never-failing `renderer != nil` test assertion, and a weak-`self` var capture read from a `Task`. |
 
+| 2026-10-18 | **The abbreviation spec now covers pairs and ice dance, and the two expansion documents are one.** The rules for the 66 pairs and 121 ice-dance abbreviations were designed the way the singles were — census the fixtures first, prototype the classifier, freeze the numbers — over 182 pairs rows (the five committed pairs pages) and 247 dance rows (thirteen Challenge Cup 2026 pages): `Throw 3 Salchow`, `1 Lift 4`, `3 Twist Lift 3`, death spirals, pivot figures, pair and dance spins, dance lifts, twizzle sets, dance step sequences, `CDE`, and the three published pattern-dance shapes. Two findings decide how those codes are read: `RPD<n>` is a dance with *n sequences*, not a dance number (IJS Parameters), and `1WW`/`2WW` are slot codes whose ISU labels still read "Rhumba/Quickstep 1st Sequence" — so they render `Pattern Dance <n>` instead of claiming the Westminster Waltz. The eight naming decisions are §8 of the document. `abbreviation-expansion-pairs-dance.md` is deleted and `abbreviation-expansion.md` is no longer titled "(Singles)"; the singles sections kept their numbers, so every `§` citation in the Swift comments and the other docs still resolves. Status: singles implemented, pairs and ice dance specified only. Verified: a prototype of the new rules classifies 429/429 pairs and dance rows with zero passthrough and still 535/535 singles rows (all 24 singles examples byte-identical), and every count in the document and all 68 worked examples are that run's output; the shipped `ElementNameExpander` was run over the same 429 rows first, to show that it mangles nothing today. |
+
 ## Compiler warnings (2026-10-17)
 
 A clean `build-for-testing` of `TechnicalOverlay-Workspace` emitted **73 unique warnings** (140 log
@@ -169,6 +171,42 @@ pixels are unchanged.
 
 The rules themselves are `docs/architecture/abbreviation-expansion.md` §4. This is what producing
 them cost and what changed on the way.
+
+**Pairs and ice dance specified, documents merged (2026-10-18).** Designed the same way as singles:
+census the fixtures, prototype the classifier over every row, then freeze the counts as tests. The
+census is 182 pairs rows / 66 abbreviations (the five committed pairs pages) and 247 dance rows / 121
+abbreviations (thirteen pages of the Challenge Cup 2026 protocol set). The prototype classifies
+**429/429** rows with zero verbatim passthrough, and the extended rule set still classifies 535/535
+singles rows and reproduces all 24 singles examples, including the `V` spin suffix — the new branches
+are additive, which is what test 29 in the document's §9 guards.
+
+Two code-reading findings came out of it. `RPD<n>`'s digit is the number of **sequences** in the
+required pattern dance, not a dance number (every two-sequence row in `IJS Parameters` is annotated
+`[use RPD2]`, three-sequence `RPD3`, four-sequence `RPD4`), so no dance name is inferable and the
+digit is dropped from the display. And `1WW`/`2WW` — the junior rhythm dance's two pattern elements —
+are *slot* codes: the ISU 2026-27 list labels them "PD Element Rhumba 1st Sequence" and "PD Element
+Quickstep 1st Sequence", which are 2025-26's `1RH`/`1QS` labels carried over, so rendering them as
+the Westminster Waltz would be a false claim. Base values settle the string's shape: `1WWB`, `1WW1`
+and `1WW2` are one element at three levels (2.50 / 3.50 / 4.00), so the leading digit is the slot and
+the trailing one the level.
+
+Names come from the ISU abbreviation list for 2026-27, and the published pages win where the list
+disagrees with them (`SlLi` against its `SiLi`, `ChSl` against its `ChSI`). The decisions that are
+not derivable — `Throw 3 Salchow` word order, `1 Lift 4`, `3 Twist Lift 3`, `Choreo Char Step
+Sequence` against `Choreo Step Sequence`, and recombining a two-partner element into one name
+(`Sequential Twizzles W 4 / M 4`) instead of joining two — were taken by the user before
+implementation and are recorded in the document's §8; their effect is that the longest names are 50
+characters for singles, 40 for dance and 31 for pairs, all under the overlay's shrink-to-fit regime.
+
+The two documents were merged into one rather than kept side by side. The singles document's section
+numbers were **kept exactly** (§4.2–§4.9 singles, §4.10–§4.12 pairs and dance), because the Swift
+comments and three other documents cite them by number — a renumbering would have silently re-pointed
+dozens of citations at the wrong rule.
+
+**Left unverified.** The dance-only markers `S`, `>` and `ExEI`, and a reduced level on a
+pattern-dance code, appear in no page of this event; `PSt`, `SoTw` and the four solo-dance edge
+elements have no page at all, so their shapes and names are the ISU list's; and the on-screen fit of
+the 40- and 50-character names is still computed from `Metrics`, not measured.
 
 **Rules revised twice on 2026-10-15, after the first implementation** (user): `COMBO` and `REP` went
 from dropped to **shown** like `SEQ`; `Combination` became **`Combo`** in the spin names

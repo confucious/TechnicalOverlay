@@ -48,8 +48,9 @@ unnoticed.
 
 The rest of this document is the consolidated summary; each module doc has the full, current
 detail and is the authoritative reference for its module. A **component-level** spec lives with the
-module that owns it — the singles element-abbreviation expansion rules for the protocol importer are
-in [`docs/architecture/abbreviation-expansion.md`](docs/architecture/abbreviation-expansion.md).
+module that owns it — the element-abbreviation expansion rules for the protocol importer (singles,
+pairs, ice dance) are in
+[`docs/architecture/abbreviation-expansion.md`](docs/architecture/abbreviation-expansion.md).
 
 ### 2.1 Project structure
 
@@ -324,8 +325,9 @@ Nothing here is tracked in a separate backlog file: this section is the list, an
   **Import Protocol** button on `ScoringListView`; the display-name expansion for the imported
   abbreviations is wired into that import (`ElementNameExpander` — spec:
   [`docs/architecture/abbreviation-expansion.md`](docs/architecture/abbreviation-expansion.md)).
-  Remaining work: the **pairs and ice-dance** element vocabulary, and wiring the import into the
-  edit flow beyond `ScoringListView`.
+  Remaining work: **implementing** the pairs and ice-dance vocabulary (specified in that document,
+  §4.10–§4.12, not yet in the module), and wiring the import into the edit flow beyond
+  `ScoringListView`.
 - **Polish / "Make it look nicer"**: visual refinements to overlays + editing UI.
 - **Incremental-export gains** are already designed into the chunk pipeline (reuse unchanged
   chunks when only one timestamp shifts) — the pieces exist; tuning/finishing is the work.

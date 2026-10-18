@@ -19,7 +19,7 @@ convert it to values.
 
 **Out of scope (explicitly):**
 - Translating an abbreviation (`3Tb1+2T`) into a displayed name (`3 Toeloop + 2 Toeloop`) — that is
-  `ElementNameExpander` (§9), specified for singles in
+  `ElementNameExpander` (§9), specified in
   [`docs/architecture/abbreviation-expansion.md`](abbreviation-expansion.md).
 - Program components, deductions, place, start number, segment/total scores beyond the per-element
   panel score (§5.2).
@@ -595,10 +595,12 @@ it presents the address prompt.
 `ElementData.name` receives the abbreviation's **display name**, because the app's import calls the
 translator (§8). The translator is a single component with an **identity default**, so its absence is
 not a failure mode.
-**The singles rules are implemented in this module's `ElementNameExpander.swift` and specified in
+**The rules are implemented for singles in this module's `ElementNameExpander.swift`, and specified
+for singles, pairs and ice dance in
 [`docs/architecture/abbreviation-expansion.md`](abbreviation-expansion.md)** — that document owns the
-jump / spin / step-sequence / choreographic vocabulary and the marker handling; this section keeps
-only the seam and the token inventory.
+jump / spin / step-sequence / choreographic / throw / lift / twizzle / pattern-dance vocabulary and
+the marker handling; this section keeps only the seam and the token inventory. The pairs and
+dance rules are specified there and not yet in the module.
 
 ```swift
 public protocol ElementNameTranslating: Sendable {
