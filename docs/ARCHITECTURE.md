@@ -232,6 +232,13 @@ enqueue(slides:, videoDuration:)
   that, the next dissolve starts where the previous one ended. `ChunkQueue` is an actor so `render(chunk:)` calls are serialized, and `shutdown()` cancels
   the drain and deletes what the queue rendered — `RenderPipeline.reset()` calls it when the video is
   replaced.
+- **Isolation**: `ChunkQueue` is an `actor`, and every target is MainActor-isolated by default
+  (`Project.swift` `baseSettings`). The plan's value types (`Chunk`, `ChunkState`, `ChunkType`,
+  `ContentIdentity`, `ChunkRegion`, `OverlaySpan`, `OverlayContent`, `Slide`), the pure transforms
+  (`overlaySpans`, `generateRegions`, `diffRegionsIntoChunks`) and the trace/log helpers (`Trace`,
+  `TraceTimer`, `Log`) are therefore declared `nonisolated`, so the queue reads them on its own
+  actor. **A `nonisolated` type's extensions are not automatically `nonisolated`** — an
+  `extension Chunk`/`extension CMTimeRange` needs its own marker or it stays MainActor-isolated.
 - **Stitcher**: `DefaultStitcher` (implements `StitcherProtocol`) builds a single
   `AVMutableComposition` with one video + one audio track and appends chunks sequentially,
   mapping absolute stitching ranges to local chunk times (`localTimeRange`) and advancing the

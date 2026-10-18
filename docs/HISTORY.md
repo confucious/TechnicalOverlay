@@ -66,6 +66,38 @@ hundredths, SwiftSoup — carries a pointer to the section here that explains wh
 | 2026-10-17 | **`generateSlides()` passes supersede each other.** Five call sites — the first `onAppear`, the file setter, a timestamp edit, the overlay-look toggle and Clear Slides — each spawned its own unstructured `Task`, and they interleave at every `await`. The winner was whichever *finished* last, not whichever was *called* last: a slow pass could install an older document's preview and enqueue its chunk plan on top of a newer pass that had already finished. Each pass now takes a number, and every `await` is followed by a check that the pass is still the latest, so a superseded one discards its player item and its plan instead of publishing them. A counter rather than `Task.cancel()`: the awaits are AVFoundation loads and a seek, which a cancelled task cannot actually abort, so the work would still complete and its result would still have to be discarded. Not covered by a test — forcing the interleave deterministically needs injectable delays at each await; verified by build, the existing suites and the check after every suspension point. |
 | 2026-10-17 | **A replaced video's pipeline is shut down, and its chunks are deleted.** `RenderPipeline.reset()` dropped its `ChunkQueue` reference on a video swap, which stopped nothing: the old queue's drain task kept exporting the old asset, and `DefaultChunkRenderer` wrote `chunk_<uuid>.mov` straight into `FileManager.default.temporaryDirectory` — no directory of its own, no cleanup path, so every swap left renders running and files behind until the OS pruned tmp. Now `ChunkQueue.shutdown()` cancels the drain, **awaits it** (nothing can still be writing when the files go) and deletes every file its chunks point at; `DefaultChunkRenderer` writes into a per-queue `chunks/<uuid>/` directory that `reset()` removes after the shutdown, so two pipelines cannot collide. One related leak fixed in the same place: a late progress report from the old queue could flip the indicator back to yellow after a swap, so the pipeline now ignores reports from any queue that is not its current one. Tests: `ChunkQueueShutdownTests` (+2) — shutdown deletes the rendered files, and a shutdown that lands mid-render still leaves nothing behind — **VideoProcessor 72/72 in 9 suites**. |
 | 2026-10-17 | **One walk for the preview and the plan.** The preview compositor answered "which overlay owns this frame" by walking *back* from the playhead (last slide with `startTime <= time`, dissolve for `transitionTime`); `generateRegions` answered it by sweeping *forward* with a cursor that jumps to the end of each transition. Those agree only while slides are at least `transitionTime` apart. At 10.0 and 10.3 with 0.75 s dissolves, the preview was already dissolving slide 1 → 2 at 10.31 while the export was still fading slide 1 in — the same frame, two different pictures, and only the export's reached the file. Resolved by making the export's sweep the single definition: `overlaySpans()` produces the contiguous plan (sorted, clipped to the video, noOverlay gaps / transition windows / constant holds), `generateRegions()` is now a map over it that adds `ContentIdentity`, and the preview recipe carries the same spans, resolved per frame by `[OverlaySpan].content(at:transitionTime:)`. Decided, on the user's direction, that **a transition always runs its full `transitionTime`**: crowded slides do not shorten a dissolve that is already running — the next one starts when it ends, later than that slide's own start time. The alternative (compressing dissolves into the gap) was rejected because it would make an overlay's timing depend on how close its neighbour happens to be. Drawing still goes through `OverlayComposite`, so the preview and the chunk renderer run one program on one plan. Tests: `OverlaySpanTests` (+5) — the two paths' time ranges and identities come from the same walk, crowded slides get full-length transitions and stay contiguous, and the 2.6 s frame resolves to the first slide's dissolve at 0.8 rather than the second slide — **VideoProcessor 77/77 in 10 suites**. |
+| 2026-10-17 | **All compiler warnings resolved (73 → 0 in a clean build).** The bulk were `main actor-isolated … nonisolated context` diagnostics inside `ChunkQueue`: every target is MainActor by default, so the plan's value types, the pure transforms and the trace/log helpers were MainActor-only and the queue's `actor` could not read them without a hop. Fixed with `nonisolated` on those declarations — and on their extensions, which need their own marker — while `SWIFT_DEFAULT_ACTOR_ISOLATION` stays. Also gone: an unused `guard` binding, a never-failing `renderer != nil` test assertion, and a weak-`self` var capture read from a `Task`. |
+
+## Compiler warnings (2026-10-17)
+
+A clean `build-for-testing` of `TechnicalOverlay-Workspace` emitted **73 unique warnings** (140 log
+lines). 63 of them were in `ChunkQueue.swift`, all one cause: the queue is an `actor`, every target
+defaults to MainActor isolation (`Project.swift` `baseSettings`), so the plan's value types, the pure
+transforms and the trace helpers were MainActor-only and the actor had to hop — or could not — for
+every predicate and trace line.
+
+- **Fixed by marking declaration intent, not by relaxing the build settings:** `nonisolated` on
+  `Chunk`, `ChunkState`, `ChunkType`, `ContentIdentity`, `ChunkRegion`, `OverlaySpan`,
+  `OverlayContent`, `Slide`, `Metrics`, `overlaySpans`/`generateRegions`/`diffRegionsIntoChunks`,
+  the `Trace`/`TraceTimer`/`Log` helpers and their extensions, the `ProtocolParser` model types, and
+  `CornerDirection`. `SWIFT_DEFAULT_ACTOR_ISOLATION` is untouched — dropping it is what broke
+  `VideoOverlay.render` before (see *Project infrastructure*).
+- **`nonisolated` on a type does not reach its extensions.** `extension Chunk`, `extension
+  CMTimeRange`, `extension Array where Element == ChunkRegion` each needed their own `nonisolated`;
+  without it they stay MainActor-isolated and the warnings come back. Verified with a
+  `swiftc -typecheck -swift-version 5 -default-isolation MainActor` probe before editing the module.
+- **Three unrelated warnings, each a real leftover:** `RenderPipeline`'s progress callback read a
+  weak-`self` **var** capture from inside a `Task` (it now binds a strong `let` first, outside the
+  task); `ExportCoordinator` bound `queue` in a `guard` and never used it; and
+  `DefaultChunkRendererTests` asserted `renderer != nil` on a non-optional type — a check that could
+  never fail. The test double `ProgressRecorder` became `nonisolated` so the queue's `@Sendable`
+  callback can call it.
+- **Measured after:** the same clean build reports **0** compiler warnings and 0 errors; the only
+  remaining `warning:` lines are the `appintentsmetadataprocessor` tool notices ("Metadata extraction
+  skipped, no AppIntents.framework dependency found"), which are not source warnings.
+- **Deliberately left:** `ChunkRendererProtocol` and `StitcherProtocol` are still MainActor-isolated,
+  so `DefaultChunkRenderer.render` hops to the main actor. Making them `nonisolated` changes which
+  executor renders and stitches run on — a behavioural decision, not a warning fix.
 
 ## Playhead freeze
 

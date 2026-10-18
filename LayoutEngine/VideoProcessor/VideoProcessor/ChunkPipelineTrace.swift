@@ -22,7 +22,7 @@ import os
 
 // MARK: - Trace entry point
 
-enum Trace {
+nonisolated enum Trace {
 
     /// Which pipeline stage a line came from. The raw value is the logged prefix.
     enum Area: String {
@@ -32,8 +32,9 @@ enum Trace {
     }
 
     /// The whole trace's switch: these lines are loud, so the pipeline can be silenced without
-    /// editing a call site.
-    static var isEnabled = true
+    /// editing a call site. Set once, then only read — including from the queue's actor and the
+    /// renderer's export, which is why it is not actor-isolated.
+    nonisolated(unsafe) static var isEnabled = true
 
     /// Writes one trace line as `[Area] message`.
     static func log(_ area: Area, _ message: String) {
@@ -44,7 +45,7 @@ enum Trace {
 
 // MARK: - Chunk formatting
 
-extension Chunk {
+nonisolated extension Chunk {
 
     /// First 8 characters of the chunk id — enough to correlate queue/render/stitch lines
     /// without the full UUID noise.
@@ -58,7 +59,7 @@ extension Chunk {
     }
 }
 
-extension ChunkType {
+nonisolated extension ChunkType {
 
     var traceName: String {
         switch self {
@@ -69,7 +70,7 @@ extension ChunkType {
     }
 }
 
-extension ChunkState {
+nonisolated extension ChunkState {
 
     /// `pending` / `rendering` / `rendered(<file>)`.
     var traceName: String {
@@ -81,7 +82,7 @@ extension ChunkState {
     }
 }
 
-extension Array where Element == ChunkRegion {
+nonisolated extension Array where Element == ChunkRegion {
 
     /// `3 noOverlay, 15 constant, 7 transition`
     var traceBreakdown: String {
@@ -93,7 +94,7 @@ extension Array where Element == ChunkRegion {
 }
 
 // MARK: - Time formatting
-extension CMTimeRange {
+nonisolated extension CMTimeRange {
 
     /// Compact `start–end` in seconds, e.g. `12.500–24.000`. Falls back to raw seconds for
     /// non-numeric (indefinite/infinite) times, which is what an unbounded video duration
@@ -106,7 +107,7 @@ extension CMTimeRange {
     }
 }
 
-extension CMTime {
+nonisolated extension CMTime {
 
     /// `12.500s`, or `indefinite` / `infinite` for non-numeric times.
     var traceDescription: String {
@@ -116,7 +117,7 @@ extension CMTime {
 
 // MARK: - Image formatting
 
-extension Optional where Wrapped == CIImage {
+nonisolated extension Optional where Wrapped == CIImage {
 
     /// `none` / `image(1280×720)` — used for the endpoints of a transition chunk.
     var traceName: String {
@@ -137,7 +138,7 @@ extension Optional where Wrapped == CIImage {
 // MARK: - File size
 
 /// `, 1.24 MB` when the file exists, empty string otherwise — appended to export lines.
-func traceFileSize(at url: URL) -> String {
+nonisolated func traceFileSize(at url: URL) -> String {
     guard
         let attributes = try? FileManager.default.attributesOfItem(atPath: url.path),
         let size = attributes[.size] as? Int
@@ -148,7 +149,7 @@ func traceFileSize(at url: URL) -> String {
 // MARK: - Timing
 
 /// Monotonic stopwatch for the `in <n>ms` tails on trace lines.
-struct TraceTimer {
+nonisolated struct TraceTimer {
 
     private let start = ContinuousClock.now
 

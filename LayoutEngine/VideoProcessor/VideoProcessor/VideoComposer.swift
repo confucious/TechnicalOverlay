@@ -21,8 +21,8 @@ import os
 nonisolated struct PreviewRecipe: Sendable {
     var spans: [OverlaySpan] = []
     var preferredTransform: CGAffineTransform = .identity
-    /// Supplied by `setupComposition()`: `Metrics` is main-actor isolated, and the recipe is read
-    /// from the compositor's own thread.
+    /// Supplied by `setupComposition()`: the compositor thread reads this recipe and nothing else, so
+    /// everything a frame needs — including the dissolve length — is baked in here.
     var transitionTime: CMTime = CMTime(seconds: 0.75, preferredTimescale: 1000)
 }
 

@@ -111,13 +111,15 @@ final class RenderPipeline {
         // old queue can still be finishing a render after a video swap.
         let queueID = ObjectIdentifier(queue)
         await queue.setProgressCallback { [weak self] progress in
+            // The callback arrives on the queue's actor; `pipeline` is bound here, outside the
+            // task, because a weak `self` capture is a var and cannot be read from the task.
+            guard let pipeline = self else { return }
             Task { @MainActor in
-                guard let self,
-                      let current = self.queue,
+                guard let current = pipeline.queue,
                       ObjectIdentifier(current) == queueID
                 else { return }
-                self.progress = progress
-                self.status = progress.isRendering ? .processing : .rendered
+                pipeline.progress = progress
+                pipeline.status = progress.isRendering ? .processing : .rendered
             }
         }
         self.queue = queue

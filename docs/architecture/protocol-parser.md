@@ -324,8 +324,10 @@ neutral grey by the existing color rule (`baseValue == 0` → `.neutral`).
 ## 7. Public API
 
 Module-level design constraints: no app types (§8), no I/O inside the parser (§7.2), everything
-`Sendable`; parsing entry points are `nonisolated` so they can be moved off the main actor without
-restructuring (every target is MainActor-isolated by default — `Project.swift` `baseSettings`).
+`Sendable`; the model types and the parsing entry points are `nonisolated` so parsing can move off
+the main actor without restructuring (every target is MainActor-isolated by default — `Project.swift`
+`baseSettings`). **A `nonisolated` type's extensions are still MainActor-isolated** unless each
+extension declares it too.
 **No type is named `ProtocolParser`** — that would collide with the module name (the project uses
 `VideoComposer` in the `VideoProcessor` module, not `VideoProcessor`).
 **The HTML parser is an implementation detail**: no `SwiftSoup` type (`Document`, `Element`,
@@ -335,7 +337,7 @@ the dependency stays replaceable and its behaviour cannot leak into call sites.
 ### 7.1 Model (hundredths; no UI, no naming policy)
 
 ```swift
-public struct ProtocolElement: Sendable, Equatable, Hashable {
+public nonisolated struct ProtocolElement: Sendable, Equatable, Hashable {
     public let index: Int             // 1-based, contiguous
     public let abbreviation: String   // raw + entity-decoded: "3Tb1+2T", "2Lz<<", "StSq2+kpYYNN"
     public let baseValue: Int         // hundredths
@@ -344,14 +346,14 @@ public struct ProtocolElement: Sendable, Equatable, Hashable {
     public let panelScore: Int        // hundredths; validation only (§5.2)
 }
 
-public struct ProtocolSkater: Sendable, Equatable {
+public nonisolated struct ProtocolSkater: Sendable, Equatable {
     public let name: String           // "Milo Yeon, SC of Boston" (verbatim)
     public let elements: [ProtocolElement]
     public var namePart: String       // "Milo Yeon"
     public var club: String?          // "SC of Boston"
 }
 
-public struct ProtocolSegment: Sendable, Equatable {
+public nonisolated struct ProtocolSegment: Sendable, Equatable {
     public let eventName: String      // "2026 Boston Open"
     public let categorySegment: String// "101_109 Champ Intermediate Men / Free Skate"
     public let skaters: [ProtocolSkater]
@@ -364,7 +366,7 @@ All three declare public memberwise inits: the app builds them directly in its o
 ### 7.2 Pure parsing surface
 
 ```swift
-public enum ProtocolPageKind: Sendable, Equatable {
+public nonisolated enum ProtocolPageKind: Sendable, Equatable {
     case leaderboard      // CATnnnSEGnnn.html — carries the judge-detail link
     case segmentDetail    // SEGMnnn.html — carries the element tables
 }

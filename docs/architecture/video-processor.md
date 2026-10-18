@@ -25,13 +25,17 @@ Handles video composition with overlay slides and chunk-based rendering. Uses `A
 ### Slide
 
 ```swift
-public struct Slide: Sendable, Equatable {
+public nonisolated struct Slide: Sendable, Equatable {
     let image: CIImage?
     public let startTime: CMTime
 }
 ```
 
 A `CIImage?` with a `CMTime` start time. Nil image represents "no overlay" (fade-out) slides.
+
+`Slide` and the other types on the plan's path are `nonisolated` because `ChunkQueue` is an `actor`
+(ARCHITECTURE.md §5.2 → *Isolation*); the annotation and the extensions' own markers are the rule
+that keeps that path free of main-actor hops.
 
 ### VideoComposer
 

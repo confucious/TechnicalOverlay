@@ -12,7 +12,7 @@ import os
 /// The chunk pipeline gets its own category so one export can be followed without the composition
 /// setup's chatter beside it. `Error`s are persisted; trace lines are `.debug`, streamed while
 /// debugging and not stored.
-enum Log {
+nonisolated enum Log {
 
     static let subsystem = "org.cjas.technical-overlay.video-processor"
 

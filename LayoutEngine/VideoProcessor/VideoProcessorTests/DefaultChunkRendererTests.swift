@@ -23,7 +23,8 @@ struct DefaultChunkRendererTests {
             sourceAsset: asset,
             outputDirectory: directory
         )
-        #expect(renderer != nil)
+        // A non-optional type: the initializer either returns a renderer or does not compile.
+        _ = renderer
     }
 
     // MARK: - Staleness Check

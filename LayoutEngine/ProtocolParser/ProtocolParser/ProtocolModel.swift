@@ -10,7 +10,7 @@ import Foundation
 
 /// Which of the two published page kinds a document is
 /// (`protocol-parser.md` §2.1–§2.2).
-public enum ProtocolPageKind: Sendable, Equatable {
+public nonisolated enum ProtocolPageKind: Sendable, Equatable {
     /// `CATnnnSEGnnn.html` — the results table; used only to locate the judge-detail link
     /// (protocol-parser.md §7.3).
     case leaderboard
@@ -20,7 +20,7 @@ public enum ProtocolPageKind: Sendable, Equatable {
 
 /// One executed element. Identified by its raw abbreviation; the `info` column is never read
 /// (protocol-parser.md §10a).
-public struct ProtocolElement: Sendable, Equatable, Hashable {
+public nonisolated struct ProtocolElement: Sendable, Equatable, Hashable {
     /// The protocol's own element number, 1-based and contiguous (protocol-parser.md §4.5).
     public let index: Int
     /// The abbreviation exactly as published, entity-decoded: `3Tb1+2T`, `2Lz<<`, `StSq2+kpYYNN`.
@@ -51,7 +51,7 @@ public struct ProtocolElement: Sendable, Equatable, Hashable {
 }
 
 /// One skater's section of a segment detail page.
-public struct ProtocolSkater: Sendable, Equatable {
+public nonisolated struct ProtocolSkater: Sendable, Equatable {
     /// The name cell verbatim, e.g. `Milo Yeon, SC of Boston` (pairs: `A / B`, with no club).
     public let name: String
     public let elements: [ProtocolElement]
@@ -77,7 +77,7 @@ public struct ProtocolSkater: Sendable, Equatable {
 }
 
 /// One segment's page: every skater of that segment, in rank order.
-public struct ProtocolSegment: Sendable, Equatable {
+public nonisolated struct ProtocolSegment: Sendable, Equatable {
     public let eventName: String
     public let categorySegment: String
     public let skaters: [ProtocolSkater]

@@ -12,7 +12,7 @@ import Foundation
 
 // MARK: - Region
 
-public struct ChunkRegion: Sendable {
+public nonisolated struct ChunkRegion: Sendable {
     public let identity: ContentIdentity
     public let timeRange: CMTimeRange
     public let type: ChunkType
@@ -32,7 +32,7 @@ public struct ChunkRegion: Sendable {
 /// `ChunkRegion` by adding the content identity the chunk diff compares, and the preview compositor
 /// reads the spans directly. **Which slide owns a frame therefore has one definition**, shared by the
 /// preview and the export.
-public struct OverlaySpan: Sendable {
+public nonisolated struct OverlaySpan: Sendable {
     public let type: ChunkType
     public let timeRange: CMTimeRange
 
@@ -43,7 +43,7 @@ public struct OverlaySpan: Sendable {
 }
 
 /// What is drawn over a source frame at one moment.
-public enum OverlayContent {
+public nonisolated enum OverlayContent {
     /// The source frame passes through.
     case none
     /// `image` held (nil also passes the source through).
@@ -52,7 +52,7 @@ public enum OverlayContent {
     case dissolve(from: CIImage?, to: CIImage?, progress: Double)
 }
 
-extension Array where Element == OverlaySpan {
+nonisolated extension Array where Element == OverlaySpan {
 
     /// What is drawn at `time`.
     ///
@@ -86,7 +86,7 @@ extension Array where Element == OverlaySpan {
 /// `transitionTime`.** When slides are closer together than that, the next dissolve starts where the
 /// previous one ended rather than being shortened or overlapped, so every slide is faded in over the
 /// full length — the later slide's dissolve simply begins after its own start time.
-public func overlaySpans(
+public nonisolated func overlaySpans(
     slides: [Slide],
     videoDuration: CMTime,
     transitionTime: CMTime
@@ -151,7 +151,7 @@ public func overlaySpans(
 
 // MARK: - generateRegions
 
-public func generateRegions(
+public nonisolated func generateRegions(
     slides: [Slide],
     videoDuration: CMTime,
     transitionTime: CMTime
@@ -171,7 +171,7 @@ public func generateRegions(
 
 // MARK: - diffRegionsIntoChunks
 
-public func diffRegionsIntoChunks(
+public nonisolated func diffRegionsIntoChunks(
     newRegions: [ChunkRegion],
     existingChunks: [Chunk]
 ) -> [Chunk] {

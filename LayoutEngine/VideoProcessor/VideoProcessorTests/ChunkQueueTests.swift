@@ -270,7 +270,7 @@ final class SlowRenderer: ChunkRendererProtocol, @unchecked Sendable {
 }
 
 /// Collects the queue's progress reports (they arrive on the queue's actor).
-final class ProgressRecorder: @unchecked Sendable {
+nonisolated final class ProgressRecorder: @unchecked Sendable {
 
     private var reports: [ChunkQueueProgress] = []
 

@@ -12,7 +12,7 @@ import Foundation
 // MARK: - Content Identity
 
 /// Stable identifier for chunk content independent of time range.
-public struct ContentIdentity: Hashable, Sendable {
+public nonisolated struct ContentIdentity: Hashable, Sendable {
     public let kind: Kind
     public let hash: Int
 
@@ -40,7 +40,7 @@ public struct ContentIdentity: Hashable, Sendable {
 
 // MARK: - Chunk Types
 
-public enum ChunkType: Sendable, Equatable {
+public nonisolated enum ChunkType: Sendable, Equatable {
     case noOverlay
     case constant(CIImage)
     case transition(from: CIImage?, to: CIImage?)
@@ -57,7 +57,7 @@ public enum ChunkType: Sendable, Equatable {
     }
 }
 
-public enum ChunkState: Sendable, Equatable {
+public nonisolated enum ChunkState: Sendable, Equatable {
     case pending
     case rendering
     case rendered(URL)
@@ -65,7 +65,7 @@ public enum ChunkState: Sendable, Equatable {
 
 // MARK: - Chunk
 
-public struct Chunk: Sendable {
+public nonisolated struct Chunk: Sendable {
     public let id: UUID
     public let timeRange: CMTimeRange
     public let type: ChunkType

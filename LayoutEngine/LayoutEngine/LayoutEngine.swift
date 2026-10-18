@@ -46,7 +46,7 @@ enum Metrics {
     }
 }
 
-enum CornerDirection {
+nonisolated enum CornerDirection {
     case nw, ne, sw, se
 }
 

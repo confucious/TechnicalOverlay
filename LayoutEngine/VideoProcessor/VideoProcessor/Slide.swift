@@ -8,7 +8,7 @@
 import AVFoundation
 import CoreImage
 
-public struct Slide: Sendable, Equatable {
+public nonisolated struct Slide: Sendable, Equatable {
     let image: CIImage?
     public let startTime: CMTime
     
@@ -18,6 +18,6 @@ public struct Slide: Sendable, Equatable {
     }
 }
 
-public enum Metrics {
+public nonisolated enum Metrics {
     public static let transitionTime = 0.75
 }

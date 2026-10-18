@@ -43,7 +43,7 @@ final class ExportCoordinator {
     ///
     /// `videoURL` is `nil` only while `MainViewModel.generateSlides()` is still building the queue.
     func exportScoredVideo(videoURL: URL?, to destinationURL: URL) async {
-        guard let videoURL, let queue = pipeline.queue else {
+        guard let videoURL, pipeline.queue != nil else {
             fail("The video is still being prepared — try again in a moment.", at: destinationURL)
             return
         }
