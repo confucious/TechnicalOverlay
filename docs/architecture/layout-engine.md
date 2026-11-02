@@ -13,7 +13,7 @@ A UIKit-based view library that renders figure skating scoring overlays, designe
 | `LabelBoxView.swift` | `LabelBoxView` + `LabelBoxGeometry` — a background with one label inset inside it, sized in proportions of its own height. Every single-label row is one of these (the lower third's name line, the element name, both halves of the score row and of the total row), so the border arithmetic and the font sizing live in one place. `cornerRadiusSource` picks whether the corner radius follows the box's height or the row's, and `fontScale` sizes the text for less than the label's height — for a row taller than its neighbours that keeps their text size. |
 | `VideoOverlay.swift` | Main overlay container `UIView` (1280x720 base). Holds both technical panes — `IsuTechnicalPaneView` and `Isu2026TechnicalPaneView` (top-left, the one `TechnicalViewModel.style` names) — and `IsuLowerThirdView` (bottom-center). `Mode` enum (`none`, `technicalPane`, `lowerThirdPane`). `render(size:)` → `CIImage`. |
 | `IsuLowerThirdView.swift` | Skater introduction overlay with two lines: `UpperLineView` (skater name on blue) + `LowerLineView` (left/center/right text on dark gray). |
-| `IsuTechnicalPaneView.swift` | The classic technical scoring overlay and its `TechnicalViewModel` + `TechnicalPaneStyle`: four subcomponents (`ElementRowView`, `ElementNameView`, `ElementScoreView`, `ProgramTotalView`). The box row is optional (`showsElementBox`). |
+| `IsuTechnicalPaneView.swift` | The classic technical scoring overlay and its `TechnicalViewModel` + `TechnicalPaneStyle`: four subcomponents (`ElementRowView`, `ElementNameView`, `ElementScoreView`, `ProgramTotalView`) and a `RowOrder` (`boxesFirst` for *Classic*, `totalFirst` for *Classic 2*). The box row is optional (`showsElementBox`). |
 | `Isu2026TechnicalPaneView.swift` | The ISU 2026 technical overlay: five flush rows, running total first and the element boxes last. Holds the same `TechnicalViewModel`; the box row is optional on the same terms. |
 | `TechnicalPaneComponents/ElementBoxView.swift` | Single colored box with modes: `unscored`, `positive`, `negative`, `neutral`, drawn in one of two palettes (`ElementBoxView.Style`: classic or ISU 2026). |
 | `TechnicalPaneComponents/ElementNameView.swift` | Element name label on black background. |
@@ -76,11 +76,13 @@ A UIKit-based view library that renders figure skating scoring overlays, designe
 
 ```
 VideoOverlay (1280x720 base frame)
-├── IsuTechnicalPaneView          (top-left, 16% height, 2.65 aspect ratio)
+├── IsuTechnicalPaneView          (top-left, 16% height, 2.65 aspect ratio — .boxesFirst)
 │   ├── ElementRowView            (top row: colored element boxes)
 │   ├── ElementNameView           (element name label, black bg — a LabelBoxView)
 │   ├── ElementScoreView          (base value left, GOE right — two LabelBoxViews)
 │   └── ProgramTotalView          (skater name blue-left, total pink-right — two LabelBoxViews)
+├── IsuTechnicalPaneView          (same frame — .totalFirst, "Classic 2")
+│   └── the same four rows, from the running total down to the boxes
 ├── Isu2026TechnicalPaneView      (same corner, 20% height, 2.3 aspect ratio)
 │   ├── Isu2026RowView ×4         (total, element name, base value, GOE — in that order)
 │   └── ElementRowView            (bottom row: element boxes, .isu2026 palette)
@@ -133,10 +135,16 @@ have to compare different.
 
 ## Pane styles
 
-`TechnicalPaneStyle` (`classic`, `isu2026`) picks which pane draws a `TechnicalViewModel`; the style is
-a field of the view model for the same reason `showsElementBox` is — the mode is the cache key and the
-chunk's content identity. `VideoOverlay` holds both panes and shows the one the style names, so a
-style change re-renders; nothing switches a pane in place.
+`TechnicalPaneStyle` (`classic`, `classic2`, `isu2026`) picks which pane draws a `TechnicalViewModel`;
+the style is a field of the view model for the same reason `showsElementBox` is — the mode is the cache
+key and the chunk's content identity. `VideoOverlay` holds one pane per style and shows the one the
+mode names, so a style change re-renders; nothing switches a pane in place.
+
+**Classic 2 is the classic pane reordered, not a third design.** `IsuTechnicalPaneView.RowOrder`
+decides where the box row sits — `boxesFirst` (boxes, name, score, total) or `totalFirst` (total, name,
+score, boxes) — and nothing else changes: same four components, same palette, same `Metrics`, same pane
+frame and aspect, same one-border gaps between rows. One layout serves both, so the two orders cannot
+drift apart; the only order-dependent code is the frames and which row takes the outer corners.
 
 `Isu2026TechnicalPaneView` is five rows, top to bottom:
 

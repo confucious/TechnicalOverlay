@@ -175,8 +175,9 @@ chunk pipeline.
 Overlay graphics are **pure UIKit `UIView` subclasses** in `LayoutEngine`, laid out with
 percentage-based metrics so they scale to any output resolution. `VideoOverlay` (base frame
 **1280×720**, `alpha = 0.9`, clear background) hosts both technical panes top-left —
-`IsuTechnicalPaneView` (16% height, 2.65 aspect) and `Isu2026TechnicalPaneView` (20% height, 2.3
-aspect), whichever `TechnicalViewModel.style` names — plus `IsuLowerThirdView` (bottom-center, 15%
+`IsuTechnicalPaneView` (16% height, 2.65 aspect, in its `.boxesFirst` or `.totalFirst` row order) and
+`Isu2026TechnicalPaneView` (20% height, 2.3 aspect), whichever `TechnicalViewModel.style` names — plus
+`IsuLowerThirdView` (bottom-center, 15%
 height, 8.5 aspect); its `Mode` enum (`none | technicalPane | lowerThirdPane`) shows one overlay at a
 time. The technical pane's element box row is optional (`TechnicalViewModel.showsElementBox`);
 in the classic pane hiding it moves the name, score and total rows up by the row's height
@@ -304,7 +305,7 @@ rendering**, **green once every renderable chunk is rendered** (`Status.rendered
 `ChunkQueueProgress.isRendering`), with a label on a translucent capsule because the video
 underneath is arbitrary. Below the player: `TimeSettingsView` (shown with or without a video;
 read-only until one is loaded), a config row holding the
-**Style** menu (classic or ISU 2026 technical pane) and the **Element boxes** toggle (hides the
+**Style** menu (Classic, Classic 2 or ISU 2026 technical pane) and the **Element boxes** toggle (hides the
 technical pane's element box row); both are persisted in `UserDefaults` and regenerate the slides, and
 a button row
 **Load Video | Save Video | Load Slides | Save Slides | Edit Slides | Clear Slides** (→ `ScoringListView`

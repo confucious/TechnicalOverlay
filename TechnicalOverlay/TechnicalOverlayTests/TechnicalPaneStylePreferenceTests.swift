@@ -102,6 +102,37 @@ struct TechnicalPaneStylePreferenceTests {
         #expect(data.renderingHash != classic)
     }
 
+    /// The reordered classic is a style of its own: it round-trips through the stored value and
+    /// reaches the slide the pane is drawn from.
+    @Test func reorderedClassicStyleReachesTheSlides() throws {
+        withClearedPreference {
+            OverlayPreferences.technicalPaneStyle = .classic2
+
+            #expect(OverlayPreferences.technicalPaneStyle == .classic2)
+            #expect(UserDefaults.standard.string(forKey: key) == "classic2")
+        }
+
+        let data = OverlayData(
+            skaterFullName: "Alice",
+            skaterAbbreviatedName: "ALI",
+            elementScores: [ElementData(
+                name: "3Lz",
+                baseValue: 590,
+                goeValue: 50,
+                bonusValue: 0,
+                displayTime: 10
+            )]
+        )
+        data.technicalPaneStyle = .classic2
+
+        let mode = try #require(data.slidePlan().first?.mode)
+        guard case let .technicalPane(viewModel) = mode else {
+            Issue.record("the first slide is not a technical pane")
+            return
+        }
+        #expect(viewModel.style == .classic2)
+    }
+
     /// End to end: the document's style reaches the slide the pane is drawn from.
     @Test func slidePlanDrawsElementsInTheStoredStyle() throws {
         let data = OverlayData(

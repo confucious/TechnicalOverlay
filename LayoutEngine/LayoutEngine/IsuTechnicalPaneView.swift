@@ -15,7 +15,10 @@ import UIKit
 public enum TechnicalPaneStyle: String, CaseIterable, Hashable, Sendable {
     /// Element boxes on top, then the element name, the base value with GOE, and the running total.
     case classic
-    /// The 2026 broadcast pane: running total on top, the element boxes at the bottom.
+    /// The classic pane's rows reordered: running total on top, the element boxes at the bottom.
+    case classic2
+    /// The 2026 broadcast pane: running total on top, the element boxes at the bottom, in its own
+    /// palette and proportions.
     case isu2026
 }
 
@@ -55,13 +58,23 @@ public struct TechnicalViewModel: Hashable {
 
 public class IsuTechnicalPaneView: OverlayView {
 
+    /// Where the box row sits in the stack. The two variants are the same rows, styling and sizes —
+    /// only the order differs, so one layout serves both.
+    public enum RowOrder {
+        /// Element boxes on top, then the element name, the score, and the running total.
+        case boxesFirst
+        /// Running total on top, then the element name, the score, and the element boxes.
+        case totalFirst
+    }
+
+    let rowOrder: RowOrder
     let elementRow = ElementRowView()
     let elementNameView = ElementNameView()
     let elementScore = ElementScoreView()
     let total = ProgramTotalView()
 
     /// Whether the element box row is drawn. Hiding it removes the row's height from the stack, so
-    /// the name, score and total rows sit higher on screen at their usual size.
+    /// the other rows sit higher on screen at their usual size.
     public var showsElementBox: Bool = true {
         didSet {
             guard showsElementBox != oldValue else { return }
@@ -70,7 +83,8 @@ public class IsuTechnicalPaneView: OverlayView {
         }
     }
     
-    public init() {
+    public init(rowOrder: RowOrder = .boxesFirst) {
+        self.rowOrder = rowOrder
         super.init(frame: CGRect(
             origin: .zero,
             size: CGSize(width: 100.0, height: 200.0)
@@ -111,20 +125,44 @@ public class IsuTechnicalPaneView: OverlayView {
                 height: mainRowHeight + borderSize * 2
             )
         )
-        elementRow.frame = showsElementBox ? boxRowRect : .zero
-        // Without the box row the three scored rows stack from the top of the pane — the pane keeps
-        // its frame and aspect, so only the rows move up.
-        let rowsTop = showsElementBox ? boxRowRect.maxY : 0.0
-        elementNameView.frame = mainRowRect
-            .offsetBy(dx: 0.0, dy: rowsTop)
-        elementScore.frame = elementNameView.frame
-            .offsetBy(dx: 0.0, dy: mainRowHeight + borderSize)
-        total.frame = elementScore.frame.offsetBy(dx: 0.0, dy: mainRowHeight + borderSize)
-        
-        elementRow.backgroundView.cornerConfiguration = elementNameView
-            .roundedCornerConfiguration(corners: [.nw, .ne])
-        elementNameView.cornerConfiguration = elementNameView
-            .roundedCornerConfiguration(corners: showsElementBox ? [.ne] : [.nw, .ne])
-        total.cornerConfiguration = total.roundedCornerConfiguration(corners: [.sw, .se])
+        // Rows overlap by one border on each side, so every pair leaves one border of gap between
+        // their backgrounds.
+        let pitch = mainRowHeight + borderSize
+
+        switch rowOrder {
+        case .boxesFirst:
+            elementRow.frame = showsElementBox ? boxRowRect : .zero
+            // Without the box row the three scored rows stack from the top of the pane — the pane
+            // keeps its frame and aspect, so only the rows move up.
+            let rowsTop = showsElementBox ? boxRowRect.maxY : 0.0
+            elementNameView.frame = mainRowRect
+                .offsetBy(dx: 0.0, dy: rowsTop)
+            elementScore.frame = elementNameView.frame.offsetBy(dx: 0.0, dy: pitch)
+            total.frame = elementScore.frame.offsetBy(dx: 0.0, dy: pitch)
+
+            elementRow.backgroundView.cornerConfiguration = elementNameView
+                .roundedCornerConfiguration(corners: [.nw, .ne])
+            elementNameView.cornerConfiguration = elementNameView
+                .roundedCornerConfiguration(corners: showsElementBox ? [.ne] : [.nw, .ne])
+            total.cornerConfiguration = total.roundedCornerConfiguration(corners: [.sw, .se])
+
+        case .totalFirst:
+            total.frame = mainRowRect
+            elementNameView.frame = total.frame.offsetBy(dx: 0.0, dy: pitch)
+            elementScore.frame = elementNameView.frame.offsetBy(dx: 0.0, dy: pitch)
+            elementRow.frame = showsElementBox
+                ? boxRowRect.offsetBy(dx: 0.0, dy: pitch * 3)
+                : .zero
+
+            total.cornerConfiguration = total.roundedCornerConfiguration(corners: [.nw, .ne])
+            elementNameView.cornerConfiguration = elementNameView
+                .roundedCornerConfiguration(corners: [.ne])
+            elementRow.backgroundView.cornerConfiguration = elementNameView
+                .roundedCornerConfiguration(corners: [.sw, .se])
+            if !showsElementBox {
+                elementScore.cornerConfiguration = elementScore
+                    .roundedCornerConfiguration(corners: [.sw, .se])
+            }
+        }
     }
 }

@@ -92,6 +92,62 @@ struct LayoutEngineTests {
         ))
     }
 
+    // MARK: - Classic 2 pane
+
+    private func makeClassic2Pane(showsElementBox: Bool = true) -> IsuTechnicalPaneView {
+        let pane = IsuTechnicalPaneView(rowOrder: .totalFirst)
+        pane.frame = CGRect(x: 0.0, y: 0.0, width: 300.0, height: 120.0)
+        pane.update(from: TechnicalViewModel(
+            skaterName: "Jerry Hsu",
+            elementName: "3Lz",
+            baseValue: "5.90",
+            goeValue: "0.50",
+            totalValue: "6.40",
+            boxModes: [.positive, .positive],
+            showsElementBox: showsElementBox,
+            style: .classic2
+        ))
+        pane.setNeedsLayout()
+        pane.layoutIfNeeded()
+        return pane
+    }
+
+    /// Classic 2 is the classic pane with the rows reordered: total first, boxes last.
+    @Test func classic2StacksTheRunningTotalThroughTheElementBoxes() {
+        let pane = makeClassic2Pane()
+        let rows = [pane.total, pane.elementNameView, pane.elementScore, pane.elementRow]
+
+        #expect(rows[0].frame.minY == 0)
+        let borderSize = Metrics.borderInset(for: 120.0 * Metrics.mainRowPercent)
+        for (upper, lower) in zip(rows, rows.dropFirst()) {
+            // One below the other, overlapping by the single border their backgrounds leave between
+            // them — the classic pane's row spacing.
+            #expect(lower.frame.minY > upper.frame.minY)
+            #expect(abs((upper.frame.maxY - lower.frame.minY) - borderSize) < 0.5)
+        }
+    }
+
+    /// Same components, same sizes, same pane — only the order changes.
+    @Test func classic2KeepsTheClassicRowsAndSizes() {
+        let classic = makePane(showsElementBox: true)
+        let reordered = makeClassic2Pane(showsElementBox: true)
+
+        #expect(reordered.bounds == classic.bounds)
+        #expect(reordered.total.frame.size == classic.total.frame.size)
+        #expect(reordered.elementNameView.frame.size == classic.elementNameView.frame.size)
+        #expect(reordered.elementScore.frame.size == classic.elementScore.frame.size)
+        #expect(reordered.elementRow.frame.size == classic.elementRow.frame.size)
+    }
+
+    @Test func classic2MovesTheRowsUpWhenTheBoxesAreHidden() {
+        let pane = makeClassic2Pane(showsElementBox: false)
+
+        #expect(pane.elementRow.isHidden)
+        #expect(pane.elementRow.frame == .zero)
+        #expect(pane.total.frame.minY == 0)
+        #expect(pane.elementScore.frame.maxY < pane.bounds.height)
+    }
+
     // MARK: - ISU 2026 pane
 
     private func make2026Pane(
@@ -247,6 +303,19 @@ struct LayoutEngineTests {
         #expect(!classic.technicalPane.isHidden)
         #expect(classic.technicalPane2026.isHidden)
 
+        let reordered = VideoOverlay(mode: .technicalPane(TechnicalViewModel(
+            skaterName: viewModel.skaterName,
+            elementName: viewModel.elementName,
+            baseValue: viewModel.baseValue,
+            goeValue: viewModel.goeValue,
+            totalValue: viewModel.totalValue,
+            boxModes: viewModel.boxModes,
+            style: .classic2
+        )))
+        #expect(!reordered.technicalPaneClassic2.isHidden)
+        #expect(reordered.technicalPane.isHidden)
+        #expect(reordered.technicalPane2026.isHidden)
+
         let isu2026 = VideoOverlay(mode: .technicalPane(TechnicalViewModel(
             skaterName: viewModel.skaterName,
             elementName: viewModel.elementName,
@@ -257,6 +326,7 @@ struct LayoutEngineTests {
             style: .isu2026
         )))
         #expect(isu2026.technicalPane.isHidden)
+        #expect(isu2026.technicalPaneClassic2.isHidden)
         #expect(!isu2026.technicalPane2026.isHidden)
     }
 

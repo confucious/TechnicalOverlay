@@ -21,6 +21,8 @@ public class VideoOverlay: OverlayView {
     }
     
     let technicalPane = IsuTechnicalPaneView()
+    /// The classic pane's rows reordered — same components, palette and metrics.
+    let technicalPaneClassic2 = IsuTechnicalPaneView(rowOrder: .totalFirst)
     let technicalPane2026 = Isu2026TechnicalPaneView()
     let lowerThird = IsuLowerThirdView()
     
@@ -30,6 +32,7 @@ public class VideoOverlay: OverlayView {
             frame: CGRect(origin: .zero, size: CGSize(width: 1280, height: 720))
         )
         addSubview(technicalPane)
+        addSubview(technicalPaneClassic2)
         addSubview(technicalPane2026)
         addSubview(lowerThird)
         backgroundColor = .clear
@@ -49,6 +52,9 @@ public class VideoOverlay: OverlayView {
             case .classic:
                 technicalPane.update(from: viewModel)
                 technicalPane.isHidden = false
+            case .classic2:
+                technicalPaneClassic2.update(from: viewModel)
+                technicalPaneClassic2.isHidden = false
             case .isu2026:
                 technicalPane2026.update(from: viewModel)
                 technicalPane2026.isHidden = false
@@ -67,10 +73,13 @@ public class VideoOverlay: OverlayView {
         let techHeight = height * Metrics.techPaneHeightPercent
         let techWidth = techHeight * Metrics.techPaneAspectRatio
         let techOrigin = CGPoint(x: techOriginOffset, y: techOriginOffset)
-        technicalPane.frame = CGRect(
+        let classicFrame = CGRect(
             origin: techOrigin,
             size: CGSize(width: techWidth, height: techHeight)
         )
+        technicalPane.frame = classicFrame
+        // The reordered classic shares the classic pane's frame: only its rows move.
+        technicalPaneClassic2.frame = classicFrame
 
         // The 2026 pane has one more row than the classic one, so it is taller at the same text size.
         let tech2026Height = height * Metrics.isu2026TechPaneHeightPercent

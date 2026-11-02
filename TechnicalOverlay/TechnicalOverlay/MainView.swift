@@ -368,6 +368,7 @@ extension TechnicalPaneStyle {
     var title: String {
         switch self {
         case .classic: return "Classic"
+        case .classic2: return "Classic 2"
         case .isu2026: return "ISU 2026"
         }
     }
