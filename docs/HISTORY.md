@@ -1,6 +1,6 @@
 # TechnicalOverlay — History & Rationale
 
-> **Status**: Living record · **Last updated**: 2026-10-17
+> **Status**: Living record · **Last updated**: 2026-11-01
 
 Why things are the way they are: dated decisions, the measurements behind them, what each choice
 replaced, and what past passes got wrong.
@@ -71,6 +71,62 @@ hundredths, SwiftSoup — carries a pointer to the section here that explains wh
 | 2026-10-18 | **The abbreviation spec now covers pairs and ice dance, and the two expansion documents are one.** The rules for the 66 pairs and 121 ice-dance abbreviations were designed the way the singles were — census the fixtures first, prototype the classifier, freeze the numbers — over 182 pairs rows (the five committed pairs pages) and 247 dance rows (thirteen Challenge Cup 2026 pages): `Throw 3 Salchow`, `1 Lift 4`, `3 Twist Lift 3`, death spirals, pivot figures, pair and dance spins, dance lifts, twizzle sets, dance step sequences, `CDE`, and the three published pattern-dance shapes. Two findings decide how those codes are read: `RPD<n>` is a dance with *n sequences*, not a dance number (IJS Parameters), and `1WW`/`2WW` are slot codes whose ISU labels still read "Rhumba/Quickstep 1st Sequence" — so they render `Pattern Dance <n>` instead of claiming the Westminster Waltz. The eight naming decisions are §8 of the document. `abbreviation-expansion-pairs-dance.md` is deleted and `abbreviation-expansion.md` is no longer titled "(Singles)"; the singles sections kept their numbers, so every `§` citation in the Swift comments and the other docs still resolves. Status: singles implemented, pairs and ice dance specified only. Verified: a prototype of the new rules classifies 429/429 pairs and dance rows with zero passthrough and still 535/535 singles rows (all 24 singles examples byte-identical), and every count in the document and all 68 worked examples are that run's output; the shipped `ElementNameExpander` was run over the same 429 rows first, to show that it mangles nothing today. |
 
 | 2026-10-18 | **Pairs and ice-dance expansion implemented** (`ElementNameExpander+Pairs.swift`, `ElementNameExpander+Dance.swift`). The tables from the spec's §4.10–§4.12 — throws, twist lifts, pair lifts (groups 1–5), death spirals, pivot figures, the pairs and dance spins folded into the spin table, dance lifts, twizzle sets, step sequences, one-foot turns, the solo-dance and senior codes, and the three pattern-dance shapes — plus the partner-half recombination in `displayName(for:)`. Two implementation points the spec did not anticipate: the dance branch must be offered the token **with and without** the shared trailing-marker strip, because `SpEe`/`CrEe`/`IBEe` end in `e` and the singles rule eats it before anything looks at them; and the recombined name is built in `displayName` rather than per token, since it needs the neighbouring token. Thirteen Challenge Cup 2026 dance pages committed as fixtures (`ChallengeCup-SEGMnnn.html`). Tests: `ElementNameExpanderTests` 17 → 31, **ProtocolParser 70/70 in 7 suites**, with a zero-passthrough sweep per vocabulary (535 / 182 / 247 rows, and the distinct-abbreviation counts 187 / 66 / 121 asserted). App builds and its suite passes unchanged (38 unit + 8 XCTest), since singles names did not move. |
+| 2026-11-01 | **A second technical pane: `Isu2026TechnicalPaneView`, chosen by a style menu.** The broadcast 2026 graphic reads top-down — skater and running total, element name, base value with bonus, GOE in a green/red cell, then the element boxes — which is the classic pane's order with the total first and the boxes last, and it carries no black inset boxes, no rounded corners and none of the blue/pink/grey fills. Rather than parameterize the classic pane's five components, the style became a field of `TechnicalViewModel` (`TechnicalPaneStyle`: `classic` | `isu2026`) and `VideoOverlay` holds both panes, showing the one the style names: the mode is the slide cache key and a chunk's content identity, so a style change has to produce a different mode anyway, and one enum in the view model makes that automatic. `ElementBoxView.Style` and `ElementRowView(style:)` carry the only shared code whose rendering differs (palette; spacing and background), instead of duplicating the box row. Device preference on the element-box toggle's terms (`OverlayPreferences.technicalPaneStyle`, key `"technicalPaneStyle"`, absent or unrecognised = classic), seeded at launch and written by the new **Style** menu in `MainView`'s config row. Colours and proportions were measured off the user's reference frame (a photo of a broadcast screen): white rows, an element-name row ~13% darker, GOE/judge green `#2FA600` and red `#D50B0E`, boxes ~0.7 of their row's height with a gap of 0.6 of a box, panel aspect ~2.3. The leader row, flag and `TECHNICAL SCORE` header are deliberately not drawn; **the leader row's styling was then reused for the pane's own first row** on the user's instruction — blue behind white text, the running total in its own band behind a rule, overhanging the block by 15% of the pane's width, with only the chips' own hairline between it and the block. Its text was then set to **one point larger** than the block's with the row's height **proportional to that text** — a row's text is `Metrics.isu2026FontPercent` of its height, so the row is taller by exactly the height one more point needs, and the band ended up a fraction taller than the rows below rather than 1.4× them. The same pass renamed the fourth row's label to `EXECUTION:` (the graphic's word), dropped the box row's background, so the boxes alone sit over the video with a mid-gray outline making an empty slot read on a light frame, and packed the boxes from the row's left inset with a hairline between them instead of sharing the row's width evenly. Tests: `LayoutEngine` 5 → 14 (row order, the name row's leader styling and separation, the block's value-column alignment, execution-cell sign, box-row hiding and layout — including that the chips are packed with a hairline between them — and the overlay picking its pane by style), app unit suite 38 → 46 (`TechnicalPaneStylePreferenceTests`: default, persistence, an unknown stored value, launch seeding, not in the document, `renderingHash`, and `slidePlan()` drawing elements in the stored style). |
+
+## Technical pane styles
+
+**2026-11-01 — why a second pane instead of a style flag on the existing one.** The two graphics
+differ in more than colour: their rows are in a different order, five instead of four, flush instead
+of bordered and rounded, with the box row at the bottom instead of the top. A style flag threaded
+through `IsuTechnicalPaneView`'s layout would have made every row's frame conditional on it, and the
+classic pane is the one that has to stay pixel-identical — it is what every existing `.tojson` and
+every already-exported video was made with. So the 2026 look is a new view with its own layout, and
+the only thing shared is the part where the *data* is the same: the box row (`ElementRowView`'s
+geometry plus `ElementBoxView`'s palette) and the `LabelBoxView` rig every row is drawn from.
+
+**Why the style lives in the view model.** A `VideoOverlay.Mode` is the slide cache key and a chunk's
+content identity, and slide and chunk reuse is what makes a timing edit cheap. Two slides that look
+different must not hash equal, so anything that changes pixels has to be a field of the mode —
+`showsElementBox` set that precedent, and the style follows it. The alternative, keeping the style on
+the view or in a global, would let the renderer cache the old look.
+
+**The boxes are a strip of chips, not a grid of slots.** They are as tall as the row allows (~0.7 of
+it, as in the graphic) and packed from the left with a hairline between them, so the row reads as one
+strip that grows as the program goes on. An earlier pass shared the row's width evenly among them, which
+spread eight boxes across the pane with gaps wider than the boxes themselves — no longer the graphic's
+look. They now only shrink, and their gaps only widen, when that many boxes would not fit the row's
+width. The strip therefore does not span the pane: the space to its right stays clear, which is what a
+transparent row makes free.
+
+**The rows are flush, so the white block is one surface.** In the graphic the base-value row and the
+execution row are both white and touch, so they read as one block broken only by the green/red cell.
+Drawing the classic pane's borders between them would turn that block into two striped rows.
+
+**The name row is dressed as the leader row and deliberately breaks the block.** In the graphic the
+skater's row is the *scoreboard's* row — blue, white text, the score behind its own rule, taller than
+the technical block and wider than it. Reusing that styling for the pane's first row is what makes the
+pane read as part of the same broadcast, and the overhang is what marks it as a headline rather than the
+first of five equal rows. Its height follows its text rather than being a chosen multiple: the text is
+one point larger than the block's and the row is taller by the height that point needs
+(`Metrics.isu2026NameRowExtraHeight`), so the band is a fraction taller rather than a banner. The gap
+under the band is the chips' hairline, so the pane's only large space is the one around the whole block.
+An earlier pass made the band 1.4× the block's rows for a proportionally larger font; two intermediate
+passes set the font equal to the block's and then scaled it in a taller row, both of which that
+proportional rule subsumes — `LabelBoxView.fontScale`, which existed only for the middle one, is
+gone. Consequence: the running total does **not** share the value column
+the base value and execution mark use, because the row is wider; the block's two values still line up
+with each other.
+
+**The box row has no background, so the boxes must carry their own definition.** With the row
+transparent, an empty slot's white fill disappears against bright ice, which is why the outline is a
+mid-gray rather than the near-white the filled row allowed. The filled slots (green/red) are unchanged.
+
+**Verified.** `LayoutEngine` 14/14 and the app suite (46 unit + 8 XCTest); both panes rasterized at
+1280×720 and compared against the reference frame by eye — order, colours, the leader-styled name row
+with its rule, larger type, overhang and gap, the block's value column, and the red cell for a negative
+GOE. The empty slots were rendered over both a mid-grey and a near-white ground to check the outline
+holds up on a bright frame.
+
 ## Compiler warnings (2026-10-17)
 
 A clean `build-for-testing` of `TechnicalOverlay-Workspace` emitted **73 unique warnings** (140 log

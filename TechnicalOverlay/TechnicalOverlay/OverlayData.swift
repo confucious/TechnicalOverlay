@@ -30,6 +30,9 @@ class OverlayData: Codable {
     /// data: `OverlayPreferences` owns it in UserDefaults, so it is deliberately absent from
     /// `CodingKeys` and is not copied by `update(from:)` when a document is loaded.
     var showsElementBox: Bool = true
+    /// Which technical pane design the slides are drawn in. Device state on the same terms as
+    /// `showsElementBox`.
+    var technicalPaneStyle: TechnicalPaneStyle = .classic
 
     internal init(
         skaterFullName: String = "",
@@ -64,6 +67,7 @@ class OverlayData: Codable {
         skaterFullName.hash(into: &hasher)
         skaterAbbreviatedName.hash(into: &hasher)
         showsElementBox.hash(into: &hasher)
+        technicalPaneStyle.hash(into: &hasher)
         for intro in introductionTexts {
             intro.left.hash(into: &hasher)
             intro.center.hash(into: &hasher)
@@ -171,7 +175,8 @@ class ElementData: Codable {
         skaterName: String,
         runningTotal: Int,
         boxModes: [ElementBoxView.Mode],
-        showsElementBox: Bool
+        showsElementBox: Bool,
+        style: TechnicalPaneStyle
     ) -> VideoOverlay.Mode {
         return .technicalPane(TechnicalViewModel(
             skaterName: skaterName,
@@ -182,7 +187,8 @@ class ElementData: Codable {
             goeValue: formatValue(goeValue),
             totalValue: formatValue(runningTotal),
             boxModes: boxModes,
-            showsElementBox: showsElementBox
+            showsElementBox: showsElementBox,
+            style: style
         ))
     }
 }

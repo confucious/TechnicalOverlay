@@ -58,7 +58,8 @@ extension OverlayData {
                 skaterName: skaterAbbreviatedName,
                 runningTotal: cumulativeScore,
                 boxModes: cumulativeBoxModes,
-                showsElementBox: showsElementBox
+                showsElementBox: showsElementBox,
+                style: technicalPaneStyle
             )
             guard let displayTime = element.displayTime else { continue }
             plan.append(SlidePlan(mode: mode, startTime: displayTime))

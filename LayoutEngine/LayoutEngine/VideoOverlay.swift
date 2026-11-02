@@ -21,6 +21,7 @@ public class VideoOverlay: OverlayView {
     }
     
     let technicalPane = IsuTechnicalPaneView()
+    let technicalPane2026 = Isu2026TechnicalPaneView()
     let lowerThird = IsuLowerThirdView()
     
     public init(mode: Mode) {
@@ -29,6 +30,7 @@ public class VideoOverlay: OverlayView {
             frame: CGRect(origin: .zero, size: CGSize(width: 1280, height: 720))
         )
         addSubview(technicalPane)
+        addSubview(technicalPane2026)
         addSubview(lowerThird)
         backgroundColor = .clear
         alpha = 0.9
@@ -43,8 +45,14 @@ public class VideoOverlay: OverlayView {
         case .none:
             break
         case let .technicalPane(viewModel):
-            technicalPane.update(from: viewModel)
-            technicalPane.isHidden = false
+            switch viewModel.style {
+            case .classic:
+                technicalPane.update(from: viewModel)
+                technicalPane.isHidden = false
+            case .isu2026:
+                technicalPane2026.update(from: viewModel)
+                technicalPane2026.isHidden = false
+            }
         case let .lowerThirdPane(viewModel):
             lowerThird.update(from: viewModel)
             lowerThird.isHidden = false
@@ -58,9 +66,18 @@ public class VideoOverlay: OverlayView {
         let techOriginOffset = height * Metrics.overlayBorderPercent
         let techHeight = height * Metrics.techPaneHeightPercent
         let techWidth = techHeight * Metrics.techPaneAspectRatio
+        let techOrigin = CGPoint(x: techOriginOffset, y: techOriginOffset)
         technicalPane.frame = CGRect(
-            origin: CGPoint(x: techOriginOffset, y: techOriginOffset),
+            origin: techOrigin,
             size: CGSize(width: techWidth, height: techHeight)
+        )
+
+        // The 2026 pane has one more row than the classic one, so it is taller at the same text size.
+        let tech2026Height = height * Metrics.isu2026TechPaneHeightPercent
+        let tech2026Width = tech2026Height * Metrics.isu2026TechPaneAspectRatio
+        technicalPane2026.frame = CGRect(
+            origin: techOrigin,
+            size: CGSize(width: tech2026Width, height: tech2026Height)
         )
         
         let width = bounds.size.width

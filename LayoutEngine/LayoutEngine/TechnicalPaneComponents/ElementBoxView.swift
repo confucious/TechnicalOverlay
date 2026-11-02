@@ -14,6 +14,13 @@ public class ElementBoxView: OverlayView {
         case negative
         case neutral
     }
+
+    /// The pane a box is drawn in. The two panes read the same modes with different palettes: the
+    /// classic pane's unscored box is a filled grey, the 2026 pane's is an outlined white slot.
+    public enum Style {
+        case classic
+        case isu2026
+    }
     
     enum Metrics {
         static let borderWidth: CGFloat = 1.0
@@ -24,13 +31,15 @@ public class ElementBoxView: OverlayView {
             configure()
         }
     }
+
+    let style: Style
     let boxView = UIView()
     
-    init(mode: Mode = .unscored) {
+    init(mode: Mode = .unscored, style: Style = .classic) {
         self.mode = mode
+        self.style = style
         super.init(frame: CGRect(x: 0.0, y: 0.0, width: 50, height: 50))
         addSubview(boxView)
-        backgroundColor = .black
         configure()
     }
     
@@ -45,11 +54,24 @@ public class ElementBoxView: OverlayView {
     }
     
     func configure() {
-        switch mode {
-        case .unscored: boxView.backgroundColor = .lightGray
-        case .neutral: boxView.backgroundColor = .darkGray
-        case .positive: boxView.backgroundColor = Color.positive
-        case .negative: boxView.backgroundColor = Color.negative
+        switch style {
+        case .classic:
+            backgroundColor = .black
+            switch mode {
+            case .unscored: boxView.backgroundColor = .lightGray
+            case .neutral: boxView.backgroundColor = .darkGray
+            case .positive: boxView.backgroundColor = Color.positive
+            case .negative: boxView.backgroundColor = Color.negative
+            }
+
+        case .isu2026:
+            backgroundColor = Color.isu2026BoxOutline
+            switch mode {
+            case .unscored: boxView.backgroundColor = Color.isu2026Unscored
+            case .neutral: boxView.backgroundColor = Color.isu2026Neutral
+            case .positive: boxView.backgroundColor = Color.isu2026Positive
+            case .negative: boxView.backgroundColor = Color.isu2026Negative
+            }
         }
     }
 }

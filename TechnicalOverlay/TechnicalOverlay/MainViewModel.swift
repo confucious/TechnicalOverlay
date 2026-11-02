@@ -8,6 +8,7 @@
 
 import AVFoundation
 import Foundation
+import LayoutEngine
 import Observation
 import VideoProcessor
 import os
@@ -50,6 +51,7 @@ final class MainViewModel {
         // The look is a device preference, so it is applied after the saved document state.
         scoring.load()
         scoring.showsElementBox = OverlayPreferences.showsElementBox
+        scoring.technicalPaneStyle = OverlayPreferences.technicalPaneStyle
         // Assigned without observers firing (this is the initializer): the first pass is
         // `MainView.onAppear`'s `generateSlides()`.
         self.assetUrl = assetUrl
@@ -127,6 +129,18 @@ final class MainViewModel {
         }
         scoring.showsElementBox = showsElementBox
         OverlayPreferences.showsElementBox = showsElementBox
+        generateSlides()
+    }
+
+    /// Regenerates the slides after the pane style changes. The style is part of the mode, so this
+    /// takes the same path as the element-box toggle: new slides for the preview, and the chunk
+    /// queue re-renders the chunks whose content changed.
+    func setTechnicalPaneStyle(_ style: TechnicalPaneStyle) {
+        guard scoring.technicalPaneStyle != style else {
+            return
+        }
+        scoring.technicalPaneStyle = style
+        OverlayPreferences.technicalPaneStyle = style
         generateSlides()
     }
 

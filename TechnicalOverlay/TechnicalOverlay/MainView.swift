@@ -8,6 +8,7 @@
 import SwiftUI
 import AVFoundation
 import AVKit
+import LayoutEngine
 import VideoProcessor
 import os
 
@@ -62,6 +63,24 @@ struct MainView: View {
         .background(.ultraThinMaterial, in: Capsule())
         .accessibilityElement(children: .combine)
         .accessibilityLabel(model.pipeline.status.accessibilityDescription)
+    }
+
+    /// Overlay style menu: the classic technical pane or the ISU 2026 broadcast pane. The style is a
+    /// device preference, like the element-box toggle, and changing it re-renders the slides.
+    private var overlayStylePicker: some View {
+        Picker(
+            "Style",
+            selection: Binding(
+                get: { model.scoring.technicalPaneStyle },
+                set: { model.setTechnicalPaneStyle($0) }
+            )
+        ) {
+            ForEach(TechnicalPaneStyle.allCases, id: \.self) { style in
+                Text(style.title).tag(style)
+            }
+        }
+        .pickerStyle(.menu)
+        .font(.callout)
     }
 
     /// Overlay look toggle: the technical pane's element box row can be hidden, which moves the
@@ -241,8 +260,17 @@ struct MainView: View {
                         }.interactiveDismissDisabled()
                     })
                 }
-                elementBoxToggle
-                    .fixedSize()
+                HStack(spacing: 16) {
+                    // A `.menu` picker shows only its value, so the caption names what it picks.
+                    HStack(spacing: 4) {
+                        Text("Style")
+                            .font(.callout)
+                            .foregroundStyle(.secondary)
+                        overlayStylePicker
+                    }
+                    elementBoxToggle
+                }
+                .fixedSize()
                 if !model.scoring.isEmpty {
                     ScrollView {
                         TimeSettingsView(
@@ -332,6 +360,17 @@ struct SaveDestinationPlaceholder: FileDocument {
 
 #Preview {
     MainView()
+}
+
+// MARK: - Overlay style presentation
+
+extension TechnicalPaneStyle {
+    var title: String {
+        switch self {
+        case .classic: return "Classic"
+        case .isu2026: return "ISU 2026"
+        }
+    }
 }
 
 // MARK: - Queue status presentation

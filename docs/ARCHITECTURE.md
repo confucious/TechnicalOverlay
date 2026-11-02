@@ -117,9 +117,9 @@ All data uses Apple's `@Observable` macro (Observation framework). The core mode
 
 | Type | Purpose |
 |------|---------|
-| `OverlayData` | Top-level: `skaterFullName`, `skaterAbbreviatedName`, `introductionTexts: [IntroductionData]`, `elementScores: [ElementData]`. Its `showsElementBox` is the live overlay-look value, seeded from `OverlayPreferences` (not document data). Methods: `update(from:)`, `isEmpty`, `renderingHash`; `save()`/`load()` forward to `OverlayStore`, `setIntroTime`/`setElementTime` and `slidePlan()` live in `OverlayTimeline`/`SlideFactory`. |
+| `OverlayData` | Top-level: `skaterFullName`, `skaterAbbreviatedName`, `introductionTexts: [IntroductionData]`, `elementScores: [ElementData]`. Its `showsElementBox` and `technicalPaneStyle` are the live overlay-look values, seeded from `OverlayPreferences` (not document data). Methods: `update(from:)`, `isEmpty`, `renderingHash`; `save()`/`load()` forward to `OverlayStore`, `setIntroTime`/`setElementTime` and `slidePlan()` live in `OverlayTimeline`/`SlideFactory`. |
 | `IntroductionData` | One intro slide: `left`/`center`/`right` + optional `displayTime`. `makeMode(skaterName:)` → `.lowerThirdPane`. |
-| `ElementData` | One scoring element: `name`, `baseValue`, `goeValue`, `bonusValue` (all `Int` hundredths), optional `displayTime`. String accessors `baseValueString`/`goeValueString`/`bonusValueString` round-trip through `toHundredthsInt()`. `makeMode(skaterName:runningTotal:boxModes:)` → `.technicalPane`. |
+| `ElementData` | One scoring element: `name`, `baseValue`, `goeValue`, `bonusValue` (all `Int` hundredths), optional `displayTime`. String accessors `baseValueString`/`goeValueString`/`bonusValueString` round-trip through `toHundredthsInt()`. `makeMode(skaterName:runningTotal:boxModes:showsElementBox:style:)` → `.technicalPane`. |
 
 ### 3.1 Scores are integer hundredths
 
@@ -145,7 +145,8 @@ Element box color is derived per element: `baseValue == 0` → `.neutral`; `goeV
 ### 3.4 `renderingHash`
 
 `OverlayData.renderingHash` is a deterministic hash of all rendering-affecting fields (names,
-scores, times, `showsElementBox`) — used for cache-invalidation decisions in the chunk pipeline.
+scores, times, `showsElementBox`, `technicalPaneStyle`) — used for cache-invalidation decisions in the
+chunk pipeline.
 
 ## 4. Persistence
 
@@ -162,7 +163,8 @@ scores, times, `showsElementBox`) — used for cache-invalidation decisions in t
   infrastructure*).
   Adding a persisted-model field must bump the version or stay backward-compatible.
 - **Device preferences** — `OverlayPreferences` stores overlay-look settings in `UserDefaults`
-  (`showsElementBox`, key `"showsElementBox"`, absent = boxes shown). They survive a relaunch and
+  (`showsElementBox`, key `"showsElementBox"`, absent = boxes shown; `technicalPaneStyle`, key
+  `"technicalPaneStyle"`, absent or unrecognised = classic). They survive a relaunch and
   apply to every document, so they are **not** in `CodingKeys` and `update(from:)` does not copy
   them: loading a `.tojson` never changes what the device shows.
 
@@ -172,11 +174,13 @@ scores, times, `showsElementBox`) — used for cache-invalidation decisions in t
 
 Overlay graphics are **pure UIKit `UIView` subclasses** in `LayoutEngine`, laid out with
 percentage-based metrics so they scale to any output resolution. `VideoOverlay` (base frame
-**1280×720**, `alpha = 0.9`, clear background) hosts `IsuTechnicalPaneView` (top-left,
-16% height, 2.65 aspect) + `IsuLowerThirdView` (bottom-center, 15% height, 8.5 aspect); its
-`Mode` enum (`none | technicalPane | lowerThirdPane`) shows one pane at a time. The technical
-pane's element box row is optional (`TechnicalViewModel.showsElementBox`); hiding it moves the name,
-score and total rows up by the row's height (`docs/architecture/layout-engine.md` → *Element box row*).
+**1280×720**, `alpha = 0.9`, clear background) hosts both technical panes top-left —
+`IsuTechnicalPaneView` (16% height, 2.65 aspect) and `Isu2026TechnicalPaneView` (20% height, 2.3
+aspect), whichever `TechnicalViewModel.style` names — plus `IsuLowerThirdView` (bottom-center, 15%
+height, 8.5 aspect); its `Mode` enum (`none | technicalPane | lowerThirdPane`) shows one overlay at a
+time. The technical pane's element box row is optional (`TechnicalViewModel.showsElementBox`);
+in the classic pane hiding it moves the name, score and total rows up by the row's height
+(`docs/architecture/layout-engine.md` → *Element box row*).
 
 `VideoOverlay.render(size:)` sets bounds, lays out, and rasterizes the `CALayer` to a
 `CIImage` via `UIGraphicsImageRenderer` (`scale = 1`, `opaque = false`). Full view hierarchy and
@@ -278,8 +282,9 @@ Edit timing (TimeSettingsView "Start Now" → playhead time read at tap time →
 
 Jump to a set time (TimeSettingsView's time button → player.seek) — a seek, so no regeneration
 
-Edit overlay look (Element boxes toggle → OverlayPreferences + showsElementBox → generateSlides()
-  → new VideoComposer + re-enqueue; changed modes make the diff re-render the affected chunks)
+Edit overlay look (Element boxes toggle / Style menu → OverlayPreferences + showsElementBox or
+  technicalPaneStyle → generateSlides() → new VideoComposer + re-enqueue; changed modes make the diff
+  re-render the affected chunks)
 
 Edit data (ScoringListView → onDisappear save())
 
@@ -299,8 +304,9 @@ rendering**, **green once every renderable chunk is rendered** (`Status.rendered
 `ChunkQueueProgress.isRendering`), with a label on a translucent capsule because the video
 underneath is arbitrary. Below the player: `TimeSettingsView` (shown with or without a video;
 read-only until one is loaded), a config row holding the
-**Element boxes** toggle (hides the technical pane's element box row, persisted in `UserDefaults`,
-then regenerates the slides), and a button row
+**Style** menu (classic or ISU 2026 technical pane) and the **Element boxes** toggle (hides the
+technical pane's element box row); both are persisted in `UserDefaults` and regenerate the slides, and
+a button row
 **Load Video | Save Video | Load Slides | Save Slides | Edit Slides | Clear Slides** (→ `ScoringListView`
 NavigationStack destination). **Clear Slides** is destructive: it asks for confirmation and then
 empties the model in place (`clearSlides()` — update from a fresh `OverlayData`, save, regenerate),

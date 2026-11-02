@@ -7,6 +7,18 @@
 
 import UIKit
 
+/// Which technical-pane design the overlay draws.
+///
+/// Part of `TechnicalViewModel` rather than a preference on a view: a mode's equality is the slide
+/// cache key and a chunk's content identity, so two slides drawn in different styles must not
+/// compare equal.
+public enum TechnicalPaneStyle: String, CaseIterable, Hashable, Sendable {
+    /// Element boxes on top, then the element name, the base value with GOE, and the running total.
+    case classic
+    /// The 2026 broadcast pane: running total on top, the element boxes at the bottom.
+    case isu2026
+}
+
 public struct TechnicalViewModel: Hashable {
     public init(
         skaterName: String,
@@ -15,7 +27,8 @@ public struct TechnicalViewModel: Hashable {
         goeValue: String,
         totalValue: String,
         boxModes: [ElementBoxView.Mode],
-        showsElementBox: Bool = true
+        showsElementBox: Bool = true,
+        style: TechnicalPaneStyle = .classic
     ) {
         self.skaterName = skaterName
         self.elementName = elementName
@@ -24,6 +37,7 @@ public struct TechnicalViewModel: Hashable {
         self.totalValue = totalValue
         self.boxModes = boxModes
         self.showsElementBox = showsElementBox
+        self.style = style
     }
     
     public var skaterName: String
@@ -35,6 +49,8 @@ public struct TechnicalViewModel: Hashable {
     /// Whether the element box row is drawn above the element name. Part of the view model because
     /// it changes the rendered image, so it has to differ in `VideoOverlay.Mode` equality.
     public var showsElementBox: Bool
+    /// Which pane draws this view model — see `TechnicalPaneStyle`.
+    public var style: TechnicalPaneStyle
 }
 
 public class IsuTechnicalPaneView: OverlayView {

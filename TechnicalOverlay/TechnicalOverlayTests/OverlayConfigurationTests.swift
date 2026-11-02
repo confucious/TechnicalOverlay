@@ -100,13 +100,15 @@ struct OverlayConfigurationTests {
             skaterName: "ALI",
             runningTotal: 640,
             boxModes: [.positive],
-            showsElementBox: true
+            showsElementBox: true,
+            style: .classic
         )
         let hidden = element.makeMode(
             skaterName: "ALI",
             runningTotal: 640,
             boxModes: [.positive],
-            showsElementBox: false
+            showsElementBox: false,
+            style: .classic
         )
 
         #expect(shown != hidden)
