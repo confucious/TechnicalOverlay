@@ -275,10 +275,10 @@ Load Video (fileImporter, .movie) → MainViewModel.assetUrl
   → AVPlayerItem.videoComposition → replaceCurrentItem (seek preserves position)
   → RenderPipeline.enqueue(slides:) (pre-render for export)
 
-Edit timing (TimeSettingsView "Start Now" → playhead time read at tap time → setIntro/setElementTime,
+Edit timing (TimeSettingsView's stopwatch glyph → playhead time read at tap time → setIntro/setElementTime,
   cascading) → generateSlides() → new VideoComposer + re-enqueue
   (the timeline is listed whenever there is scoring data; with no video it is read-only, and
-  "Start Now" is a hidden placeholder that keeps the row's height)
+  the glyph is a hidden placeholder that keeps the row's height)
 
 Jump to a set time (TimeSettingsView's time button → player.seek) — a seek, so no regeneration
 
