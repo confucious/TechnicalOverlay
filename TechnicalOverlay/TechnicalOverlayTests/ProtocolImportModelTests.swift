@@ -15,9 +15,9 @@ private struct StubFetcher: ProtocolFetching {
     let page: String
     let failure: ProtocolParserError?
 
-    nonisolated func fetch(_ url: URL) async throws -> String {
+    nonisolated func fetchData(_ url: URL) async throws -> Data {
         if let failure { throw failure }
-        return page
+        return Data(page.utf8)
     }
 
     /// A minimal segment detail page: enough for the module to classify and parse it.

@@ -23,6 +23,8 @@ public enum ProtocolParserError: Error, LocalizedError, Equatable {
     case relativeLinkWithoutBaseURL
     case fetchFailed(statusCode: Int)
     case undecodableBody
+    /// A PDF that cannot be opened — corrupt, truncated, or password-protected.
+    case unreadablePDF
     case skaterNotFound(name: String, available: [String])
     case skaterAmbiguous(name: String, matches: [String])
     /// A skater section with no element table following it.
@@ -44,6 +46,8 @@ public enum ProtocolParserError: Error, LocalizedError, Equatable {
             return "The protocol page could not be downloaded (HTTP \(statusCode))."
         case .undecodableBody:
             return "The protocol page could not be decoded as text."
+        case .unreadablePDF:
+            return "The protocol PDF could not be opened — it may be damaged or password-protected."
         case .skaterNotFound(let name, let available):
             return "No skater named \(name) on this page. Available: \(available.joined(separator: ", "))"
         case .skaterAmbiguous(let name, let matches):

@@ -75,6 +75,7 @@ hundredths, SwiftSoup — carries a pointer to the section here that explains wh
 | 2026-11-01 | **A second technical pane: `Isu2026TechnicalPaneView`, chosen by a style menu.** The broadcast 2026 graphic reads top-down — skater and running total, element name, base value with bonus, GOE in a green/red cell, then the element boxes — which is the classic pane's order with the total first and the boxes last, and it carries no black inset boxes, no rounded corners and none of the blue/pink/grey fills. Rather than parameterize the classic pane's five components, the style became a field of `TechnicalViewModel` (`TechnicalPaneStyle`: `classic` | `isu2026`) and `VideoOverlay` holds both panes, showing the one the style names: the mode is the slide cache key and a chunk's content identity, so a style change has to produce a different mode anyway, and one enum in the view model makes that automatic. `ElementBoxView.Style` and `ElementRowView(style:)` carry the only shared code whose rendering differs (palette; spacing and background), instead of duplicating the box row. Device preference on the element-box toggle's terms (`OverlayPreferences.technicalPaneStyle`, key `"technicalPaneStyle"`, absent or unrecognised = classic), seeded at launch and written by the new **Style** menu in `MainView`'s config row. Colours and proportions were measured off the user's reference frame (a photo of a broadcast screen): white rows, an element-name row ~13% darker, GOE/judge green `#2FA600` and red `#D50B0E`, boxes ~0.7 of their row's height with a gap of 0.6 of a box, panel aspect ~2.3. The leader row, flag and `TECHNICAL SCORE` header are deliberately not drawn; **the leader row's styling was then reused for the pane's own first row** on the user's instruction — blue behind white text, the running total in its own band behind a rule, overhanging the block by 15% of the pane's width, with only the chips' own hairline between it and the block. Its text was then set to **one point larger** than the block's with the row's height **proportional to that text** — a row's text is `Metrics.isu2026FontPercent` of its height, so the row is taller by exactly the height one more point needs, and the band ended up a fraction taller than the rows below rather than 1.4× them. The same pass renamed the fourth row's label to `EXECUTION:` (the graphic's word), dropped the box row's background, so the boxes alone sit over the video with a mid-gray outline making an empty slot read on a light frame, and packed the boxes from the row's left inset with a hairline between them instead of sharing the row's width evenly. Tests: `LayoutEngine` 5 → 14 (row order, the name row's leader styling and separation, the block's value-column alignment, execution-cell sign, box-row hiding and layout — including that the chips are packed with a hairline between them — and the overlay picking its pane by style), app unit suite 38 → 46 (`TechnicalPaneStylePreferenceTests`: default, persistence, an unknown stored value, launch seeding, not in the document, `renderingHash`, and `slidePlan()` drawing elements in the stored style). |
 
 | 2026-11-02 | **`Classic 2`: the classic pane's rows reordered, not a third design.** `IsuTechnicalPaneView` gained `RowOrder` — `boxesFirst` (the original: boxes, name, score, total) and `totalFirst` (total, name, score, boxes) — so the two orders share one layout, the same four components, palette, `Metrics`, pane frame and one-border row gaps; only the frames and which row takes the outer corners depend on the order. `VideoOverlay` holds one pane per style and shows the one the mode names, and the style is the view model's, like the other two. The style case is `classic2`, titled *Classic 2* in the menu; its stored value is `"classic2"`, and an unrecognised value still reads as classic. Tests: `LayoutEngine` 14 → 17 (the order, row sizes identical to the classic pane's, the box row hidden at the bottom), app unit suite 46 → 47 (the stored value and the slide's style). |
+| 2026-11-02 | **Protocol PDF import.** `ProtocolParser` reads an ISU FS Manager `…_JudgesDetailsperSkater.pdf` as well as an ijsLive HTML page: the importer sniffs `%PDF-` in the bytes it fetched, so a pasted address works for either kind and nothing inspects the URL (module doc §2.3, §4.8, §7.3). New: `PDFTextLayout` (CoreGraphics `CGPDFScanner`) rebuilds each table row from the position of every text run; `ProtocolPDFParser` reads skater identity rows and element rows out of those rows into the existing model, with the same hundredths conversion and the same `base + goe + bonus == panel` check; `ProtocolSkater`'s matcher moved to `ProtocolSegment` and is shared. `ProtocolFetching` became byte-oriented (`fetchData`, plus `fetchText` for the HTML path) because a body is only known to be HTML or a PDF after it arrives. Two fixtures committed — the 2026 Grand Prix Canada women's short program and the 2026 Cranberry Cup advanced novice men's, which carries the Bonus column: 20 skaters, 132 element rows, 0 invariant violations, 0 index gaps. ProtocolParser 70 → 84 tests in 8 suites. |
 
 **2026-11-01 — why a second pane instead of a style flag on the existing one.** The two graphics
 differ in more than colour: their rows are in a different order, five instead of four, flush instead
@@ -371,6 +372,43 @@ invariant holds on all 717, **696** of those rows have an empty bonus cell, and 
 abbreviations are **241** (187 singles + 66 pairs). The 672 / 654 / 221 figures the module doc
 previously carried were stale. The 825-row figure for the committed eleven-detail-page set was
 already correct (717 + `SEGM033`'s 108).
+
+## Protocol PDF
+
+**Why not PDFKit (2026-11-02).** The obvious reader — `PDFKit` — cannot extract these tables. On the
+Grand Prix Canada document `PDFPage.string` returns the element block column-major: all seven
+abbreviations (`1 3A 2 3Fq 3 FCSp4 4 3Lz+3T …`), then their base values, then their GOE marks, then the
+per-judge columns, then the panel scores — the runs are drawn per cell, not per line, so document
+order is not reading order. Rebuilding rows from PDFKit's geometry does not rescue it either: its
+per-character bounds are wrong on this producer's files. One glyph of `Name` measures 193 pt against a
+6.7 pt font, and characters belonging to two visually distinct lines share a baseline to within 3 pt,
+so there is no y-tolerance that separates rows.
+
+`CGPDFScanner` (CoreGraphics) provides the one reliable fact: the text matrix each run was drawn
+with, and from it the run's true origin. `PDFTextLayout` implements the text-extraction subset of the
+imaging model — the graphics-state stack, the text matrices, the four show operators, and each font's
+`/ToUnicode` CMap — then groups runs by baseline. Two details are properties of this producer: the
+CMap's entries are separated by the **literal characters** `\r\n` (PDFsharp writes them escaped, so
+splitting on line breaks finds exactly one entry), and the header labels `Info` and `Ref.` are drawn
+inside a rotated `cm`, so a reader that ignores the CTM places them at y ≈ 5 of a 2536-tall page.
+
+**What the round trip measured.** Both documents parsed completely: 12 skaters / 84 element rows and 8
+skaters / 48 rows, `base + goe + bonus == panel` on **132 of 132** rows, element indices contiguous
+1…N in every block. The row grammar is the one that held for both shapes: the identity row is
+right-anchored on its four scores, and an element row's panel score is its last decimal cell, with
+base, GOE and — when the document has a bonus column and the row carries one — bonus before it. 21 of
+the 48 advanced-novice rows carry a bonus; a row without one prints no cell at all.
+
+**A spec correction the implementation forced.** The first cut read the event and segment titles from
+"the lines above the first skater", which is wrong: the *column headers* sit between the segment line
+and the first skater, so the last line before that skater is `Number | Score | Deductions`. The titles
+are the title line's neighbours — the segment directly under `JUDGES DETAILS PER SKATER`, the event
+directly above it when the document has one (module doc §4.9).
+
+**Isolation.** `CGPDFOperatorTable` callbacks are C function pointers: they cannot capture context, and
+one cannot be formed from a reference to a `MainActor`-isolated function. Each operator is therefore
+registered with a `nonisolated` file-scope function that forwards to a single dispatcher, and the
+page's collector arrives through the callback's opaque `info` pointer.
 
 ## SwiftSoup adoption
 

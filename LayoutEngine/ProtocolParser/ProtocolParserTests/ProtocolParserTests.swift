@@ -30,6 +30,19 @@ enum Fixture {
         return text
     }
 
+    /// A PDF fixture's bytes — protocol PDFs are parsed from the document, not from text.
+    static func pdf(_ name: String) throws -> Data {
+        try Data(contentsOf: directory.appendingPathComponent(name))
+    }
+
+    /// The two ISU FS Manager protocol PDFs (`protocol-parser.md` §3.2): the 2026 Grand Prix Canada
+    /// women's short program, and advanced novice boys' short program from the 2026 Cranberry Cup —
+    /// the second one carries a Bonus column.
+    static let protocolPDFs = [
+        "ISU-FSKWSINGLES-QUAL000100.pdf",
+        "ISU-FSKMSINGLES-ADVNOV-QUAL000100.pdf",
+    ]
+
     enum FixtureError: Error { case undecodable(String) }
 
     /// The eleven segment detail pages and the two leaderboard pages of the fixture set.

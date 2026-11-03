@@ -140,66 +140,22 @@ public enum ProtocolHTMLParser {
 
     // MARK: - Skater selection
 
-    /// Isolates one skater by name (protocol-parser.md §6): normalized exact match against the name
-    /// part, falling back to the club-qualified name to disambiguate — never a prefix, substring or
-    /// fuzzy match.
+    /// Isolates one skater by name — the shared matcher (`ProtocolSegment.skater(named:)`,
+    /// protocol-parser.md §6), kept here because this is the documented HTML entry point.
     nonisolated public static func skater(named name: String, in segment: ProtocolSegment) throws -> ProtocolSkater {
-        let query = normalized(name)
-
-        let byNamePart = segment.skaters.filter { normalized($0.namePart) == query }
-        if byNamePart.count == 1 { return byNamePart[0] }
-        if byNamePart.count > 1 {
-            // Two skaters share a name — the club is the tie-breaker.
-            let byFullName = byNamePart.filter { normalized($0.name) == query }
-            if byFullName.count == 1 { return byFullName[0] }
-            throw ProtocolParserError.skaterAmbiguous(
-                name: name,
-                matches: (byFullName.isEmpty ? byNamePart : byFullName).map(\.name))
-        }
-
-        let byFullName = segment.skaters.filter { normalized($0.name) == query }
-        if byFullName.count == 1 { return byFullName[0] }
-        if byFullName.count > 1 {
-            throw ProtocolParserError.skaterAmbiguous(name: name, matches: byFullName.map(\.name))
-        }
-        throw ProtocolParserError.skaterNotFound(name: name, available: segment.skaters.map(\.name))
+        try segment.skater(named: name)
     }
 
-    /// Case-folded, diacritic-folded, whitespace-collapsed, punctuation-stripped — so `Lianna
-    /// O'Grady` matches the site's own `Lianna OGrady`, and stray commas matter (they distinguish
-    /// the name part from the club-qualified name).
-    nonisolated private static func normalized(_ raw: String) -> String {
-        let folded = raw.folding(options: [.caseInsensitive, .diacriticInsensitive], locale: nil)
-        let stripped = folded.filter { !".'’-".contains($0) }
-        return stripped.split(whereSeparator: { $0.isWhitespace }).joined(separator: " ")
-    }
-
-    // MARK: - Cell text and values
+    // MARK: - Cell text
 
     /// `&nbsp;` padding is not whitespace to `trimmingCharacters`, so normalise it first.
     nonisolated private static func text(_ raw: String) -> String {
-        raw.replacingOccurrences(of: "\u{00A0}", with: " ")
-            .trimmingCharacters(in: .whitespacesAndNewlines)
+        ProtocolNumber.normalized(raw)
     }
 
-    /// Decimal string → integer hundredths. `nil` when the cell holds no number at all.
-    ///
-    /// The sign is tracked separately from the whole-number component: `Int("-0") == 0`, so reading
-    /// the sign off `parts[0]` turns `-0.90` into `+90` (protocol-parser.md §5.1).
+    /// Decimal string → integer hundredths. `nil` when the cell holds no number at all
+    /// (protocol-parser.md §5.1 — the sign traps live in `ProtocolNumber`).
     nonisolated private static func hundredths(_ raw: String?) -> Int? {
-        guard let raw else { return nil }
-        let trimmed = text(raw)
-        guard !trimmed.isEmpty, trimmed != "-" else { return nil }
-        let negative = trimmed.hasPrefix("-")
-        let digits = trimmed.filter { $0.isNumber || $0 == "." || $0 == "-" }
-        guard !digits.isEmpty else { return nil }
-        let parts = digits.split(separator: ".", maxSplits: 1, omittingEmptySubsequences: false)
-        guard let whole = Int(parts[0]) else { return nil }
-        var fraction = 0
-        if parts.count > 1 {
-            let padded = String(parts[1]) + "00"
-            fraction = Int(padded.prefix(2)) ?? 0
-        }
-        return (abs(whole) * 100 + fraction) * (negative ? -1 : 1)
+        ProtocolNumber.hundredths(raw)
     }
 }

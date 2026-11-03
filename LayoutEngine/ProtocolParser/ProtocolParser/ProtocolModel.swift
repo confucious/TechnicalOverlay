@@ -88,3 +88,43 @@ public nonisolated struct ProtocolSegment: Sendable, Equatable {
         self.skaters = skaters
     }
 }
+
+// MARK: - Skater selection
+
+extension ProtocolSegment {
+
+    /// Isolates one skater by name (`protocol-parser.md` §6): normalized exact match against the name
+    /// part, falling back to the club-qualified name to disambiguate — never a prefix, substring or
+    /// fuzzy match. Shared by the HTML and PDF parsers, which differ only in what they read.
+    public nonisolated func skater(named name: String) throws -> ProtocolSkater {
+        let query = Self.normalized(name)
+        let skaters = self.skaters
+
+        let byNamePart = skaters.filter { Self.normalized($0.namePart) == query }
+        if byNamePart.count == 1 { return byNamePart[0] }
+        if byNamePart.count > 1 {
+            // Two skaters share a name — the club is the tie-breaker.
+            let byFullName = byNamePart.filter { Self.normalized($0.name) == query }
+            if byFullName.count == 1 { return byFullName[0] }
+            throw ProtocolParserError.skaterAmbiguous(
+                name: name,
+                matches: (byFullName.isEmpty ? byNamePart : byFullName).map(\.name))
+        }
+
+        let byFullName = skaters.filter { Self.normalized($0.name) == query }
+        if byFullName.count == 1 { return byFullName[0] }
+        if byFullName.count > 1 {
+            throw ProtocolParserError.skaterAmbiguous(name: name, matches: byFullName.map(\.name))
+        }
+        throw ProtocolParserError.skaterNotFound(name: name, available: skaters.map(\.name))
+    }
+
+    /// Case-folded, diacritic-folded, whitespace-collapsed, punctuation-stripped — so `Lianna
+    /// O'Grady` matches the site's own `Lianna OGrady`, and stray commas matter (they distinguish
+    /// the name part from the club-qualified name).
+    nonisolated static func normalized(_ raw: String) -> String {
+        let folded = raw.folding(options: [.caseInsensitive, .diacriticInsensitive], locale: nil)
+        let stripped = folded.filter { !".'’-".contains($0) }
+        return stripped.split(whereSeparator: { $0.isWhitespace }).joined(separator: " ")
+    }
+}

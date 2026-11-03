@@ -6,6 +6,9 @@
 //  importer, merge the result, report anything that went wrong.
 //  Spec: docs/architecture/protocol-parser.md — §7.3 (the importer), §8.1 (the merge).
 //
+//  The address may be an ijsLive results page or an ISU FS Manager PDF; the importer decides from
+//  the downloaded bytes, so nothing here needs to know which one it is.
+//
 
 import Foundation
 import Observation
@@ -36,7 +39,7 @@ final class ProtocolImportModel {
     /// count is left alone (`protocol-parser.md` §8.1).
     func importElements(into data: OverlayData) async {
         guard let url = Self.url(from: urlString) else {
-            errorMessage = "Enter the address of the protocol page (the results page or the judge detail scores page)."
+            errorMessage = "Enter the address of the protocol: the results page, the judge detail scores page, or a protocol PDF."
             return
         }
         let skaterName = data.skaterFullName.trimmingCharacters(in: .whitespacesAndNewlines)

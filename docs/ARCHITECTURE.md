@@ -28,7 +28,7 @@ the app composites the overlays onto the video and exports a new file.
 - No native macOS target (LayoutEngine is UIKit) and no Mac Catalyst.
 - No audio manipulation — source audio passes through unchanged.
 - No automatic element recognition from the video: elements come from hand entry in the scoring list
-  or from a published protocol page (`ProtocolParser` — §2, §7).
+  or from a published protocol page or PDF (`ProtocolParser` — §2, §7).
 
 ## 2. Module Docs
 
@@ -83,7 +83,8 @@ tested target's subgraph, which breaks later `tuist build` / Xcode opens until i
 TechnicalOverlay (app)
 ├── LayoutEngine (UIKit overlay views → CIImage)
 ├── VideoProcessor (AVFoundation composition; works with CIImage directly, does NOT import LayoutEngine)
-└── ProtocolParser (competition-protocol HTML import; docs/architecture/protocol-parser.md)
+└── ProtocolParser (protocol import — ijsLive HTML pages and ISU FS Manager PDFs;
+                     docs/architecture/protocol-parser.md)
 ```
 
 ### 2.2 Dependencies — current state, and the policy
@@ -326,7 +327,8 @@ Nothing here is tracked in a separate backlog file: this section is the list, an
 *structural* work (as opposed to features) is ranked in `CLEANUP.md` at the repo root.
 
 - **Data Entry Aid**: reduce manual element entry via the `ProtocolParser` module,
-  which imports a skater's executed elements from a published ijsLive protocol page into
+  which imports a skater's executed elements from a published ijsLive protocol page — or from an
+  ISU FS Manager protocol PDF, which the importer recognises from the fetched bytes — into
   `OverlayData.elementScores`. **Implemented** — spec:
   [`docs/architecture/protocol-parser.md`](docs/architecture/protocol-parser.md), including the
   **Import Protocol** button on `ScoringListView`; the display-name expansion for the imported

@@ -4,17 +4,19 @@
 
 Status: **Implemented.** The module, the committed fixtures and the SwiftSoup dependency are in
 place; the app-side merge (§8.1) is implemented and tested, and the import flow that drives it from
-`ScoringListView` (§8.2) is wired. This document is the authoritative specification for the module;
-current test counts live in [`docs/testing.md`](../testing.md).
+`ScoringListView` (§8.2) is wired. Two document kinds are read: the ijsLive HTML pages of §2.1–§2.2
+and the ISU FS Manager protocol PDFs of §2.3. This document is the authoritative specification for
+the module; current test counts live in [`docs/testing.md`](../testing.md).
 
 ## 1. Purpose
 
-Import a skater's **executed elements** from a published competition protocol page so the user
-does not have to retype an entire element list into `ScoringListView`. The output is a value type
-carrying the raw element abbreviation plus base value / GOE / bonus in **integer hundredths** —
-the units `ElementData` uses — with a thin app-side mapper into `OverlayData.elementScores`.
+Import a skater's **executed elements** from a published competition protocol — an ijsLive results
+page or an ISU FS Manager PDF — so the user does not have to retype an entire element list into
+`ScoringListView`. The output is a value type carrying the raw element abbreviation plus base value /
+GOE / bonus in **integer hundredths** — the units `ElementData` uses — with a thin app-side mapper
+into `OverlayData.elementScores`.
 
-**In scope:** locate the protocol page, isolate one skater, read that skater's element table,
+**In scope:** locate the protocol document, isolate one skater, read that skater's element table,
 convert it to values.
 
 **Out of scope (explicitly):**
@@ -29,7 +31,8 @@ convert it to values.
 ## 2. Input pages
 
 Competition results are published by **ijsLive** (the pages in scope say
-`<!-- Created by ijsLive 2.6.4 -->`). Two page kinds matter.
+`<!-- Created by ijsLive 2.6.4 -->`). Two page kinds matter, and a third document kind carries the
+same content — the ISU FS Manager protocol PDF (§2.3).
 
 ### 2.1 Leaderboard page — `CATnnnSEGnnn.html` ("the javascript webpage")
 
@@ -87,6 +90,39 @@ the reference page). No nesting, no `id`s, no `<DIV>`/`<SPAN>` wrappers between 
 </TABLE>
 ```
 
+### 2.3 Protocol PDF — ISU FS Manager `…_JudgesDetailsperSkater.pdf`
+
+The ISU results site publishes the same content as a PDF: one file per segment, titled
+`JUDGES DETAILS PER SKATER`, written by PDFsharp. It is the table of §2.2 in another form — one
+skater per block:
+
+```
+JUDGES DETAILS PER SKATER
+WOMEN SHORT PROGRAM                            ← segment line, directly under the title
+Rank Name Nation Starting Number …             ← column headers, several rows
+1 Mao SHIMADA JPN 8 82.11 49.23 32.88 0.00     ← identity: rank, name, nation, start no., 4 scores
+# Executed Elements  Info  Base Value  GOE  J1…J9  [Bonus]  Ref.  Scores of Panel
+1 3A                8.00   2.51  3 3 3 3 3 3 4 3 4       10.51
+2 3Fq        q      5.30  -0.38  -1 -1 -1 0 -2 0 -2 0 1   4.92
+4 3Lz+3T           11.11 x  1.77  3 3 3 3 2 3 4 3 3       12.88
+Program Components … / Judges Total Program Component Score (factored) / Deductions: …
+```
+
+Notes that matter for parsing:
+- **There is no markup.** Every cell is an independently positioned text run and the order the runs
+  were *drawn* in is not reading order (all the abbreviations are emitted together, then their
+  numbers), so the table has to be rebuilt from geometry (§4.8).
+- **Read the numbers positionally, not by header.** The bonus column is headed `Bonus` (not `ref`),
+  `Ref.` is the referee's column, and either may be absent from a document — §4.9 defines the row.
+- The `x` second-half flag and the info markers (`F`, `q`, `!`, `*`, …) sit in their own cells, and
+  the abbreviation already carries its own marker (`3Fq`, `3Lzb`) — neither is a value (§10a).
+- The event title appears above the title line when the document has one; a document may carry only
+  the segment line.
+- A skater's name carries **no club** here (`Mao SHIMADA`), so `namePart` is the whole cell (§6).
+- The page draws a logo and two images; they carry no text and are ignored.
+- A PDF that cannot be opened is `.unreadablePDF`; an open PDF that is not this protocol (no
+  `JUDGES DETAILS PER SKATER` title) is `.unrecognizedPage`.
+
 ## 3. Reference pages (fixtures)
 
 Segment pages are listed by the **event index** (`…/results/2026/36683/index.asp`), which maps each
@@ -112,6 +148,21 @@ inventory and what is not covered.
 
 Base URLs: `https://ijs.usfigureskating.org/leaderboard/results/2026/36683/`. The detail URL is
 **not** derivable from the leaderboard URL by string substitution — always follow the anchor.
+
+### 3.2 Protocol PDFs
+
+Two ISU FS Manager documents, one per segment, both `…_JudgesDetailsperSkater.pdf`:
+
+| Event | Document | Segment | Skaters | Element rows |
+|-------|----------|---------|--------:|-------------:|
+| 2026 Grand Prix Canada, `season2627/gpcan2026` | `FSKWSINGLES-----------QUAL000100--` | WOMEN SHORT PROGRAM | 12 | 84 |
+| 2026 Cranberry Cup International, `results/2026/37263` | `FSKMSINGLES-ADVNOV----QUAL000100--` | ADVANCED NOVICE BOYS SHORT PROGRAM | 8 | 48 |
+
+Base URLs: `https://results.isu.org/results/season2627/gpcan2026/` and
+`https://ijs.usfigureskating.org/leaderboard/results/2026/37263/`. The second document has the
+**Bonus** column (§2.3) — 21 of its 48 rows carry a value in it — so the two together cover both row
+shapes. The first document has no event title line, the second does; that is why §4.9 reads the
+segment line from the title's neighbours rather than from "the lines above the first skater".
 
 ## 4. Parsing model
 
@@ -255,6 +306,75 @@ our own value/section logic and hold under either approach.
 | 10 | Hundredths conversion incl. the sign-below-1.00 trap | 268 rows when done wrong | ours (§5.1) |
 | 11 | Variable judge count and extra empty cells shifting positions | 7–9 judges; Jackson Patterson's table | ours (class keying, §4.6) |
 
+### 4.8 Text extraction — PDF (positions out of the content stream)
+
+A protocol PDF has no structure to parse: cells are positioned text runs. Two consequences shape
+this path:
+
+- The order runs are **drawn** in is not reading order — the producer emits every abbreviation in the
+  block together and then their numbers — so `String` in document order is a column-major scramble.
+- The only reliable information about a cell is the text matrix it was drawn with.
+
+`PDFTextLayout` therefore reads the document with `CGPDFDocument` / `CGPDFScanner` and implements the
+text-extraction subset of the PDF imaging model:
+
+| Handled | What it carries |
+|---|---|
+| `q` `Q` `cm` | the graphics-state stack — the rotated `Info` header is drawn inside a rotated `cm`, and its position is meaningless without it |
+| `BT` `ET` `Tf` `Td` `TD` `TL` `T*` `Tm` | the text and line matrices, the font and its size, leading |
+| `Tj` `TJ` `'` `"` | the drawn strings |
+| `/ToUnicode` | each font's CMap: `beginbfchar` and `beginbfrange` (both the `<low> <high> <dst>` and the `<low> <high> [ … ]` forms), UTF-16BE destinations |
+
+Rules:
+- A run's origin is its text matrix applied to the current transformation matrix. Runs within
+  `0.4 ×` the effective font size of a row's first run share that baseline; that is one row. The
+  row's cells are its runs ordered by x, trimmed, empty ones dropped (`PDFTextRow`).
+- The producer writes the CMap's entry separators as the **literal characters** `\r\n` (PDFsharp),
+  so entries are tokenised by `<…>`/`[`/`]` rather than split on line breaks.
+- A font with no `/ToUnicode` falls back to reading its codes as single-byte Latin-1, which is what
+  a simple-font page needs; these protocols always ship a CMap.
+- CoreGraphics types stay inside `PDFTextLayout`: what leaves it is `[PDFTextRow]`, a value type.
+- `PDFTextLayout.isPDF` is the header check (`%PDF-` in the first KB) — content, not URL.
+
+### 4.9 Rows, skater blocks and values — PDF
+
+The document is read as a stream of rows; a skater's block opens at its identity row and its element
+rows follow, exactly as in the HTML path (§4.4).
+
+**Identity row** — right-anchored on its four scores, so a name drawn as several runs still reads as
+one name, and a printed nation of `AIN1` or `AUT` is accepted:
+
+```
+<rank:Int> <name…> <nation: [A-Z0-9]{2,5}> <startingNumber:Int> <total> <tes> <pcs> <deductions>
+```
+
+`rows.count < 7`, a non-integer rank, a non-integer start number or a tail that is not four decimals
+means the row is not an identity row and is skipped.
+
+**Element row** — `index, abbreviation, info…, base, [x], goe, judges…, [bonus], panel`:
+
+| Cell | Handling |
+|---|---|
+| `cells[0]` | element index (required, `Int`) |
+| `cells[1]` | abbreviation, verbatim — `3Fq`, `3Lz+3T`, `3Lzb` |
+| info markers (`F`, `q`, `!`, `*`, …), `x` | **never read** (§10a) |
+| the decimal cells, in order | `base`, `goe`, `bonus`, then `panel` last |
+
+So the panel score is the **last** decimal cell and the ones before it are base, GOE and — only when
+the document has a bonus column and the row carries one — bonus. Judge marks are integers and are not
+decimal cells, which is what makes the rule work at all; a row with fewer than two decimal cells is
+not an element row, and more than four is `.malformedElementRow`. `base + goe + bonus == panel` is
+then the same invariant as §5.2, and holds for all 132 fixture rows.
+
+**Titles** — the segment line is the row directly under `JUDGES DETAILS PER SKATER`, and the event
+title, when the document has one, is the row directly above it. The column headers follow the segment
+line, so "the lines before the first skater" is not a usable definition.
+
+**Validation** — element indices must run 1…N within a block (`.malformedElementRow`), and a block
+with no element rows is `.elementTableMissing`. Rows that are neither (the totals line, the
+program-components block, the `Deductions:` line, and the page header a page break repeats) are
+skipped by shape, so a block may continue across a page boundary.
+
 ## 5. Values and units
 
 ### 5.1 Integer hundredths
@@ -263,8 +383,8 @@ The module emits **`Int` hundredths** (`2.10` → `210`, `-0.26` → `-26`, `1.0
 project-wide convention (see `docs/ARCHITECTURE.md` §3.1). This is not optional: it is what lets
 the parser's output drop straight into `ElementData(baseValue:goeValue:bonusValue:)`.
 
-Conversion rules (module-local `String → Int` helper; the app's `String.toHundredthsInt()` is
-`internal` to the app target and cannot be reached from here):
+Conversion rules (module-local `ProtocolNumber`, shared by both parsers; the app's
+`String.toHundredthsInt()` is `internal` to the app target and cannot be reached from here):
 - Trim, decode entities, then parse an optional sign, digits, optional `.` + 1–2 digits. Scale by
   100 — `0.5` → `50`. Do not silently accept a 3rd decimal.
 - **Track the sign separately from the integer part.** `Int("-0") == 0`, so a reader that infers the
@@ -313,7 +433,12 @@ Matching is **normalized exact**, never fuzzy:
    silently would produce a wrong protocol.
 
 `ProtocolSkater` keeps the cell text verbatim (`name`) and exposes `namePart` / `club` derived at
-the first comma, so the app can decide what goes into `OverlayData.skaterFullName`.
+the first comma, so the app can decide what goes into `OverlayData.skaterFullName`. A PDF page's name
+carries no club (§2.3), so there `namePart` is the whole cell and the club rung of the ladder is
+simply never reached.
+
+The matcher itself lives on `ProtocolSegment` (`skater(named:)`) and is shared by both document
+kinds; `ProtocolHTMLParser.skater(named:in:)` stays as the documented HTML entry point and forwards.
 
 Elements with **no value** are always imported (§10c): `CoSp` / `FSSp` rows where the skater
 attempted an element the panel did not credit (`0.00` base, all `-` judge marks) produce a record
@@ -383,6 +508,15 @@ public enum ProtocolHTMLParser {           // nonisolated, sync, no network, no 
 
     public static func skater(named: String, in segment: ProtocolSegment) throws -> ProtocolSkater
 }
+
+public enum ProtocolPDFParser {            // nonisolated, sync, no network, no state
+    /// The document's own header (`%PDF-`), not the address it was fetched from.
+    public static func isPDF(_ data: Data) -> Bool
+
+    /// Throws .unreadablePDF for bytes CGPDFDocument cannot open, .unrecognizedPage for an open PDF
+    /// that is not a judges-details protocol.
+    public static func parseSegment(data: Data) throws -> ProtocolSegment
+}
 ```
 
 `pageKind` precedence — the leaderboard page contains `detailScoreSum`/`detailScoreElm` but neither
@@ -404,7 +538,10 @@ segment-links list are present either way.
 
 ```swift
 public nonisolated protocol ProtocolFetching: Sendable {
-    func fetch(_ url: URL) async throws -> String      // decoded text
+    func fetchData(_ url: URL) async throws -> Data      // bytes: the body may be HTML or a PDF
+}
+extension ProtocolFetching {
+    public func fetchText(_ url: URL) async throws -> String   // UTF-8, then ISO-8859-1
 }
 public struct URLSessionProtocolFetcher: ProtocolFetching {   // GET, no cache (pages send no-cache)
     public init()
@@ -413,15 +550,21 @@ public struct URLSessionProtocolFetcher: ProtocolFetching {   // GET, no cache (
 public struct ProtocolImporter: Sendable {
     public init(fetcher: ProtocolFetching = URLSessionProtocolFetcher())
 
-    /// URL of either page kind — classified, and followed if it is a leaderboard page.
+    /// URL of either page kind or a protocol PDF — classified by its bytes, and followed if it is a
+    /// leaderboard page.
     public func skater(named: String, at url: URL) async throws -> ProtocolSkater
 
-    /// Page content supplied directly (paste / file / test), optionally with its URL for
-    /// resolving the relative detail link. `async` because supplied leaderboard content still
-    /// has to fetch the detail page it links to; supplied detail content needs no network.
+    /// Content supplied directly (paste / file / test), optionally with its URL for resolving the
+    /// relative detail link. `async` because supplied leaderboard content still has to fetch the
+    /// detail page it links to; supplied detail content and a PDF need no network.
+    public func skater(named: String, in data: Data, baseURL: URL? = nil) async throws -> ProtocolSkater
     public func skater(named: String, inHTML html: String, baseURL: URL? = nil) async throws -> ProtocolSkater
 }
 ```
+
+The seam hands over **bytes**, not text: whether the document is an HTML page or a PDF is a fact
+about its content, and the importer is the only component that should have to know it. `fetchText`
+keeps the HTML path reading as before.
 
 `ProtocolFetching` is declared `nonisolated`: every target is MainActor-isolated by default
 (`Project.swift` `baseSettings`), so a plain protocol declaration would be MainActor-only and no
@@ -431,14 +574,17 @@ module that is implemented off the main actor.
 Control flow:
 
 ```
-url ──fetch──▶ html ──pageKind──┬─ .leaderboard ─▶ judgeDetailLink(relativeTo: url)
-                                │                    └─ fetch ─▶ html' ──pageKind── must be
-                                │                                    .segmentDetail else
-                                │                                    .unrecognizedPage
-                                └─ .segmentDetail ─┐
-                                                   ▼
-                    parseSegment(html) ─▶ ProtocolSegment ─▶ skater(named:) ─▶ ProtocolSkater
-                                                   ▼
+url ──fetchData──▶ bytes ──┬─ isPDF ─▶ parseSegment(data:) ──────────────┐
+                           │                                             │
+                           └─ text ─▶ pageKind ─┬─ .leaderboard ─▶ judgeDetailLink(relativeTo: url)
+                                                │                    └─ fetchData ─┬─ isPDF ─▶ parseSegment(data:)
+                                                │                                  └─ text ─▶ must be
+                                                │                                              .segmentDetail
+                                                │                                              else .unrecognizedPage
+                                                └─ .segmentDetail ─┐
+                                                                   ▼
+                    parseSegment ─▶ ProtocolSegment ─▶ skater(named:) ─▶ ProtocolSkater
+                                                                   ▼
                                   app: OverlayData.merge(_:) ─▶ [ElementData]
 ```
 
@@ -468,6 +614,7 @@ public enum ProtocolParserError: Error, LocalizedError, Equatable {
     case relativeLinkWithoutBaseURL                        // relative href, no base to resolve against
     case fetchFailed(statusCode: Int)
     case undecodableBody                                   // neither UTF-8 nor ISO-8859-1
+    case unreadablePDF                                     // corrupt, truncated or password-protected
     case skaterNotFound(name: String, available: [String])
     case skaterAmbiguous(name: String, matches: [String])
     case elementTableMissing(skater: String)
@@ -573,8 +720,9 @@ Consequences worth knowing:
 `ScoringListView` carries an **Import Protocol** button — the first control in the element button
 row, to the left of **Add Element**. It:
 
-1. asks for the protocol page address (`TextField` in an alert; **either page kind is accepted**, and
-   a leaderboard page is followed to its judge-detail page when that has been published);
+1. asks for the protocol address (`TextField` in an alert; **either HTML page kind or a protocol PDF
+   is accepted** — the importer decides from the downloaded bytes, and a leaderboard page is followed
+   to its judge-detail page when that has been published);
 2. takes the skater to find from `OverlayData.skaterFullName`, and refuses with an explanation if it
    is empty;
 3. shows a `ProgressView` while the import runs, with the button disabled;
@@ -641,6 +789,9 @@ document is still open.** Each decision is a rule, and the section in parenthese
 | e | The total column (`psv`) is **kept for sanity checking only** — never displayed, never summed into anything. It exists to verify `bv + goe + bonus == panelScore` and to let a disagreement surface in the UI (§5.2). |
 | f | **No navigation to sibling segments, ever.** Only the `judgeDetailRef` anchor is followed; the app passes the per-segment page (§7.3). |
 | g | **SwiftSoup `2.14.2` is the parsing implementation** (§4.1, §13). |
+| h | **The document decides the parser, not the address.** The importer sniffs `%PDF-` in the fetched bytes, so a pasted protocol address works whether it serves an HTML page or a PDF, and the URL never has to be inspected (§4.8, §7.3). |
+| i | **The PDF path reads positions out of the content stream with CoreGraphics, not PDFKit.** PDFKit's `page.string` returns these tables column-major (abbreviations first, then the numbers) and its per-character bounds are wrong on this producer's files, so neither the text order nor a bounds-based rebuild can recover the table. `CGPDFScanner` + `/ToUnicode` gives every cell's true origin (§4.8); the measurements are in `docs/HISTORY.md` → *Protocol PDF*. |
+| j | **A PDF's numeric columns are read by position, never by header.** Bonus is headed `Bonus` (not `ref`), `Ref.` is the referee's column, and a document may omit either — base, GOE, bonus and the panel score are recognised as the decimal cells in x order, with `base + goe + bonus == panel` as the check (§4.9, §5.2). |
 
 ## 11. Testing
 
@@ -650,8 +801,10 @@ leaderboard pages, ~900 KB** (the ten of §3's table plus `SEGM033.html`, the si
 test needs), and two synthetic pages (a leaderboard page with the judge-detail
 block removed; a detail page with one Base Value cell removed). Text, so no untracked-large-file
 caveat like the 398 MB sample video. The sweep asserts over the committed set: **825 element rows**.
+Beside them sit the **two protocol PDFs of §3.2** (535 KB together), read as bytes — no resource
+bundle, since `Fixture` resolves them from this source file's own directory.
 **Tests never hit the network** — `ProtocolFetching` is the seam; use a fake that returns fixture
-text (the pattern `VideoProcessorTests` uses with `FakeRenderer`).
+content (the pattern `VideoProcessorTests` uses with `FakeRenderer`).
 
 | # | Test | Expectation |
 |---|---|---|
@@ -670,6 +823,15 @@ text (the pattern `VideoProcessorTests` uses with `FakeRenderer`).
 | 12 | Unquoted-attribute handling | `href=SEGM034.html` parsed (regression guard for §2.1) |
 | 13 | Value conversion edge cases | `"-0.90"` → `-90`, `"-1.19"` → `-119`, `"0.42"` → `42`, `"0.5"` → `50`, empty/`&nbsp;`/`-` → the §5.1 rule per column |
 | 14 | Merge policy (§8.1) — **app-side**, in `TechnicalOverlayTests`, no HTML needed | given timed `elementScores`: same-index values refresh while `displayTime` survives; a longer protocol appends entries with `displayTime == nil`; a shorter protocol leaves the surplus entries byte-for-byte untouched |
+| 15 | `ProtocolPDFParser.isPDF` on both PDFs, on an HTML page, on empty data | `true`, `true`, `false`, `false` |
+| 16 | `parseSegment(data:)` on the women's short program PDF | 12 skaters in rank order, 7 elements each, `categorySegment == "WOMEN SHORT PROGRAM"`, no event title |
+| 17 | The advanced novice men's short program PDF | 8 skaters, event `2026 CRANBERRY CUP INTERNATIONAL`, category `ADVANCED NOVICE BOYS SHORT PROGRAM` |
+| 18 | Mao Shimada's elements (frozen table) | 7 rows — `3A` 800 + 251 = 1051 … — exactly as §4.9, with `bonusValue == 0` on every one |
+| 19 | Bonus column | `3Lzb` → base 590, GOE −118, bonus 100, panel 572; a row with no bonus cell → `bonusValue == 0` |
+| 20 | **PDF invariant sweep** over both documents | `bv + goe + bonus == psv` on **132/132** rows, indices contiguous 1…N in every block |
+| 21 | Second-half flag and info markers | `3Lz+3T` row with `x` → base 1111/GOE 177; `q` in the Info cell leaves the abbreviation `3Fq` |
+| 22 | Importer routing | a PDF body at a `.html` address takes the PDF path (one fetch); an HTML body still takes the HTML path |
+| 23 | Rejections | HTML bytes / empty data → `.unreadablePDF`; a CoreGraphics-made PDF of unrelated text → `.unrecognizedPage` |
 
 Indices are 1-based in test expectation tables so they read like the protocol.
 
@@ -678,19 +840,22 @@ us. What stays ours is classification and link selection (1–3), the extraction
 the matcher (10) and the error paths (11). **Test 6 is the highest-value one and must be kept
 regardless of parser:** it asserts the page's own arithmetic against the values we extracted, and it
 is what caught the sign bug (§5.1) that would otherwise have shipped plausible-looking wrong
-scores.
+scores. Tests 15–23 are the PDF suite (`ProtocolPDFParserTests`), and **test 20** plays that same
+role there: 132 rows of the document's own arithmetic against what the extractor read.
 
 ## 12. Fixture inventory and known gaps
 
 **Provenance:** the live event *2026 Boston Open*, id `36683` — its leaderboard pages, the event index
 and the ten segment detail pages of §3 (five singles, five pairs) — with every structural claim taken
-from the raw markup. **Not covered:** ice dance, a withdrawn-skater page (no `elm` table; no
-`Withdrawn`/`WD`/`DNS` marker appears in any fixture), and other events or eras of ijsLive.
-`docs/HISTORY.md` → *Protocol parser* has the verification runs, the counts that moved and the two
-spec corrections the implementation forced.
+from the raw markup, plus the two ISU FS Manager PDFs of §3.2. **Not covered:** ice dance, a
+withdrawn-skater page (no `elm` table; no `Withdrawn`/`WD`/`DNS` marker appears in any fixture), a
+PDF segment whose elements split across a page break, a scanned/image-only PDF, and other events or
+eras of ijsLive or of the FS Manager report.
+`docs/HISTORY.md` → *Protocol parser* and → *Protocol PDF* have the verification runs, the counts
+that moved and the spec corrections the implementations forced.
 
 Fixtures live in `LayoutEngine/ProtocolParser/ProtocolParserTests/Fixtures/` — eleven detail pages,
-two leaderboard pages, two synthetic pages, ~900 KB of text:
+two leaderboard pages, two synthetic pages, ~900 KB of text, and two PDFs (535 KB):
 
 | Measure | Count |
 |---|---|
@@ -699,6 +864,9 @@ two leaderboard pages, two synthetic pages, ~900 KB of text:
 | Rows with an empty bonus cell | **696** |
 | Distinct abbreviations | **241** (187 singles + 66 pairs) |
 | `bv + goe + bonus == psv` violations | **0** |
+| Element rows across the two PDFs | **132** (84 + 48) |
+| PDF rows with a bonus cell | **21** |
+| PDF skaters | **20** (12 + 8) |
 
 ## 13. Dependencies
 
@@ -706,5 +874,7 @@ two leaderboard pages, two synthetic pages, ~900 KB of text:
   tolerant HTML5 parser (§4.1). Integration is a `packages:` entry in `Project.swift` plus
   `.package(product: "SwiftSoup")` on the `ProtocolParser` target. Candidate survey and measurements:
   `docs/HISTORY.md` → *SwiftSoup adoption*; policy: `docs/ARCHITECTURE.md` §2.2.
+- **CoreGraphics** (`CGPDFDocument`, `CGPDFScanner`, `CGPDFContentStream`) — reading a protocol PDF
+  (§4.8). An Apple framework, already linked; no package.
 - `Foundation` — `URL`, `URLSession`, `Data`, `String`, `LocalizedError`.
 - No other package, and no import of the app, `LayoutEngine` or `VideoProcessor`.

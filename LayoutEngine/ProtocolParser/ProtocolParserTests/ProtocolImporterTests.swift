@@ -10,18 +10,24 @@ import Foundation
 import Testing
 @testable import ProtocolParser
 
-/// Returns fixture text for known URLs and records what was asked for, in order.
+/// Returns fixture content for known URLs and records what was asked for, in order.
 actor RecordingFetcher: ProtocolFetching {
-    private let pages: [URL: String]
+    private let pages: [URL: Data]
     private let failures: [URL: ProtocolParserError]
     private(set) var requested: [URL] = []
 
-    init(pages: [URL: String] = [:], failures: [URL: ProtocolParserError] = [:]) {
+    init(pages: [URL: Data] = [:], failures: [URL: ProtocolParserError] = [:]) {
         self.pages = pages
         self.failures = failures
     }
 
-    func fetch(_ url: URL) async throws -> String {
+    /// Text convenience — the HTML fixtures are handed over as their own bytes.
+    init(pages: [URL: String], failures: [URL: ProtocolParserError] = [:]) {
+        self.pages = pages.mapValues { Data($0.utf8) }
+        self.failures = failures
+    }
+
+    func fetchData(_ url: URL) async throws -> Data {
         requested.append(url)
         if let failure = failures[url] { throw failure }
         guard let page = pages[url] else { throw ProtocolParserError.fetchFailed(statusCode: 404) }
@@ -116,9 +122,9 @@ struct ProtocolImporterTests {
 
     @Test("pages are decoded as UTF-8 first, then ISO-8859-1")
     func bodyDecoding() {
-        #expect(URLSessionProtocolFetcher.decode(Data("Milo".utf8)) == "Milo")
+        #expect(ProtocolText.decode(Data("Milo".utf8)) == "Milo")
         // 0xD8 is "Ø" in ISO-8859-1 and invalid on its own in UTF-8.
-        #expect(URLSessionProtocolFetcher.decode(Data([0x4D, 0x69, 0xD8])) == "MiØ")
-        #expect(URLSessionProtocolFetcher.decode(Data()) == "")
+        #expect(ProtocolText.decode(Data([0x4D, 0x69, 0xD8])) == "MiØ")
+        #expect(ProtocolText.decode(Data()) == "")
     }
 }
