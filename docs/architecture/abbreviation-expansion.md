@@ -28,8 +28,8 @@ pattern-dance element codes — plus the markers and call tokens a published pro
 **Out of scope (explicitly):**
 
 - **Values.** The expansion never touches `baseValue` / `goeValue` / `bonusValue`; the bonus marker
-  `b1` is dropped from the *name* only, because the value already arrives in the `ref` column
-  (`protocol-parser.md` §5.2).
+  `b1` — or the PDF's amount-less `b` — is dropped from the *name* only, because the value already
+  arrives in its own column (`protocol-parser.md` §5.2).
 - **Reading the `info` column.** Under-rotation/fall/edge markers are already excluded from the
   abbreviation's source data — that column is never parsed (`protocol-parser.md` §10a).
 - Any language other than English.
@@ -55,7 +55,7 @@ Pairs and dance pages use the same table layout as singles (`class=elem` / `clas
 | Shape | Real examples from the ten fixture pages' singles rows |
 |---|---|
 | jump, numbered | `3T`, `2Lz`, `1A`, `3A`, `4T` |
-| jump + bonus | `3Tb1`, `3Sb1`, `3Lob1`, `3Lz<b1`, `3Fb1` |
+| jump + bonus | `3Tb1`, `3Sb1`, `3Lob1`, `3Lz<b1`, `3Fb1`; the PDF prints the amount-less form: `3Tb`, `2Ab`, `3Lzb` |
 | jump + rotation/edge marker | `2A<`, `3Lo<<`, `2Lz!`, `2Lze`, `2F!`, `3Lzq`, `1Lze` |
 | jump + invalid flag | `1Lz*`, `1A*`, `1T*`, `2S*` |
 | combination / sequence | `3Tb1+2T`, `3F+3Tb1`, `2A+Eu+2F`, `3S+1A+2T+SEQ`, `2Lz+SEQ+1A*+2Lo*` |
@@ -316,7 +316,7 @@ and `REP`). A call token keeps its position, even mid-abbreviation:
 
 | Ignored | Meaning on the protocol | Rule |
 |---|---|---|
-| `b1`, `b0.5` | bonus for a difficult element | stripped from the name anywhere in the token; the value is already in `bonusValue` |
+| `b1`, `b0.5`, `b` | bonus for a difficult element | `b` + amount: stripped from the name **anywhere** in the token. Bare `b`: stripped when it ends the token, and **lowercase only** — the FS Manager PDF prints this form and puts the amount in its own column, while a level is the uppercase `B` (`CCoSpBV`, `1LiB`, `StSqB`). The value is already in `bonusValue` |
 | `<` | under-rotated jump; on a pattern-dance code, one level less | stripped (trailing marker run) |
 | `<<` | downgraded jump or twist; on a pattern-dance code, two levels less | stripped |
 | `!` | unclear edge | stripped |

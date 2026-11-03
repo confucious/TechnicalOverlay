@@ -761,7 +761,7 @@ fixtures (187 singles + 66 pairs, largely disjoint vocabularies):
 | Shape | Examples | Note |
 |---|---|---|
 | jump / combo | `3Tb1+2T`, `2A+1A+2T+SEQ`, `2F+Eu+3S<` | `+`-joined tokens; `Eu` = Euler |
-| bonus marker | `3Tb1`, `3F+3Tb1`, `StSq4b0.5+kpYYYN`, `3Tw3b1` | `b1` / `b0.5` — also in the bonus column |
+| bonus marker | `3Tb1`, `3F+3Tb1`, `StSq4b0.5+kpYYYN`, `3Tw3b1`; the PDF's amount-less `3Tb`, `2Ab`, `3Lzb` | `b1` / `b0.5`, or a trailing lowercase `b` — the amount is also in the bonus column |
 | rotation / edge | `2Lz<<`, `2Lo<`, `2Lz!`, `2Lze`, `2Lo+2Tq` | also (partly) in the `info` column, which is **never read** (§10a) |
 | repeat / sequence / invalid | `3Lo+REP`, `2Lz+COMBO`, `1Lz*+COMBO`, `T+COMBO+2T*+REP` | site shorthand, incl. dangling `Lo*` / `T` |
 | spins | `CCoSp4`, `FSSp3`, `CCoSp1V`, `CoSp` | `V` = version/level variant |

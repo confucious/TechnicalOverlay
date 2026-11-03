@@ -64,6 +64,24 @@ struct ElementNameExpanderTests {
         #expect(expanded("3SThb1") == "Throw 3 Salchow")
     }
 
+    /// The FS Manager PDF prints the marker without its amount — the value is only in the Bonus
+    /// column — so a trailing bare `b` is a bonus marker too, and a trailing `B` is still a level.
+    @Test("an amount-less bonus marker is ignored as well")
+    func amountlessBonusMarker() {
+        #expect(expanded("3Tb") == "3 Toeloop")
+        #expect(expanded("2Ab") == "2 Axel")
+        #expect(expanded("3Sb") == "3 Salchow")
+        #expect(expanded("3Lzb") == "3 Lutz")
+        #expect(expanded("3Tb+2T") == "3 Toeloop + 2 Toeloop")
+        #expect(expanded("3Fb+2T<<*") == "3 Flip + 2 Toeloop (Invalid)")
+
+        // A trailing `B` is a level, not a marker: untouched, in every vocabulary that uses one.
+        #expect(expanded("CCoSpBV") == "Change Combo Spin B V")
+        #expect(expanded("StSqB") == "Step Sequence B")
+        #expect(expanded("1LiB") == "1 Lift B")
+        #expect(expanded("1TwB") == "1 Twist Lift B")
+    }
+
     @Test("under-rotation, downgrade and edge markers are ignored")
     func markers() {
         #expect(expanded("2A<") == "2 Axel")
@@ -390,24 +408,12 @@ struct ElementNameExpanderTests {
             for skater in segment.skaters {
                 for element in skater.elements {
                     rows += 1
-                    let abbreviation = element.abbreviation
-                    abbreviations.insert(abbreviation)
-                    let parts = expanded(abbreviation).components(separatedBy: " + ")
-
-                    // A token the rules do not know comes back verbatim, and no row on these pages
-                    // may: the surviving parts must line up one-for-one with the tokens that are not
-                    // dropped — except that a recombined two-partner element is two tokens and one
-                    // part. Call tokens are the other exception: their expansion *is* themselves.
-                    let survivors = abbreviation
-                        .components(separatedBy: "+")
-                        .filter { !$0.hasPrefix("kp") }
-                    let recombined = recombines && parts.count == survivors.count - 1
-                    #expect(parts.count == survivors.count || recombined,
-                            "\(page) #\(element.index) \(abbreviation) → \(parts)")
-                    for part in parts where !callTokens.contains(part) {
-                        #expect(!survivors.contains(part),
-                                "verbatim passthrough: \(page) #\(element.index) \(abbreviation) → \(part)")
-                    }
+                    abbreviations.insert(element.abbreviation)
+                    assertClassified(
+                        element.abbreviation,
+                        context: "\(page) #\(element.index)",
+                        callTokens: callTokens,
+                        recombines: recombines)
                 }
             }
         }
@@ -415,5 +421,64 @@ struct ElementNameExpanderTests {
         #expect(rows == expectedRows, "\(pages.count) pages hold \(expectedRows) element rows")
         #expect(abbreviations.count == expectedAbbreviations,
                 "expected \(expectedAbbreviations) distinct abbreviations, got \(abbreviations.count)")
+    }
+
+    /// One row: every token classified, nothing coming back verbatim, and no part left malformed
+    /// (`abbreviation-expansion.md` §4.9, §9).
+    ///
+    /// The surviving parts must line up one-for-one with the tokens that are not dropped — except
+    /// that a recombined two-partner element is two tokens and one part. Call tokens are the other
+    /// exception: their expansion *is* themselves.
+    private func assertClassified(
+        _ abbreviation: String,
+        context: String,
+        callTokens: Set<String>,
+        recombines: Bool
+    ) {
+        let name = expanded(abbreviation)
+        let parts = name.components(separatedBy: " + ")
+        let survivors = abbreviation
+            .components(separatedBy: "+")
+            .filter { !$0.hasPrefix("kp") }
+        let recombined = recombines && parts.count == survivors.count - 1
+
+        #expect(parts.count == survivors.count || recombined, "\(context) \(abbreviation) → \(parts)")
+        for part in parts where !callTokens.contains(part) {
+            #expect(!survivors.contains(part),
+                    "verbatim passthrough: \(context) \(abbreviation) → \(part)")
+        }
+        #expect(!name.isEmpty, Comment(rawValue: context))
+        #expect(!name.hasPrefix(" + ") && !name.hasSuffix(" + "), Comment(rawValue: context))
+        #expect(!name.contains("+ +"), Comment(rawValue: context))
+        #expect(!name.contains("  "), "\(context) \(abbreviation) → \(name)")
+        #expect(!name.lowercased().contains("kp"), Comment(rawValue: context))
+    }
+
+    /// The PDFs print the bonus marker without its amount (`3Tb`, `2Ab`, `3Lzb`), so they are the
+    /// fixtures that catch a marker rule that only knows `b1` (`abbreviation-expansion.md` §4.6).
+    @Test("every row of the two protocol PDFs is classified, with nothing passed through")
+    func pdfSweep() throws {
+        var rows = 0
+        var abbreviations: Set<String> = []
+
+        for name in Fixture.protocolPDFs {
+            let segment = try ProtocolPDFParser.parseSegment(data: try Fixture.pdf(name))
+            for skater in segment.skaters {
+                for element in skater.elements {
+                    rows += 1
+                    abbreviations.insert(element.abbreviation)
+                    assertClassified(
+                        element.abbreviation,
+                        context: "\(name) \(skater.name) #\(element.index)",
+                        callTokens: ["SEQ", "COMBO", "REP", "ExEI"],
+                        recombines: false)
+                }
+            }
+        }
+
+        #expect(rows == 84 + 48, "the two PDFs hold \(rows) element rows")
+        #expect(abbreviations.count == 46, "expected 46 distinct PDF abbreviations, got \(abbreviations.count)")
+        // The marker forms that only these documents print.
+        #expect(abbreviations.isSuperset(of: ["2Ab", "3Sb", "3Lzb", "3Tb+2T", "3Fb+2T<<*"]))
     }
 }

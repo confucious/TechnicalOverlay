@@ -124,12 +124,17 @@ public struct ElementNameExpander: ElementNameTranslating {
         return text
     }
 
-    /// Removes `b<digits>[.<digits>]` — the bonus for a difficult element, which the protocol also
-    /// carries in its own column, so the name drops it (abbreviation-expansion.md §4.6).
+    /// Removes the bonus marker for a difficult element — the protocol carries the amount in its own
+    /// column, so the name drops the marker (abbreviation-expansion.md §4.6).
     ///
-    /// It is stripped **wherever it sits**: `3Tb1` and `3Lz<b1` both occur, so a fixed "markers then
-    /// bonus" order misses the second (abbreviation-expansion.md §2.4 trap 2). A bare `b` is left
-    /// alone, which is what keeps the spin level `B` (uppercase) and codes like `1LiB` intact.
+    /// Two printed forms. The HTML pages print the amount — `b1`, `b0.5` — and it is stripped
+    /// **wherever it sits**: `3Tb1` and `3Lz<b1` both occur, so a fixed "markers then bonus" order
+    /// misses the second (abbreviation-expansion.md §2.4 trap 2). The FS Manager PDF prints a bare
+    /// lowercase `b` at the end of the token (`3Tb`, `2Ab`, `3Lzb`) and puts the amount only in the
+    /// Bonus column, so a trailing lowercase `b` is a marker too.
+    ///
+    /// Lowercase only: a spin, lift or step sequence level is an uppercase `B` (`CCoSpBV`, `1LiB`,
+    /// `StSqB`), and that is what a bare `b` rule must not eat.
     nonisolated static func removingBonusMarker(from token: String) -> String {
         var characters = Array(token)
         var index = 0
@@ -138,7 +143,7 @@ public struct ElementNameExpander: ElementNameTranslating {
 
             var end = index + 1
             while end < characters.count, characters[end].isNumber { end += 1 }
-            guard end > index + 1 else { index += 1; continue }      // a bare "b" is not a bonus
+            guard end > index + 1 else { index += 1; continue }      // trailing bare `b` is handled below
 
             if end < characters.count, characters[end] == "." {
                 var fraction = end + 1
@@ -148,6 +153,8 @@ public struct ElementNameExpander: ElementNameTranslating {
             characters.removeSubrange(index..<end)
             // No advance: another bonus marker could follow.
         }
+        // The amount-less form: `3Tb`, `2Ab`, `3Fb+2T<<*` (a token's own trailing `b`).
+        if characters.last == "b" { characters.removeLast() }
         return String(characters)
     }
 
