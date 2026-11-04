@@ -543,8 +543,8 @@ public nonisolated protocol ProtocolFetching: Sendable {
 extension ProtocolFetching {
     public func fetchText(_ url: URL) async throws -> String   // UTF-8, then ISO-8859-1
 }
-public struct URLSessionProtocolFetcher: ProtocolFetching {   // GET, no cache (pages send no-cache)
-    public init()
+public struct URLSessionProtocolFetcher: ProtocolFetching {   // GET, no cache (pages send no-cache);
+    public init()                                             // a file: URL is read from disk
 }
 
 public struct ProtocolImporter: Sendable {
@@ -564,7 +564,9 @@ public struct ProtocolImporter: Sendable {
 
 The seam hands over **bytes**, not text: whether the document is an HTML page or a PDF is a fact
 about its content, and the importer is the only component that should have to know it. `fetchText`
-keeps the HTML path reading as before.
+keeps the HTML path reading as before. The production fetcher reads a `file:` URL straight from disk
+— that is how a page saved to the file system can still follow its judge-detail link, which resolves
+to a sibling file (§8.2).
 
 `ProtocolFetching` is declared `nonisolated`: every target is MainActor-isolated by default
 (`Project.swift` `baseSettings`), so a plain protocol declaration would be MainActor-only and no
@@ -717,26 +719,41 @@ Consequences worth knowing:
 
 ### 8.2 The import flow in the app
 
-`ScoringListView` carries an **Import Protocol** button — the first control in the element button
-row, to the left of **Add Element**. It:
+`ScoringListView` offers the import twice, in one row of its own above the hand-entry buttons
+(**Add Element**, **Delete Last Element**) — the four labels do not fit one row on a phone in
+portrait, and a squeezed row wraps them onto two lines:
 
-1. asks for the protocol address (`TextField` in an alert; **either HTML page kind or a protocol PDF
-   is accepted** — the importer decides from the downloaded bytes, and a leaderboard page is followed
-   to its judge-detail page when that has been published);
-2. takes the skater to find from `OverlayData.skaterFullName`, and refuses with an explanation if it
-   is empty;
-3. shows a `ProgressView` while the import runs, with the button disabled;
-4. on success calls `OverlayData.merge(_:)` (§8.1) and clears any message;
-5. on failure shows the thrown error's `errorDescription` in an alert — `ProtocolParserError`'s
+- **Import Protocol** — asks for the protocol address (`TextField` in an alert);
+- **Import From File** — opens the system file picker for `.html` and `.pdf`.
+
+Both accept **either HTML page kind or a protocol PDF**: the app reads the bytes and the importer
+decides which parser runs, so nothing in the UI knows the difference. A picked file is read once,
+inside the access scope the picker granted (`ProtocolImportModel.contents(of:)`), and its own URL is
+the base for a relative judge-detail link, which then resolves to a sibling file — so a leaderboard
+page saved next to its detail page imports exactly as the pair does on the site. A picked detail page
+or PDF needs no second read at all.
+
+Either way:
+
+1. the skater to find comes from `OverlayData.skaterFullName`, and the import refuses with an
+   explanation if it is empty;
+2. a `ProgressView` shows while the import runs, with both buttons disabled;
+3. on success it calls `OverlayData.merge(_:)` (§8.1) and clears any message;
+4. on failure it shows the thrown error's `errorDescription` in an alert — `ProtocolParserError`'s
    descriptions are written to be shown to the user (`.detailLinkMissing` reads "The judge detail
-   scores have not been published for this segment yet.").
+   scores have not been published for this segment yet."). A file that cannot be read at all gets
+   its own message before the importer is consulted.
 
-`ProtocolImportModel` holds that state (`urlString`, `isImporting`, `errorMessage`) and does the
-validation, which keeps the flow unit-testable with a fake `ProtocolFetching` and no UI: eight tests
-cover both guards, the successful merge (including that an existing `displayTime` survives),
-`.detailLinkMissing`, the not-found message and the in-progress flag. The UI itself is covered by two
-UI tests — that the button exists **to the left of Add Element** (compared by frame), and that tapping
-it presents the address prompt.
+`ProtocolImportModel` holds that state (`urlString`, `isImporting`, `errorMessage`), the guards and
+one shared run/merge path for both entry points (`importElements(into:)` from the address,
+`importElements(fromFileAt:into:)` from a file), which keeps the flow unit-testable with a fake
+`ProtocolFetching` and no UI: thirteen tests cover the guards, the successful merge (including that
+an existing `displayTime` survives), `.detailLinkMissing`, the not-found message, the in-progress
+flag, a saved detail page, a saved leaderboard page following its link to the file beside it, a PDF
+routed by its bytes whatever the extension, an unreadable file, and the skater-name guard on the
+file path. The UI is covered by three UI tests — that both buttons exist in the import row above
+**Add Element** with no label wrapped, that tapping **Import Protocol** presents the address prompt,
+and that tapping **Import From File** presents the file picker instead.
 
 ## 9. Abbreviation → display name
 
@@ -832,6 +849,9 @@ content (the pattern `VideoProcessorTests` uses with `FakeRenderer`).
 | 21 | Second-half flag and info markers | `3Lz+3T` row with `x` → base 1111/GOE 177; `q` in the Info cell leaves the abbreviation `3Fq` |
 | 22 | Importer routing | a PDF body at a `.html` address takes the PDF path (one fetch); an HTML body still takes the HTML path |
 | 23 | Rejections | HTML bytes / empty data → `.unreadablePDF`; a CoreGraphics-made PDF of unrelated text → `.unrecognizedPage` |
+| 24 | Saved files: a detail page and a leaderboard page beside its detail page, both on disk (`ProtocolImporterTests`, production fetcher) | the `file:` body is read, the relative link resolves to the sibling file, 9 elements parse |
+| 25 | A protocol picked from the file system — **app-side**, `ProtocolImportModel.importElements(fromFileAt:into:)` | the elements merge and an existing `displayTime` survives; the guard on the skater's name still applies |
+| 26 | A file's **bytes** decide the parser, and an unreadable file | `%PDF-` bytes written as `x.html` → `.unreadablePDF`; a missing file → its own message and nothing merged |
 
 Indices are 1-based in test expectation tables so they read like the protocol.
 
@@ -841,7 +861,9 @@ the matcher (10) and the error paths (11). **Test 6 is the highest-value one and
 regardless of parser:** it asserts the page's own arithmetic against the values we extracted, and it
 is what caught the sign bug (§5.1) that would otherwise have shipped plausible-looking wrong
 scores. Tests 15–23 are the PDF suite (`ProtocolPDFParserTests`), and **test 20** plays that same
-role there: 132 rows of the document's own arithmetic against what the extractor read.
+role there: 132 rows of the document's own arithmetic against what the extractor read. Tests 24–26
+cover the file entry point of §8.2 — the first belongs to `ProtocolImporterTests`, the other two to
+the app's `ProtocolImportModelTests`.
 
 ## 12. Fixture inventory and known gaps
 

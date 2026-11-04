@@ -32,10 +32,18 @@ extension ProtocolFetching {
 }
 
 /// The production fetcher: a plain GET with caching disabled (the pages send `no-cache`).
+///
+/// A `file:` URL is read from disk instead — the protocol may have been picked out of the file
+/// system as a saved page or PDF, and its judge-detail link then resolves to a sibling file
+/// (`protocol-parser.md` §8.2).
 public struct URLSessionProtocolFetcher: ProtocolFetching {
     public init() {}
 
     public nonisolated func fetchData(_ url: URL) async throws -> Data {
+        if url.isFileURL {
+            return try Data(contentsOf: url)
+        }
+
         var request = URLRequest(url: url)
         request.cachePolicy = .reloadIgnoringLocalCacheData
 

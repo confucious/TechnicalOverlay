@@ -49,6 +49,36 @@ struct ProtocolImportModelTests {
         OverlayData(skaterFullName: name)
     }
 
+    /// A temporary directory of protocol files, removed when the test ends.
+    private final class SavedPages {
+        let directory = FileManager.default.temporaryDirectory
+            .appending(path: "protocol-import-\(UUID().uuidString)")
+
+        init() throws {
+            try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        }
+
+        deinit {
+            try? FileManager.default.removeItem(at: directory)
+        }
+
+        func write(_ name: String, _ contents: String) throws -> URL {
+            let fileURL = directory.appending(path: name)
+            try Data(contents.utf8).write(to: fileURL)
+            return fileURL
+        }
+    }
+
+    /// A leaderboard page's only purpose is its judge-detail link (`protocol-parser.md` §10b).
+    private static let leaderboardPage = """
+        <html><body>
+        <TABLE id=catSegTable><TR><TD class=event>Test Segment</TD></TR></TABLE>
+        <LI class="judgeDetailRef">
+        <A href=SEGM001.html>Judge detail scores</A>
+        </LI>
+        </body></html>
+        """
+
     @Test("a valid protocol URL is accepted, whitespace and all")
     func acceptsValidURL() {
         #expect(ProtocolImportModel.url(from: "  \(url)  ")?.absoluteString == url)
@@ -137,6 +167,80 @@ struct ProtocolImportModelTests {
         let model = model()
         model.urlString = url
         await model.importElements(into: data())
+        #expect(model.isImporting == false)
+    }
+
+    @Test("a protocol page picked out of the file system is merged like a downloaded one")
+    func importsSavedDetailPage() async throws {
+        let pages = try SavedPages()
+        let file = try pages.write("SEGM001.html", StubFetcher.detailPage)
+        let data = data()
+        data.elementScores = [
+            ElementData(name: "Typed By Hand", baseValue: 100, goeValue: 10, bonusValue: 0, displayTime: 7),
+        ]
+
+        // The production importer: the file's bytes are its own, no fetcher involved.
+        let model = ProtocolImportModel()
+        await model.importElements(fromFileAt: file, into: data)
+
+        #expect(model.errorMessage == nil)
+        #expect(data.elementScores.map(\.name) == ["2 Lutz", "3 Toeloop"])
+        #expect(data.elementScores[0].displayTime == 7)      // the timeline survives
+        #expect(data.elementScores[1].displayTime == nil)     // appended, untimed
+    }
+
+    @Test("a saved leaderboard page follows its link to the detail page saved beside it")
+    func importsSavedLeaderboardPage() async throws {
+        let pages = try SavedPages()
+        let leaderboard = try pages.write("CAT001SEG001.html", Self.leaderboardPage)
+        _ = try pages.write("SEGM001.html", StubFetcher.detailPage)
+        let data = data()
+
+        let model = ProtocolImportModel()
+        await model.importElements(fromFileAt: leaderboard, into: data)
+
+        #expect(model.errorMessage == nil)
+        #expect(data.elementScores.map(\.name) == ["2 Lutz", "3 Toeloop"])
+    }
+
+    @Test("the file decides the parser: a PDF's bytes take the PDF path, whatever the extension")
+    func routesSavedPDFByItsBytes() async throws {
+        let pages = try SavedPages()
+        let file = try pages.write("SEGM001.html", "%PDF-1.4 not actually a document")
+        let data = data()
+
+        let model = ProtocolImportModel()
+        await model.importElements(fromFileAt: file, into: data)
+
+        #expect(data.elementScores.isEmpty)
+        #expect(model.errorMessage == ProtocolParserError.unreadablePDF.errorDescription)
+    }
+
+    @Test("a file that cannot be read explains itself and changes nothing")
+    func unreadableFile() async throws {
+        let pages = try SavedPages()
+        let missing = pages.directory.appending(path: "Gone.html")
+        let data = data()
+        data.elementScores = [ElementData(name: "Kept", baseValue: 100, goeValue: 10, bonusValue: 0)]
+
+        let model = ProtocolImportModel()
+        await model.importElements(fromFileAt: missing, into: data)
+
+        #expect(model.errorMessage != nil)
+        #expect(data.elementScores.map(\.name) == ["Kept"])
+    }
+
+    @Test("a file import still needs the skater's name and asks for nothing else")
+    func savedFileNeedsSkaterName() async throws {
+        let pages = try SavedPages()
+        let file = try pages.write("SEGM001.html", StubFetcher.detailPage)
+        let data = data(name: "  ")
+
+        let model = ProtocolImportModel()
+        await model.importElements(fromFileAt: file, into: data)
+
+        #expect(model.errorMessage == "Enter the skater's full name before importing.")
+        #expect(data.elementScores.isEmpty)
         #expect(model.isImporting == false)
     }
 }

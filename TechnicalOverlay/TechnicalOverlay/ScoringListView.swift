@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import UniformTypeIdentifiers
 
 struct ScoringListView: View {
     enum Metrics {
@@ -15,6 +16,7 @@ struct ScoringListView: View {
     @State var state: OverlayData
     @State private var importModel = ProtocolImportModel()
     @State private var isAskingForProtocolURL = false
+    @State private var isChoosingProtocolFile = false
 
     /// The failure message is the alert's presentation: clearing it dismisses the alert.
     private var importErrorIsPresented: Binding<Bool> {
@@ -78,6 +80,8 @@ struct ScoringListView: View {
                         ElementRowView(index: index, state: element)
                     }
                 }
+                // Importing and hand-entering elements are separate rows: four buttons do not fit
+                // one row on a phone in portrait (docs/architecture/protocol-parser.md §8.2).
                 HStack {
                     Button("Import Protocol") {
                         importModel.errorMessage = nil
@@ -85,6 +89,27 @@ struct ScoringListView: View {
                     }
                     .buttonStyle(.bordered)
                     .disabled(importModel.isImporting)
+                    Button("Import From File") {
+                        importModel.errorMessage = nil
+                        isChoosingProtocolFile = true
+                    }
+                    .buttonStyle(.bordered)
+                    .disabled(importModel.isImporting)
+                    .fileImporter(
+                        isPresented: $isChoosingProtocolFile,
+                        allowedContentTypes: [.html, .pdf]) { result in
+                            switch result {
+                            case let .success(url):
+                                Task { await importModel.importElements(fromFileAt: url, into: state) }
+                            case let .failure(error):
+                                Log.data.error("protocol file picker: \(String(describing: error), privacy: .public)")
+                            }
+                        }
+                    if importModel.isImporting {
+                        ProgressView()
+                    }
+                }
+                HStack {
                     Button("Add Element") {
                         state.elementScores
                             .append(
@@ -102,9 +127,6 @@ struct ScoringListView: View {
                     }
                     .buttonStyle(.bordered)
                     .tint(.red)
-                    if importModel.isImporting {
-                        ProgressView()
-                    }
                 }
             }
             .padding(

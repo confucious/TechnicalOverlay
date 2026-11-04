@@ -127,4 +127,25 @@ struct ProtocolImporterTests {
         #expect(ProtocolText.decode(Data([0x4D, 0x69, 0xD8])) == "MiØ")
         #expect(ProtocolText.decode(Data()) == "")
     }
+
+    @Test("a saved page directory behaves like a site directory: a file: link is read from disk")
+    func fetchesSavedFiles() async throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appending(path: "protocol-fetch-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+
+        let savedLeaderboard = directory.appending(path: "CAT022SEG034.html")
+        let savedDetail = directory.appending(path: "SEGM034.html")
+        try Data(try Fixture.html("CAT022SEG034.html").utf8).write(to: savedLeaderboard)
+        try Data(try Fixture.html("SEGM034.html").utf8).write(to: savedDetail)
+
+        #expect(try await URLSessionProtocolFetcher().fetchData(savedDetail)
+                == (try Fixture.html("SEGM034.html").data(using: .utf8)))
+
+        // The relative link resolves to the sibling file, which the production fetcher reads.
+        let skater = try await ProtocolImporter().skater(named: "Milo Yeon", at: savedLeaderboard)
+        #expect(skater.name == "Milo Yeon, SC of Boston")
+        #expect(skater.elements.count == 9)
+    }
 }
