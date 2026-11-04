@@ -719,25 +719,24 @@ Consequences worth knowing:
 
 ### 8.2 The import flow in the app
 
-`ScoringListView` offers the import twice, in one row of its own above the hand-entry buttons
-(**Add Element**, **Delete Last Element**) — the four labels do not fit one row on a phone in
-portrait, and a squeezed row wraps them onto two lines:
+`ScoringListView` carries one **Import Protocol** button — the first control in the element button
+row, to the left of **Add Element**. Its dialog asks *how* to give it a protocol, and offers both:
 
-- **Import Protocol** — asks for the protocol address (`TextField` in an alert);
-- **Import From File** — opens the system file picker for `.html` and `.pdf`.
+- an **address** (`TextField`, submitted with **Import**) — either HTML page kind or a protocol PDF;
+- a **file** (**Choose File…**), which opens the system file picker filtered to `.html` and `.pdf`.
 
-Both accept **either HTML page kind or a protocol PDF**: the app reads the bytes and the importer
-decides which parser runs, so nothing in the UI knows the difference. A picked file is read once,
-inside the access scope the picker granted (`ProtocolImportModel.contents(of:)`), and its own URL is
-the base for a relative judge-detail link, which then resolves to a sibling file — so a leaderboard
-page saved next to its detail page imports exactly as the pair does on the site. A picked detail page
-or PDF needs no second read at all.
+Both paths accept **either HTML page kind or a protocol PDF**: the app reads the bytes and the
+importer decides which parser runs, so nothing in the UI knows the difference. A picked file is read
+once, inside the access scope the picker granted (`ProtocolImportModel.contents(of:)`), and its own
+URL is the base for a relative judge-detail link, which then resolves to a sibling file — so a
+leaderboard page saved next to its detail page imports exactly as the pair does on the site. A picked
+detail page or PDF needs no second read at all.
 
 Either way:
 
 1. the skater to find comes from `OverlayData.skaterFullName`, and the import refuses with an
    explanation if it is empty;
-2. a `ProgressView` shows while the import runs, with both buttons disabled;
+2. a `ProgressView` shows while the import runs, with the button disabled;
 3. on success it calls `OverlayData.merge(_:)` (§8.1) and clears any message;
 4. on failure it shows the thrown error's `errorDescription` in an alert — `ProtocolParserError`'s
    descriptions are written to be shown to the user (`.detailLinkMissing` reads "The judge detail
@@ -751,9 +750,9 @@ one shared run/merge path for both entry points (`importElements(into:)` from th
 an existing `displayTime` survives), `.detailLinkMissing`, the not-found message, the in-progress
 flag, a saved detail page, a saved leaderboard page following its link to the file beside it, a PDF
 routed by its bytes whatever the extension, an unreadable file, and the skater-name guard on the
-file path. The UI is covered by three UI tests — that both buttons exist in the import row above
-**Add Element** with no label wrapped, that tapping **Import Protocol** presents the address prompt,
-and that tapping **Import From File** presents the file picker instead.
+file path. The UI is covered by three UI tests — that the button exists to the left of **Add
+Element** and no file button sits beside it, that its dialog offers the address, the file option and
+Cancel, and that **Choose File…** presents the file picker in the dialog's place.
 
 ## 9. Abbreviation → display name
 

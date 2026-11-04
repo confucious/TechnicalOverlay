@@ -331,8 +331,8 @@ Nothing here is tracked in a separate backlog file: this section is the list, an
   ISU FS Manager protocol PDF, which the importer recognises from the fetched bytes — into
   `OverlayData.elementScores`. **Implemented** — spec:
   [`docs/architecture/protocol-parser.md`](docs/architecture/protocol-parser.md), including the
-  **Import Protocol** (address) and **Import From File** (`.html` / `.pdf` picked from the file
-  system) buttons on `ScoringListView`; the display-name expansion for the imported
+  **Import Protocol** button on `ScoringListView` — whose dialog takes an address or a protocol file
+  (`.html` / `.pdf` picked from the file system); the display-name expansion for the imported
   abbreviations is wired into that import (`ElementNameExpander` — spec:
   [`docs/architecture/abbreviation-expansion.md`](docs/architecture/abbreviation-expansion.md)).
   The expansion covers singles, pairs and ice dance. Remaining work: wiring the import into the edit

@@ -80,18 +80,10 @@ struct ScoringListView: View {
                         ElementRowView(index: index, state: element)
                     }
                 }
-                // Importing and hand-entering elements are separate rows: four buttons do not fit
-                // one row on a phone in portrait (docs/architecture/protocol-parser.md §8.2).
                 HStack {
                     Button("Import Protocol") {
                         importModel.errorMessage = nil
                         isAskingForProtocolURL = true
-                    }
-                    .buttonStyle(.bordered)
-                    .disabled(importModel.isImporting)
-                    Button("Import From File") {
-                        importModel.errorMessage = nil
-                        isChoosingProtocolFile = true
                     }
                     .buttonStyle(.bordered)
                     .disabled(importModel.isImporting)
@@ -105,11 +97,6 @@ struct ScoringListView: View {
                                 Log.data.error("protocol file picker: \(String(describing: error), privacy: .public)")
                             }
                         }
-                    if importModel.isImporting {
-                        ProgressView()
-                    }
-                }
-                HStack {
                     Button("Add Element") {
                         state.elementScores
                             .append(
@@ -127,6 +114,9 @@ struct ScoringListView: View {
                     }
                     .buttonStyle(.bordered)
                     .tint(.red)
+                    if importModel.isImporting {
+                        ProgressView()
+                    }
                 }
             }
             .padding(
@@ -154,9 +144,12 @@ struct ScoringListView: View {
             Button("Import") {
                 Task { await importModel.importElements(into: state) }
             }
+            Button("Choose File…") {
+                isChoosingProtocolFile = true
+            }
             Button("Cancel", role: .cancel) {}
         } message: {
-            Text("Paste this segment's results page address, or its judge detail scores page. The elements are merged into the list below, keeping the timings you have already set.")
+            Text("Paste this segment's results page address, or its judge detail scores page — or choose a saved page or protocol PDF. The elements are merged into the list below, keeping the timings you have already set.")
         }
     }
 }
